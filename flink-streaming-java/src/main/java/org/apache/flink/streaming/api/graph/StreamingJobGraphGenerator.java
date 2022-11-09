@@ -105,6 +105,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -126,10 +127,16 @@ public class StreamingJobGraphGenerator {
 
     @VisibleForTesting
     public static JobGraph createJobGraph(StreamGraph streamGraph) {
-        return new StreamingJobGraphGenerator(streamGraph, null, Runnable::run).createJobGraph();
+        return new StreamingJobGraphGenerator(
+                        Thread.currentThread().getContextClassLoader(),
+                        streamGraph,
+                        null,
+                        Runnable::run)
+                .createJobGraph();
     }
 
-    public static JobGraph createJobGraph(StreamGraph streamGraph, @Nullable JobID jobID) {
+    public static JobGraph createJobGraph(
+            ClassLoader userClassLoader, StreamGraph streamGraph, @Nullable JobID jobID) {
         // TODO Currently, we construct a new thread pool for the compilation of each job. In the
         // future, we may refactor the job submission framework and make it reusable across jobs.
         final ExecutorService serializationExecutor =
@@ -141,7 +148,8 @@ public class StreamingJobGraphGenerator {
                                         streamGraph.getExecutionConfig().getParallelism())),
                         new ExecutorThreadFactory("flink-operator-serialization-io"));
         try {
-            return new StreamingJobGraphGenerator(streamGraph, jobID, serializationExecutor)
+            return new StreamingJobGraphGenerator(
+                            userClassLoader, streamGraph, jobID, serializationExecutor)
                     .createJobGraph();
         } finally {
             serializationExecutor.shutdown();
@@ -150,6 +158,7 @@ public class StreamingJobGraphGenerator {
 
     // ------------------------------------------------------------------------
 
+    private final ClassLoader userClassloader;
     private final StreamGraph streamGraph;
 
     private final Map<Integer, JobVertex> jobVertices;
@@ -176,12 +185,19 @@ public class StreamingJobGraphGenerator {
     private final Executor serializationExecutor;
 
     // Futures for the serialization of operator coordinators
-    private final List<CompletableFuture<Void>> coordinatorSerializationFutures = new ArrayList<>();
+    private final Map<
+                    JobVertexID,
+                    List<CompletableFuture<SerializedValue<OperatorCoordinator.Provider>>>>
+            coordinatorSerializationFuturesPerJobVertex = new HashMap<>();
 
     private final Map<Integer, Map<StreamEdge, NonChainedOutput>> opIntermediateOutputs;
 
     private StreamingJobGraphGenerator(
-            StreamGraph streamGraph, @Nullable JobID jobID, Executor serializationExecutor) {
+            ClassLoader userClassloader,
+            StreamGraph streamGraph,
+            @Nullable JobID jobID,
+            Executor serializationExecutor) {
+        this.userClassloader = userClassloader;
         this.streamGraph = streamGraph;
         this.defaultStreamGraphHasher = new StreamGraphHasherV2();
         this.legacyStreamGraphHashers = Arrays.asList(new StreamGraphUserHashHasher());
@@ -274,7 +290,8 @@ public class StreamingJobGraphGenerator {
                                                             serializationExecutor))
                                     .collect(Collectors.toList()))
                     .get();
-            FutureUtils.combineAll(coordinatorSerializationFutures).get();
+
+            waitForSerializationFuturesAndUpdateJobVertices();
         } catch (Exception e) {
             throw new FlinkRuntimeException("Error in serialization.", e);
         }
@@ -284,6 +301,25 @@ public class StreamingJobGraphGenerator {
         }
 
         return jobGraph;
+    }
+
+    private void waitForSerializationFuturesAndUpdateJobVertices()
+            throws ExecutionException, InterruptedException {
+        for (Map.Entry<
+                        JobVertexID,
+                        List<CompletableFuture<SerializedValue<OperatorCoordinator.Provider>>>>
+                futuresPerJobVertex : coordinatorSerializationFuturesPerJobVertex.entrySet()) {
+            final JobVertexID jobVertexId = futuresPerJobVertex.getKey();
+            final JobVertex jobVertex = jobGraph.findVertexByID(jobVertexId);
+
+            Preconditions.checkState(
+                    jobVertex != null,
+                    "OperatorCoordinator providers were registered for JobVertexID '%s' but no corresponding JobVertex can be found.",
+                    jobVertexId);
+            FutureUtils.combineAll(futuresPerJobVertex.getValue())
+                    .get()
+                    .forEach(jobVertex::addOperatorCoordinator);
+        }
     }
 
     private void addVertexIndexPrefixInVertexName() {
@@ -455,11 +491,11 @@ public class StreamingJobGraphGenerator {
                                 + "\nThe user can force Unaligned Checkpoints by using 'execution.checkpointing.unaligned.forced'");
             }
 
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             for (StreamNode node : streamGraph.getStreamNodes()) {
                 StreamOperatorFactory operatorFactory = node.getOperatorFactory();
                 if (operatorFactory != null) {
-                    Class<?> operatorClass = operatorFactory.getStreamOperatorClass(classLoader);
+                    Class<?> operatorClass =
+                            operatorFactory.getStreamOperatorClass(userClassloader);
                     if (InputSelectable.class.isAssignableFrom(operatorClass)) {
 
                         throw new UnsupportedOperationException(
@@ -811,14 +847,15 @@ public class StreamingJobGraphGenerator {
             jobVertex.addIntermediateDataSetIdToConsume(streamNode.getConsumeClusterDatasetId());
         }
 
+        final List<CompletableFuture<SerializedValue<OperatorCoordinator.Provider>>>
+                serializationFutures = new ArrayList<>();
         for (OperatorCoordinator.Provider coordinatorProvider :
                 chainInfo.getCoordinatorProviders()) {
-            coordinatorSerializationFutures.add(
-                    CompletableFuture.runAsync(
+            serializationFutures.add(
+                    CompletableFuture.supplyAsync(
                             () -> {
                                 try {
-                                    jobVertex.addOperatorCoordinator(
-                                            new SerializedValue<>(coordinatorProvider));
+                                    return new SerializedValue<>(coordinatorProvider);
                                 } catch (IOException e) {
                                     throw new FlinkRuntimeException(
                                             String.format(
@@ -828,6 +865,9 @@ public class StreamingJobGraphGenerator {
                                 }
                             },
                             serializationExecutor));
+        }
+        if (!serializationFutures.isEmpty()) {
+            coordinatorSerializationFuturesPerJobVertex.put(jobVertexId, serializationFutures);
         }
 
         jobVertex.setResources(
