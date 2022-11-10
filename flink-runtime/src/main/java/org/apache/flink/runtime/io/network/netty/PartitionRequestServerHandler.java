@@ -153,7 +153,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 	private void checkLongLatency(ChannelHandlerContext ctx) {
 		ctx.executor().schedule(() -> {
 			long latency = System.currentTimeMillis() - lastReceiveCheckIntervalTime;
-			LOG.warn("start check {}, latency: {}", ctx.channel().remoteAddress(), latency);
+			LOG.debug("start check {}, latency: {}", ctx.channel().remoteAddress(), latency);
 			if (latency > 2 * latencyInterval) {
 				LOG.warn("connect with {} network latency: {} is too long.", ctx.channel().remoteAddress(), latency);
 			}
