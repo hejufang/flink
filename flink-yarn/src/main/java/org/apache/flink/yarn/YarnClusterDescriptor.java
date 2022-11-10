@@ -1696,7 +1696,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		String logDirectory = ApplicationConstants.LOG_DIR_EXPANSION_VAR;
-		if (flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
+		if (flinkConfiguration.getBoolean(CoreOptions.FLINK_GC_LOG_ENABLED) &&
+				flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS);
 			javaOpts += " -Xloggc:" + logDirectory + "/gc.log";
 		}

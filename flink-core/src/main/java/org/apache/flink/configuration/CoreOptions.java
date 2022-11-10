@@ -231,6 +231,12 @@ public class CoreOptions {
 		.defaultValue("INFO")
 		.withDescription("Override the log.level property on log4j.properties");
 
+	public static final ConfigOption<Boolean> FLINK_GC_LOG_ENABLED = ConfigOptions
+		.key("env.gc.log.enabled")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("Whether enabled gc log.");
+
 	public static final ConfigOption<String> FLINK_GC_LOG_OPTS = ConfigOptions
 		.key("env.gc.log.opts")
 		.defaultValue("")

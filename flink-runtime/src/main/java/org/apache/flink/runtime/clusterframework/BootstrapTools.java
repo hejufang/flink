@@ -428,7 +428,8 @@ public class BootstrapTools {
 			javaOpts += " -Djava.io.tmpdir=./tmp";
 		}
 
-		if (flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_GC_LOG_ENABLED) &&
+				flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS);
 			javaOpts += " -Xloggc:" + logDirectory + "/gc.log";
 		}

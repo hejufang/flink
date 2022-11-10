@@ -222,6 +222,20 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 	}
 
 	@Test
+	public void testStartCommandWithGcLogDisabled() {
+		flinkConfig.set(CoreOptions.FLINK_GC_LOG_ENABLED, false);
+		final Container resultMainContainer =
+				javaCmdJobManagerDecorator.decorateFlinkPod(baseFlinkPod).getMainContainer();
+
+		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
+		final String expectedCommand = getJobManagerExpectedCommand(
+				"",
+				"");
+		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
+	}
+
+	@Test
 	public void testContainerStartCommandTemplate1() throws IOException {
 		KubernetesTestUtils.createTemporyFile("some data", flinkConfDir, CONFIG_FILE_LOG4J_NAME);
 		KubernetesTestUtils.createTemporyFile("some data", flinkConfDir, CONFIG_FILE_LOGBACK_NAME);

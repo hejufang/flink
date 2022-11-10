@@ -607,7 +607,8 @@ public class KubernetesUtils {
 		}
 
 		String logDirectory = flinkConfig.getString(KubernetesConfigOptions.FLINK_LOG_DIR);
-		if (flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_GC_LOG_ENABLED)
+				&& flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
 			baseJavaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS);
 			baseJavaOpts += " -Xloggc:" + logDirectory + "/gc.log";
 		}

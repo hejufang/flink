@@ -140,6 +140,7 @@ common:
   akka.tcp.timeout: 80 s
 
   # JVM and Logging Options
+  env.gc.log.enabled: true
   env.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
   env.jvm.error.file: true
   flink.gc.g1: false
