@@ -140,6 +140,7 @@ common:
   kubernetes.pod-syncer.check-interval: "5 min"
   containerized.master.env.KUBERNETES_REQUEST_TIMEOUT: 30000
   kubernetes.pod-matching.strategy: MIN_RESOURCE
+  kubernetes.pod.termination-grace-period-seconds: 1
 
   # Databus Sidecar
   kubernetes.sidecar.databus.image: hub.byted.org/tce/bytedance.inf.databus_sidecar:abd3dc16c5ab1d3a4f33ea6d45a7b120

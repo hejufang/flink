@@ -359,6 +359,10 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return shmSizeImMB;
 	}
 
+	public long getTerminationGracePeriodSeconds() {
+		return flinkConfig.getLong(KubernetesConfigOptions.TERMINATION_GRACE_PERIOD_SECONDS);
+	}
+
 	public boolean isServiceLinkEnable() {
 		return flinkConfig.getBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE);
 	}

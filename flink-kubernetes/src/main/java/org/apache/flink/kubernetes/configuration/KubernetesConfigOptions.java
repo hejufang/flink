@@ -654,6 +654,12 @@ public class KubernetesConfigOptions {
 			.noDefaultValue()
 			.withDescription("shared memory size for databus sidecar, default value is 2/3 of SIDECAR_DATABUS_MEMORY.");
 
+	public static final ConfigOption<Long> TERMINATION_GRACE_PERIOD_SECONDS =
+		key("kubernetes.pod.termination-grace-period-seconds")
+			.longType()
+			.defaultValue(30L)
+			.withDescription("Time to wait for grace shutdown before terminate the pod forcibly");
+
 	private static String getDefaultFlinkImage() {
 		// The default container image that ties to the exact needed versions of both Flink and Scala.
 		boolean snapshot = EnvironmentInformation.getVersion().toLowerCase(Locale.ENGLISH).contains("snapshot");

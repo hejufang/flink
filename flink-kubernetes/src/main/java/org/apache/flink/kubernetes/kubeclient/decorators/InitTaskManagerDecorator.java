@@ -95,6 +95,7 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withHostNetwork(kubernetesTaskManagerParameters.isHostNetworkEnabled())
 				.withEnableServiceLinks(kubernetesTaskManagerParameters.isServiceLinkEnable())
 				.withDnsPolicy(kubernetesTaskManagerParameters.getDnsPolicy())
+				.withTerminationGracePeriodSeconds(kubernetesTaskManagerParameters.getTerminationGracePeriodSeconds())
 				.withTolerations(kubernetesTaskManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
 					.collect(Collectors.toList()))

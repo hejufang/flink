@@ -92,7 +92,7 @@ common:
   kubernetes.pod-syncer.max-out-of-sync-time: "48h"
   kubernetes.pod-syncer.check-interval: "5 min"
   kubernetes.pod-matching.strategy: MIN_RESOURCE
-
+  kubernetes.pod.termination-grace-period-seconds: 1
 
   # REST endpoint and Client
   rest.await-leader-timeout: 300000

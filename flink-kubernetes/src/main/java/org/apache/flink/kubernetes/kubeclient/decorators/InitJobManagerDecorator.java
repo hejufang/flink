@@ -96,6 +96,7 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withHostNetwork(kubernetesJobManagerParameters.isHostNetworkEnabled())
 				.withEnableServiceLinks(kubernetesJobManagerParameters.isServiceLinkEnable())
 				.withDnsPolicy(kubernetesJobManagerParameters.getDnsPolicy())
+				.withTerminationGracePeriodSeconds(kubernetesJobManagerParameters.getTerminationGracePeriodSeconds())
 				.addAllToVolumes(volumeList)
 				.withTolerations(kubernetesJobManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
