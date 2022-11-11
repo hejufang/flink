@@ -17,10 +17,15 @@
 
 package org.apache.flink.streaming.runtime.io;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * PriorityTwoInputSelectionHandler.
  */
 public class PriorityTwoInputSelectionHandler extends TwoInputSelectionHandler {
+
+	private static final Logger LOG = LoggerFactory.getLogger(PriorityTwoInputSelectionHandler.class);
 	private static final int NO_PRIORITY_INPUT_SIDE = -1;
 
 	private int priorityInputSide = NO_PRIORITY_INPUT_SIDE;
@@ -31,7 +36,7 @@ public class PriorityTwoInputSelectionHandler extends TwoInputSelectionHandler {
 
 	@Override
 	int selectNextInputIndex(int lastReadInputIndex) {
-		if (priorityInputSide != NO_PRIORITY_INPUT_SIDE && isInputAvailable(priorityInputSide)) {
+		if (priorityInputSide != NO_PRIORITY_INPUT_SIDE) {
 			return priorityInputSide;
 		}
 		return super.selectNextInputIndex(lastReadInputIndex);
@@ -39,9 +44,11 @@ public class PriorityTwoInputSelectionHandler extends TwoInputSelectionHandler {
 
 	public void setPriorityInputSide(int priorityInputSide) {
 		this.priorityInputSide = priorityInputSide;
+		LOG.info("The operator priority input side is set to be {}.", this.priorityInputSide);
 	}
 
 	public void unsetPriorityInputSide() {
 		this.priorityInputSide = NO_PRIORITY_INPUT_SIDE;
+		LOG.info("The operator priority input side is unset to be {}.", this.priorityInputSide);
 	}
 }
