@@ -508,9 +508,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	public void stuckRecover() {
-		LOG.info("task {} stuck recover", this.getName());
-		stuckType = StuckType.NONE;
-		isStuck.set(false);
+		if (isStuck.compareAndSet(true, false)) {
+			LOG.info("task {} stuck recover", this.getName());
+			stuckType = StuckType.NONE;
+		}
 	}
 
 	public boolean setStuck(StuckType stuckType) {
