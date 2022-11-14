@@ -462,7 +462,7 @@ public class HiveContinuousMonitoringNewestPartitionFunction
 		int range = lowerBounds;
 		// store the partition date and construct filter string
 		String probePartitionDateStr;
-		String partitionFilterStr = "";
+		String partitionFilterStr = "(";
 
 		while (range <= partitionPendingRange.f0) {
 
@@ -488,6 +488,7 @@ public class HiveContinuousMonitoringNewestPartitionFunction
 
 			range += partitionPendingRange.f0 - lowerBounds;
 		}
+		partitionFilterStr += ")";
 
 		if (partitionFilter != null) {
 			partitionFilterStr += " and (" + partitionFilter + ")";

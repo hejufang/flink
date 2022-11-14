@@ -129,61 +129,129 @@ public class HiveTableFactoryTest {
 
 	// test for obtaining correct hive partition filter string when continuously monitoring newest partition
 	@Test(timeout = 30000)
-	public void testGetPartitionFilterStr() throws Exception {
+	public void testGetPartitionFilterStrDefaultConfig() throws Exception {
 		Tuple2<String, String> datePartition = new Tuple2<>("p_date", "yyyyMMdd");
-		Tuple2<String, String> hourPartition = new Tuple2<>("hour", "HH");
-		String partitionFilter = "level='City' or level='Province'";
 		Tuple2<Integer, Integer> partitionPendingRange = new Tuple2<>(3, 10);
 		int lowerBounds = -partitionPendingRange.f1;
-		int probeLevel = Calendar.HOUR;
 
-		// use current date to construct partition filter string
-		Calendar cal = Calendar.getInstance();
-		SimpleDateFormat dateFormat = new SimpleDateFormat(datePartition.f1 + " " + hourPartition.f1);
-		Date currentDate = new Date();
+		// use specific date to construct partition filter string
+		SimpleDateFormat dateFormat = new SimpleDateFormat(datePartition.f1);
+		//Fri Nov 11 14:27:21 CST 2022
+		Date currentDate = new Date(1668148041203L);
 
 		// make sure the date format satisfy the specific format
+		// Fri Nov 11 14:00:00 CST 2022
 		Date newestPartitionDate = dateFormat.parse(dateFormat.format(currentDate));
 
-		// the return result would be like
-		// (p_date='20221026' and hour>='00') or ('20221026'<p_date and p_date<'20221026') or (p_date='20221026' and hour<='13') and (level='City' or level='Province')
+		String result = HiveContinuousMonitoringNewestPartitionFunction.getPartitionFilterStr(
+			datePartition,
+			null,
+			null,
+			partitionPendingRange,
+			lowerBounds,
+			Calendar.DATE,
+			newestPartitionDate,
+			Calendar.getInstance(),
+			dateFormat);
+
+		String expected = "((p_date='20221101') or ('20221101'<p_date and p_date<'20221114') or (p_date='20221114'))";
+
+		assertEquals(expected, result);
+	}
+
+	@Test(timeout = 30000)
+	public void testGetPartitionFilterStrDateHour() throws Exception {
+		Tuple2<String, String> datePartition = new Tuple2<>("p_date", "yyyyMMdd");
+		Tuple2<String, String> hourPartition = new Tuple2<>("hour", "HH");
+		Tuple2<Integer, Integer> partitionPendingRange = new Tuple2<>(3, 10);
+		int lowerBounds = -partitionPendingRange.f1;
+
+		// use specific date to construct partition filter string
+		SimpleDateFormat dateFormat = new SimpleDateFormat(datePartition.f1 + " " + hourPartition.f1);
+		//Fri Nov 11 14:27:21 CST 2022
+		Date currentDate = new Date(1668148041203L);
+
+		// make sure the date format satisfy the specific format
+		// Fri Nov 11 14:00:00 CST 2022
+		Date newestPartitionDate = dateFormat.parse(dateFormat.format(currentDate));
+
+		String result = HiveContinuousMonitoringNewestPartitionFunction.getPartitionFilterStr(
+			datePartition,
+			hourPartition,
+			null,
+			partitionPendingRange,
+			lowerBounds,
+			Calendar.HOUR,
+			newestPartitionDate,
+			Calendar.getInstance(),
+			dateFormat);
+
+		String expected = "((p_date='20221111' and hour>='04') or ('20221111'<p_date and p_date<'20221111') or (p_date='20221111' and hour<='17'))";
+
+		assertEquals(expected, result);
+	}
+
+	@Test(timeout = 30000)
+	public void testGetPartitionFilterStrDateParFilter() throws Exception {
+		Tuple2<String, String> datePartition = new Tuple2<>("p_date", "yyyyMMdd");
+		String partitionFilter = "level='City'";
+		Tuple2<Integer, Integer> partitionPendingRange = new Tuple2<>(3, 10);
+		int lowerBounds = -partitionPendingRange.f1;
+
+		// use specific date to construct partition filter string
+		SimpleDateFormat dateFormat = new SimpleDateFormat(datePartition.f1);
+		//Fri Nov 11 14:27:21 CST 2022
+		Date currentDate = new Date(1668148041203L);
+
+		// make sure the date format satisfy the specific format
+		// Fri Nov 11 14:00:00 CST 2022
+		Date newestPartitionDate = dateFormat.parse(dateFormat.format(currentDate));
+
+		String result = HiveContinuousMonitoringNewestPartitionFunction.getPartitionFilterStr(
+			datePartition,
+			null,
+			partitionFilter,
+			partitionPendingRange,
+			lowerBounds,
+			Calendar.DATE,
+			newestPartitionDate,
+			Calendar.getInstance(),
+			dateFormat);
+
+		String expected = "((p_date='20221101') or ('20221101'<p_date and p_date<'20221114') or (p_date='20221114')) and (level='City')";
+
+		assertEquals(expected, result);
+	}
+
+	@Test(timeout = 30000)
+	public void testGetPartitionFilterStrAllConfig() throws Exception {
+		Tuple2<String, String> datePartition = new Tuple2<>("p_date", "yyyyMMdd");
+		Tuple2<String, String> hourPartition = new Tuple2<>("hour", "HH");
+		String partitionFilter = "level='City'";
+		Tuple2<Integer, Integer> partitionPendingRange = new Tuple2<>(3, 10);
+		int lowerBounds = -partitionPendingRange.f1;
+
+		// use specific date to construct partition filter string
+		SimpleDateFormat dateFormat = new SimpleDateFormat(datePartition.f1 + " " + hourPartition.f1);
+		//Fri Nov 11 14:27:21 CST 2022
+		Date currentDate = new Date(1668148041203L);
+
+		// make sure the date format satisfy the specific format
+		// Fri Nov 11 14:00:00 CST 2022
+		Date newestPartitionDate = dateFormat.parse(dateFormat.format(currentDate));
+
 		String result = HiveContinuousMonitoringNewestPartitionFunction.getPartitionFilterStr(
 			datePartition,
 			hourPartition,
 			partitionFilter,
 			partitionPendingRange,
 			lowerBounds,
-			probeLevel,
+			Calendar.HOUR,
 			newestPartitionDate,
-			cal,
+			Calendar.getInstance(),
 			dateFormat);
 
-		// construct the expected filter string
-		String expected = "";
-
-		int range = lowerBounds;
-		cal.setTime(newestPartitionDate);
-		cal.add(probeLevel, range);
-
-		// lower bound filter condition
-		String probePartitionDateStr = dateFormat.format(cal.getTime());
-		expected += "(" + datePartition.f0 + "='" + probePartitionDateStr.split(" ")[0] + "'";
-		expected += " and " + hourPartition.f0 + ">='" + probePartitionDateStr.split(" ")[1] + "'";
-		expected += ") or ('" + probePartitionDateStr.split(" ")[0] + "'<" + datePartition.f0;
-
-		range += partitionPendingRange.f0 - lowerBounds;
-		cal.setTime(newestPartitionDate);
-		cal.add(probeLevel, range);
-		probePartitionDateStr = dateFormat.format(cal.getTime());
-
-		// upper bound filter condition
-		expected += " and " + datePartition.f0 + "<'" + probePartitionDateStr.split(" ")[0] + "')";
-		expected += " or (" + datePartition.f0 + "='" + probePartitionDateStr.split(" ")[0] + "'";
-		expected += " and " + hourPartition.f0 + "<='" + probePartitionDateStr.split(" ")[1] + "'";
-		expected += ")";
-
-		// other filter condition
-		expected += " and (" + partitionFilter + ")";
+		String expected = "((p_date='20221111' and hour>='04') or ('20221111'<p_date and p_date<'20221111') or (p_date='20221111' and hour<='17')) and (level='City')";
 
 		assertEquals(expected, result);
 	}

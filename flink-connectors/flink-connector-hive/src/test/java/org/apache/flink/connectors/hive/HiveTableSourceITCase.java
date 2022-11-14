@@ -592,12 +592,8 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 		StreamTestSink.clear();
 	}
 
-	@Test(timeout = 120000)
-	public void testStreamPartitionReadForBroadcastJoin() throws Exception {
-
-		final String catalogName = "hive";
-		final String dbName = "source_db";
-		final String tblName = "stream_test";
+	private StreamTableEnvironment createEnvForBroadcastJoin() {
+		String catalogName = "hive";
 
 		EnvironmentSettings streamEnvSettings = EnvironmentSettings.newInstance()
 			.useBlinkPlanner()
@@ -605,73 +601,85 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 			.build();
 		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
 		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		StreamTableEnvironment tsEnv = StreamTableEnvironment.create(senv, streamEnvSettings);
+		StreamTableEnvironment stEnv = StreamTableEnvironment.create(senv, streamEnvSettings);
 
-		tsEnv.getConfig().getConfiguration().setBoolean(TableConfigOptions.TABLE_DYNAMIC_TABLE_OPTIONS_ENABLED, true);
+		stEnv.getConfig().getConfiguration().setBoolean(TableConfigOptions.TABLE_DYNAMIC_TABLE_OPTIONS_ENABLED, true);
 
-		tsEnv.registerCatalog(catalogName, hiveCatalog);
-		tsEnv.getConfig().setSqlDialect(SqlDialect.HIVE);
-		tsEnv.useCatalog(catalogName);
-		tsEnv.executeSql(
-			"CREATE TABLE source_db.stream_test (" +
-				" a INT," +
-				" b STRING" +
-				") PARTITIONED BY (p_date STRING, hour STRING, level STRING) TBLPROPERTIES (" +
-				"'streaming-source.enable'='true'," +
-				"'scan.input-format-read-interval' = '5s'," +
-				"'scan.count-of-scan-times' = '2'," +
-				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
-				"'scan.hive.hour-partition-pattern' = 'hour=HH'," +
-				"'scan.hive.forward-partition-num' = '2'," +
-				"'scan.hive.partition-filter' = \"level='City' or level='Province'\"" +
-				")"
-		);
+		stEnv.registerCatalog(catalogName, hiveCatalog);
+		stEnv.getConfig().setSqlDialect(SqlDialect.HIVE);
+		stEnv.useCatalog(catalogName);
 
-		Calendar cal = Calendar.getInstance();
-		Date currentDate = new Date();
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd HH");
-		dateFormat.setLenient(false);
+		return stEnv;
+	}
 
-		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(currentDate));
-		String formattedDate = null;
-		for (int i = -1; i <= 1; i++) {
-			cal.setTime(formattedCurrentDate);
-			cal.add(Calendar.HOUR, i);
-			formattedDate = dateFormat.format(cal.getTime());
+	private void getStreamSourceForBroadcastJoin(StreamTableEnvironment stEnv, Long offset) {
 
-			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
-			.addRow(new Object[]{0, "0"})
-			.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "',level='City'");
+		stEnv.getConfig().setSqlDialect(SqlDialect.DEFAULT);
+		stEnv.useCatalog("default_catalog");
 
-			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
-				.addRow(new Object[]{0, "0"})
-				.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "',level='Province'");
-		}
+		// simulate the watermark in stream side is ahead of hive side
+		long curTime = System.currentTimeMillis() + offset;
 
-		tsEnv.getConfig().setSqlDialect(SqlDialect.DEFAULT);
-		tsEnv.useCatalog("default_catalog");
-		// simulate the watermark in stream side is 5h ahead of hive side, use timeOffset to adjust the stream side
-		long curTime = System.currentTimeMillis() + 18000000L;
 		List<Row> testDataList = new ArrayList<>();
 		testDataList.addAll(TestData.genIdAndDataListAsJava(0, 2, "A", curTime));
-		String sourceId1 = TestValuesTableFactory.registerData(testDataList);
+		String sourceId = TestValuesTableFactory.registerData(testDataList);
 
-		tsEnv.executeSql(
+		stEnv.executeSql(
 			"CREATE TABLE A (\n" +
 				"    a_id int,\n" +
 				"    a_word varchar\n" +
 				") WITH (\n" +
 				" 'connector' = 'values',\n" +
-				" 'data-id' = '" + sourceId1 + "',\n" +
+				" 'data-id' = '" + sourceId + "',\n" +
 				" 'table-source-class'='" + TestData.ScanTableSourceWithTimestamp.class.getName() + "'\n" +
 				")"
 		);
+	}
 
-		Iterator<Row> collected = tsEnv.executeSql(
+	@Test(timeout = 120000)
+	public void testBroadcastJoinDefaultConfig() throws Exception {
+
+		String dbName = "source_db";
+		String tblName = "broadcastjoin_default";
+
+		StreamTableEnvironment stEnv = createEnvForBroadcastJoin();
+
+		stEnv.executeSql(
+			"CREATE TABLE " + dbName + "." + tblName + " (" +
+				" a INT," +
+				" b STRING" +
+				") PARTITIONED BY (p_date STRING) TBLPROPERTIES (" +
+				"'streaming-source.enable'='true'," +
+				"'scan.input-format-read-interval' = '5s'," +
+				"'scan.count-of-scan-times' = '2'," +
+				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
+				"'scan.hive.forward-partition-num' = '1'" +
+				")"
+		);
+
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+		dateFormat.setLenient(false);
+
+		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(new Date()));
+		String formattedDate = null;
+		for (int i = -1; i <= 1; i++) {
+			cal.setTime(formattedCurrentDate);
+			cal.add(Calendar.DATE, i);
+			formattedDate = dateFormat.format(cal.getTime());
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "'");
+		}
+
+		getStreamSourceForBroadcastJoin(stEnv, 0L);
+
+		Iterator<Row> collected = stEnv.executeSql(
 			"select\n" +
-				"/*+ use_broadcast_join('table' = 'stream_test', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min', 'timeOffset' = '-5h') */\n" +
+				"/*+ use_broadcast_join('table' = '" + tblName + "', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min') */\n" +
 				"*\n" +
-				"from A a left join hive.source_db.stream_test " +
+				"from A a left join hive." + dbName + "." + tblName + " " +
 				"h on a.a_id = h.a\n"
 		).collect();
 
@@ -681,14 +689,204 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 			.collect(Collectors.toList());
 
 		List<String> expected = Arrays.asList(
-				"0,A0,0,0," + formattedDate.split(" ")[0] + "," + formattedDate.split(" ")[1] + ",City",
-				"0,A0,0,0," + formattedDate.split(" ")[0] + "," + formattedDate.split(" ")[1] + ",Province",
-				"1,A1,null,null,null,null,null",
-				"2,A2,null,null,null,null,null"
+			"0,A0,0,0," + formattedDate.split(" ")[0],
+			"1,A1,null,null,null",
+			"2,A2,null,null,null"
 		);
 
 		assertEquals(expected, results);
-		StreamTestSink.clear();
+	}
+
+	@Test(timeout = 120000)
+	public void testBroadcastJoinTimeOffset() throws Exception {
+
+		String dbName = "source_db";
+		String tblName = "broadcastjoin_default";
+
+		StreamTableEnvironment stEnv = createEnvForBroadcastJoin();
+
+		stEnv.executeSql(
+			"CREATE TABLE " + dbName + "." + tblName + " (" +
+				" a INT," +
+				" b STRING" +
+				") PARTITIONED BY (p_date STRING) TBLPROPERTIES (" +
+				"'streaming-source.enable'='true'," +
+				"'scan.input-format-read-interval' = '5s'," +
+				"'scan.count-of-scan-times' = '2'," +
+				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
+				"'scan.hive.forward-partition-num' = '1'" +
+				")"
+		);
+
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+		dateFormat.setLenient(false);
+
+		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(new Date()));
+		String formattedDate = null;
+		for (int i = -1; i <= 1; i++) {
+			cal.setTime(formattedCurrentDate);
+			cal.add(Calendar.DATE, i);
+			formattedDate = dateFormat.format(cal.getTime());
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "'");
+		}
+
+		getStreamSourceForBroadcastJoin(stEnv, 18000000L);
+
+		// use timeOffset to adjust the join time condition
+		Iterator<Row> collected = stEnv.executeSql(
+			"select\n" +
+				"/*+ use_broadcast_join('table' = '" + tblName + "', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min', 'timeOffset' = '-5h') */\n" +
+				"*\n" +
+				"from A a left join hive." + dbName + "." + tblName + " " +
+				"h on a.a_id = h.a\n"
+		).collect();
+
+		List<String> results = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+
+		List<String> expected = Arrays.asList(
+			"0,A0,0,0," + formattedDate.split(" ")[0],
+			"1,A1,null,null,null",
+			"2,A2,null,null,null"
+		);
+
+		assertEquals(expected, results);
+	}
+
+	@Test(timeout = 120000)
+	public void testBroadcastJoinHourPattern() throws Exception {
+
+		String dbName = "source_db";
+		String tblName = "broadcastjoin_hourPattern";
+
+		StreamTableEnvironment stEnv = createEnvForBroadcastJoin();
+
+		stEnv.executeSql(
+			"CREATE TABLE " + dbName + "." + tblName + " (" +
+				" a INT," +
+				" b STRING" +
+				") PARTITIONED BY (p_date STRING, hour STRING) TBLPROPERTIES (" +
+				"'streaming-source.enable'='true'," +
+				"'scan.input-format-read-interval' = '5s'," +
+				"'scan.count-of-scan-times' = '2'," +
+				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
+				"'scan.hive.hour-partition-pattern' = 'hour=HH'," +
+				"'scan.hive.forward-partition-num' = '1'" +
+				")"
+		);
+
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd HH");
+		dateFormat.setLenient(false);
+
+		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(new Date()));
+		String formattedDate = null;
+		for (int i = -1; i <= 1; i++) {
+			cal.setTime(formattedCurrentDate);
+			cal.add(Calendar.HOUR, i);
+			formattedDate = dateFormat.format(cal.getTime());
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "'");
+		}
+
+		getStreamSourceForBroadcastJoin(stEnv, 0L);
+
+		Iterator<Row> collected = stEnv.executeSql(
+			"select\n" +
+				"/*+ use_broadcast_join('table' = '" + tblName + "', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min') */\n" +
+				"*\n" +
+				"from A a left join hive." + dbName + "." + tblName + " " +
+				"h on a.a_id = h.a\n"
+		).collect();
+
+		List<String> results = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+
+		List<String> expected = Arrays.asList(
+			"0,A0,0,0," + formattedDate.split(" ")[0] + "," + formattedDate.split(" ")[1],
+			"1,A1,null,null,null,null",
+			"2,A2,null,null,null,null"
+		);
+
+		assertEquals(expected, results);
+	}
+
+	@Test(timeout = 120000)
+	public void testBroadcastJoinPartitionFilter() throws Exception {
+
+		String dbName = "source_db";
+		String tblName = "broadcastjoin_partitionFilter";
+
+		StreamTableEnvironment stEnv = createEnvForBroadcastJoin();
+
+		stEnv.executeSql(
+			"CREATE TABLE " + dbName + "." + tblName + " (" +
+				" a INT," +
+				" b STRING" +
+				") PARTITIONED BY (p_date STRING, hour STRING, level STRING) TBLPROPERTIES (" +
+				"'streaming-source.enable'='true'," +
+				"'scan.input-format-read-interval' = '5s'," +
+				"'scan.count-of-scan-times' = '2'," +
+				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
+				"'scan.hive.hour-partition-pattern' = 'hour=HH'," +
+				"'scan.hive.forward-partition-num' = '1'," +
+				"'scan.hive.partition-filter' = \"level='City'\"" +
+				")"
+		);
+
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd HH");
+		dateFormat.setLenient(false);
+
+		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(new Date()));
+		String formattedDate = null;
+		for (int i = -1; i <= 1; i++) {
+			cal.setTime(formattedCurrentDate);
+			cal.add(Calendar.HOUR, i);
+			formattedDate = dateFormat.format(cal.getTime());
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "',level='City'");
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "',level='Province'");
+		}
+
+		getStreamSourceForBroadcastJoin(stEnv, 0L);
+
+		Iterator<Row> collected = stEnv.executeSql(
+			"select\n" +
+				"/*+ use_broadcast_join('table' = '" + tblName + "', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min') */\n" +
+				"*\n" +
+				"from A a left join hive." + dbName + "." + tblName + " " +
+				"h on a.a_id = h.a\n"
+		).collect();
+
+		List<String> results = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+
+		// only the filtered partition City could join with stream side
+		List<String> expected = Arrays.asList(
+			"0,A0,0,0," + formattedDate.split(" ")[0] + "," + formattedDate.split(" ")[1] + ",City",
+			"1,A1,null,null,null,null,null",
+			"2,A2,null,null,null,null,null"
+		);
+
+		assertEquals(expected, results);
 	}
 
 	@Test(timeout = 30000)
