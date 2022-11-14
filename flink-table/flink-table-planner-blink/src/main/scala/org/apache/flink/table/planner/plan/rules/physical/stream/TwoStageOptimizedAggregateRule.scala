@@ -119,12 +119,18 @@ class TwoStageOptimizedAggregateRule extends RelOptRule(
       needRetraction,
       isStateBackendDataViews = false)
 
+
+    val isDigestsInvolved = call.getPlanner.getContext.unwrap(classOf[FlinkContext])
+      .getTableConfig.getConfiguration
+      .getBoolean(ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
     val globalAggInfoList = AggregateUtil.transformToStreamAggregateInfoList(
       agg.aggCalls,
       realInput.getRowType,
       needRetractionArray,
       needRetraction,
-      isStateBackendDataViews = true)
+      isStateBackendDataViews = true,
+      needDistinctInfo = true,
+      isDigestsInvolved)
 
     val globalHashAgg = createTwoStageAgg(realInput, localAggInfoList, globalAggInfoList, agg)
     call.transformTo(globalHashAgg)

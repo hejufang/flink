@@ -141,4 +141,3 @@ public class NumberUtils {
 			number.getClass().getName() + "] to target class [" + targetClass.getName() + "]: overflow");
 	}
 }
-

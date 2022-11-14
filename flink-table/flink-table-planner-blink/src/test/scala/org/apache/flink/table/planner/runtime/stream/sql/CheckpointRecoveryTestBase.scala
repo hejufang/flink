@@ -131,7 +131,6 @@ class TestSink[T] extends SinkFunction[T] {
 
   override def invoke(value: T): Unit = {
     TestSink.results += value.toString
-    println(value)
   }
 }
 

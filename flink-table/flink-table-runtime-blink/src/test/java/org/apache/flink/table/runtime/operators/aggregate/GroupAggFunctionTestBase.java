@@ -32,6 +32,8 @@ import org.apache.flink.table.runtime.util.BinaryRowDataKeySelector;
 import org.apache.flink.table.runtime.util.GenericRowRecordSortComparator;
 import org.apache.flink.table.runtime.util.RowDataHarnessAssertor;
 import org.apache.flink.table.runtime.util.RowDataRecordEqualiser;
+import org.apache.flink.table.types.FieldDigest;
+import org.apache.flink.table.types.StringFieldDigest;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -55,6 +57,7 @@ abstract class GroupAggFunctionTestBase {
 			new BigIntType());
 
 	LogicalType[] accTypes = new LogicalType[] { new BigIntType(), new BigIntType() };
+	FieldDigest[] digests = new FieldDigest[] { new StringFieldDigest("f0"), new StringFieldDigest("f1")};
 	BinaryRowDataKeySelector keySelector = new BinaryRowDataKeySelector(new int[]{0}, inputFieldTypes);
 	TypeInformation<RowData> keyType = keySelector.getProducedType();
 	GeneratedRecordEqualiser equaliser = new GeneratedRecordEqualiser("", "", new Object[0]) {

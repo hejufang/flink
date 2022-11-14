@@ -35,6 +35,7 @@ import org.apache.flink.table.runtime.generated.RecordEqualiser;
 import org.apache.flink.table.runtime.operators.bundle.MapBundleFunction;
 import org.apache.flink.table.runtime.types.InternalSerializers;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
+import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
@@ -73,6 +74,11 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 	 * The accumulator types.
 	 */
 	private final LogicalType[] accTypes;
+
+	/**
+	 * The field digests of accumulators.
+	 */
+	private final FieldDigest[] digests;
 
 	/**
 	 * The input row type.
@@ -128,6 +134,7 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 			GeneratedAggsHandleFunction genAggsHandler,
 			GeneratedRecordEqualiser genRecordEqualiser,
 			LogicalType[] accTypes,
+			FieldDigest[] digests,
 			RowType inputType,
 			int indexOfCountStar,
 			boolean generateUpdateBefore,
@@ -136,6 +143,7 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 		this.genRecordEqualiser = genRecordEqualiser;
 		this.recordCounter = RecordCounter.of(indexOfCountStar);
 		this.accTypes = accTypes;
+		this.digests = digests;
 		this.inputType = inputType;
 		this.generateUpdateBefore = generateUpdateBefore;
 		this.ttlConfig = createTtlConfig(stateRetentionTime);
@@ -158,7 +166,7 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 
 	@Override
 	public void registerState(StateRegistry stateRegistry) throws Exception {
-		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
+		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(digests, accTypes);
 		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
 		if (ttlConfig.isEnabled()){
 			accDesc.enableTimeToLive(ttlConfig);

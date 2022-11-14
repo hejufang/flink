@@ -21,27 +21,28 @@ package org.apache.flink.table.planner.plan.nodes.physical.stream
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.transformations.{PartitionTransformation, TwoInputTransformation}
 import org.apache.flink.streaming.runtime.partitioner.BroadcastPartitioner
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{TableConfig, ValidationException}
 import org.apache.flink.table.data.RowData
+import org.apache.flink.table.factories.FactoryUtil
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalJoin
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.utils.{JoinUtil, KeySelectorUtil, PhysicalPlanUtil}
+import org.apache.flink.table.planner.plan.utils.{FieldDigestUtil, JoinUtil, KeySelectorUtil, PhysicalPlanUtil}
 import org.apache.flink.table.runtime.operators.join.stream.state.JoinInputSideSpec
 import org.apache.flink.table.runtime.operators.join.stream.{BroadcastJoinOperator, MiniBatchStreamingJoinOperator, StreamingJoinOperator, StreamingSemiAntiJoinOperator}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
+
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.core.{Join, JoinRelType}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexNode
-import org.apache.flink.table.api.config.ExecutionConfigOptions
-import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE
-import org.apache.flink.table.factories.FactoryUtil
+
+import java.util
 
 import scala.collection.JavaConversions._
-import java.util
 
 /**
   * Stream physical RelNode for regular [[Join]].
@@ -138,8 +139,14 @@ class StreamExecJoin(
     var rightTransform = getInputNodes.get(1).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
 
-    val leftType = leftTransform.getOutputType.asInstanceOf[RowDataTypeInfo]
-    val rightType = rightTransform.getOutputType.asInstanceOf[RowDataTypeInfo]
+    val isDigestsInvolved = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
+    var leftType = leftTransform.getOutputType.asInstanceOf[RowDataTypeInfo]
+    var rightType = rightTransform.getOutputType.asInstanceOf[RowDataTypeInfo]
+    if (isDigestsInvolved) {
+      leftType = FieldDigestUtil.generateRowDataTypeInfoWithDigest(leftType)
+      rightType = FieldDigestUtil.generateRowDataTypeInfoWithDigest(rightType)
+    }
 
     val (leftJoinKey, rightJoinKey) =
       JoinUtil.checkAndGetJoinKeys(keyPairs, getLeft, getRight, allowEmptyKey = true)
@@ -164,10 +171,11 @@ class StreamExecJoin(
       tableConfig.getConfiguration.getBoolean(
         ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLE_REGULAR_JOIN)
 
-    val miniBatchSize = tableConfig.getConfiguration.getLong(TABLE_EXEC_MINIBATCH_SIZE)
+    val miniBatchSize = tableConfig.getConfiguration
+      .getLong(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE)
     if (isMiniBatchJoinEnabled && miniBatchSize <= 0) {
-      throw new IllegalArgumentException(
-        TABLE_EXEC_MINIBATCH_SIZE.key() + " must be greater than zero when mini batch is enabled")
+      throw new IllegalArgumentException(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE.key() +
+        " must be greater than zero when mini batch is enabled")
     }
 
     var operatorPrefixName = ""

@@ -51,6 +51,7 @@ public class MiniBatchGroupAggFunctionTest extends GroupAggFunctionTestBase {
 			function,
 			equaliser,
 			accTypes,
+			digests,
 			RowType.of(inputFieldTypes),
 			-1,
 			generateUpdateBefore,

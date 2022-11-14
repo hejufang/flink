@@ -21,65 +21,29 @@ package org.apache.flink.table.planner.runtime.stream.sql;
 
 import org.apache.flink.client.cli.CheckpointVerifyResult;
 import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.api.bridge.java.internal.StreamTableEnvironmentImpl;
-import org.apache.flink.table.connector.ChangelogMode;
-import org.apache.flink.table.connector.source.DynamicTableSource;
-import org.apache.flink.table.connector.source.ScanTableSource;
-import org.apache.flink.table.connector.source.SourceFunctionProvider;
-import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.StringData;
-import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.planner.factories.TestValuesTableFactory;
+import org.apache.flink.table.planner.runtime.utils.CheckpointRecoveryUtils;
 import org.apache.flink.table.planner.runtime.utils.TestData;
 import org.apache.flink.test.checkpointing.CheckpointVerifyTestBase;
-import org.apache.flink.types.Row;
 
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import static org.apache.flink.table.planner.runtime.utils.CheckpointRecoveryUtils.SOURCE_CREATION_WITHOUT_WATERMARK;
+import static org.apache.flink.table.planner.runtime.utils.CheckpointRecoveryUtils.SOURCE_CREATION_WITH_WATERMARK;
 
 /**
  * Tests for checkpoint verification of SQL jobs.
  */
 public class CheckpointVerifyTests extends CheckpointVerifyTestBase {
-	private static final String SOURCE_CREATION_WITHOUT_WATERMARK = "CREATE TABLE T1 (\n" +
-		"  `stringVal` STRING,\n" +
-		"  `intVal` INT,\n" +
-		"  `longVal` BIGINT,\n" +
-		"  `floatVal` FLOAT,\n" +
-		"  `tsVal` TIMESTAMP(3),\n" +
-		"  `proc` as PROCTIME()\n" +
-		") WITH (\n" +
-		"  'connector' = 'values',\n" +
-		"  'data-id' = '%s',\n" +
-		"  'table-source-class' = '%s',\n" +
-		"  'changelog-mode' = '%s'\n" +
-		")";
-	private static final String SOURCE_CREATION_WITH_WATERMARK = "CREATE TABLE T1 (\n" +
-		"  `stringVal` STRING,\n" +
-		"  `intVal` INT,\n" +
-		"  `longVal` BIGINT,\n" +
-		"  `floatVal` FLOAT,\n" +
-		"  `tsVal` TIMESTAMP(3),\n" +
-		"  `proc` as PROCTIME()," +
-		"  WATERMARK FOR tsVal AS tsVal - INTERVAL '5' SECOND\n" +
-		") WITH (\n" +
-		"  'connector' = 'values',\n" +
-		"  'data-id' = '%s',\n" +
-		"  'table-source-class' = '%s'\n" +
-		")";
 
 	// ------------------------------------------------------------------------
 	//  For Unbounded Aggregation
@@ -1006,9 +970,9 @@ public class CheckpointVerifyTests extends CheckpointVerifyTestBase {
 		String id = TestValuesTableFactory.registerData(TestData.data4WithTimestamp());
 		String sql;
 		if (sourceChangeMode.equals("I")) {
-			sql = String.format(SOURCE_CREATION_WITH_WATERMARK, id, FiniteScanTableSource.class.getName());
+			sql = String.format(SOURCE_CREATION_WITH_WATERMARK, id, CheckpointRecoveryUtils.FiniteScanTableSource.class.getName());
 		} else {
-			sql = String.format(SOURCE_CREATION_WITHOUT_WATERMARK, id, FiniteScanTableSource.class.getName(), sourceChangeMode);
+			sql = String.format(SOURCE_CREATION_WITHOUT_WATERMARK, id, CheckpointRecoveryUtils.FiniteScanTableSource.class.getName(), sourceChangeMode);
 		}
 		tEnv.executeSql(sql);
 		// Dim
@@ -1020,7 +984,7 @@ public class CheckpointVerifyTests extends CheckpointVerifyTestBase {
 			") WITH (\n" +
 			"  'connector' = 'values',\n" +
 			"  'lookup.later-join-latency' = '2s',\n" +
-			"  'lookup-function-class' = 'org.apache.flink.table.planner.runtime.stream.sql.CheckpointVerifyTests$DimFunction'\n" +
+			"  'lookup-function-class' = 'org.apache.flink.table.planner.runtime.utils.CheckpointRecoveryUtils$DimFunction'\n" +
 			")");
 		Table sinkTable = tEnv.sqlQuery(beforeSQL);
 		tEnv.toRetractStream(sinkTable, RowData.class);
@@ -1037,109 +1001,5 @@ public class CheckpointVerifyTests extends CheckpointVerifyTestBase {
 		} else {
 			Assert.assertEquals(CheckpointVerifyResult.STATE_SERIALIZER_INCOMPATIBLE, checkpointVerifyResult);
 		}
-	}
-
-	/**
-	 * FiniteScanTableSource.
-	 */
-	public static class FiniteScanTableSource implements ScanTableSource,
-			TestValuesTableFactory.TableSourceWithData {
-		private List<Row> data;
-		private ChangelogMode changelogMode;
-		@Override
-		public ChangelogMode getChangelogMode() {
-			return changelogMode;
-		}
-
-		@Override
-		public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-			return SourceFunctionProvider.of(new FiniteTestSource(data), false);
-		}
-
-		@Override
-		public DynamicTableSource copy() {
-			FiniteScanTableSource source = new FiniteScanTableSource();
-			source.setTableSourceData(data);
-			return source;
-		}
-
-		@Override
-		public String asSummaryString() {
-			return null;
-		}
-
-		@Override
-		public void setTableSourceData(Collection<Row> rows) {
-			data = new ArrayList<>();
-
-		}
-
-		@Override
-		public void setChangelog(ChangelogMode changelogMode) {
-			this.changelogMode = changelogMode;
-		}
-	}
-
-	/**
-	 * FiniteTestSource.
-	 */
-	public static class FiniteTestSource implements SourceFunction<RowData>, CheckpointListener {
-		private static final long serialVersionUID = 1L;
-		private final List<RowData> elements;
-		private transient int numCheckpointsComplete;
-		private volatile boolean running = true;
-
-		public FiniteTestSource(Iterable<Row> elements) {
-			this.elements = new ArrayList<>();
-			for (Row row: elements) {
-				this.elements.add(row2GenericRowData(row));
-			}
-		}
-
-		private RowData row2GenericRowData(Row row) {
-			GenericRowData rowData = new GenericRowData(row.getArity());
-			for (int i = 0; i < row.getArity(); i++) {
-				Object field = row.getField(i);
-				if (field instanceof String) {
-					rowData.setField(i, StringData.fromString((String) field));
-				} else {
-					rowData.setField(i, field);
-				}
-			}
-			return rowData;
-		}
-
-		@Override
-		public void run(SourceContext<RowData> ctx) throws Exception {
-			final Object lock = ctx.getCheckpointLock();
-			synchronized (lock) {
-				for (RowData t : elements) {
-					ctx.collect(t);
-				}
-			}
-
-			synchronized (lock) {
-				while (running && numCheckpointsComplete < 1) {
-					lock.wait(1);
-				}
-			}
-		}
-
-		@Override
-		public void cancel() {
-			running = false;
-		}
-
-		@Override
-		public void notifyCheckpointComplete(long checkpointId) throws Exception {
-			numCheckpointsComplete++;
-		}
-	}
-
-	/**
-	 * Dimension function.
-	 */
-	public static class DimFunction extends TableFunction<RowData> {
-		public void eval(Object... keys) throws Exception {}
 	}
 }

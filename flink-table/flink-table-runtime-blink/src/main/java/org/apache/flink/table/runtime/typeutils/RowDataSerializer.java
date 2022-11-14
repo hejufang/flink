@@ -20,6 +20,7 @@ package org.apache.flink.table.runtime.typeutils;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.RowDataSchemaCompatibilityResolveStrategy;
 import org.apache.flink.api.common.typeutils.CompositeTypeSerializerUtil;
 import org.apache.flink.api.common.typeutils.NestedSerializersSnapshotDelegate;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -27,6 +28,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
 import org.apache.flink.api.java.typeutils.runtime.DataOutputViewStream;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.memory.AbstractPagedInputView;
@@ -38,10 +40,12 @@ import org.apache.flink.table.data.writer.BinaryRowWriter;
 import org.apache.flink.table.data.writer.BinaryWriter;
 import org.apache.flink.table.dataview.MapViewTypeInfo;
 import org.apache.flink.table.runtime.types.InternalSerializers;
+import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.TypeInformationRawType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.InstantiationUtil;
 
 import javax.annotation.Nullable;
@@ -59,37 +63,74 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 	private static final long serialVersionUID = 1L;
 
 	private BinaryRowDataSerializer binarySerializer;
+	private final RowDataSchemaCompatibilityResolveStrategy strategy;
 	private final LogicalType[] types;
 	private final TypeSerializer[] fieldSerializers;
-
-	private transient BinaryRowData reuseRow;
-	private transient BinaryRowWriter reuseWriter;
+	private final FieldDigest[] fieldDigests;
 	/**
 	 * Will be set exactly before performing state migration. In other scenario, it's always null.
 	 * Therefore it's also an implicit flag for {@link RowDataSerializer#serialize(RowData, DataOutputView)}
 	 * to distinguish call in state writing period from call in state migration.
 	 */
 	private RowDataSerializer priorRowDataSerializer;
+	/**
+	 * A mapping of old row to new row.
+	 */
+	private transient int[] fieldMapping;
+	private transient BinaryRowData reuseRow;
+	private transient BinaryRowWriter reuseWriter;
 	private transient List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
 	private transient List<LogicalType> priorDistinctTypes = new ArrayList<>();
 	private transient List<LogicalType> newNonDistinctTypes = new ArrayList<>();
 	private transient List<LogicalType> newDistinctTypes = new ArrayList<>();
 
-	public RowDataSerializer(ExecutionConfig config, RowType rowType) {
-		this(rowType.getChildren().toArray(new LogicalType[0]),
+	public RowDataSerializer(ExecutionConfig config, FieldDigest[] fieldDigests, RowType rowType) {
+		this(config,
+			rowType.getChildren().toArray(new LogicalType[0]),
+			fieldDigests,
 			rowType.getChildren().stream()
 				.map((LogicalType type) -> InternalSerializers.create(type, config))
 				.toArray(TypeSerializer[]::new));
 	}
 
-	public RowDataSerializer(ExecutionConfig config, LogicalType... types) {
-		this(types, Arrays.stream(types)
+	public RowDataSerializer(ExecutionConfig config, FieldDigest[] fieldDigests, LogicalType... types) {
+		this(config, types, fieldDigests, Arrays.stream(types)
 			.map((LogicalType type) -> InternalSerializers.create(type, config))
 			.toArray(TypeSerializer[]::new));
 	}
 
+	public RowDataSerializer(ExecutionConfig config, RowType rowType) {
+		this(config, null, rowType);
+	}
+
+	public RowDataSerializer(ExecutionConfig config, LogicalType... types) {
+		this(config, null, types);
+	}
+
 	public RowDataSerializer(LogicalType[] types, TypeSerializer<?>[] fieldSerializers) {
+		this(new ExecutionConfig(), types, null, fieldSerializers);
+	}
+
+	public RowDataSerializer(
+			@Nullable ExecutionConfig config,
+			LogicalType[] types,
+			FieldDigest[] fieldDigests,
+			TypeSerializer<?>[] fieldSerializers) {
+		this(config == null ? PipelineOptions.ROW_DATA_SCHEMA_COMPATIBILITY_RESOLVE_STRATEGY.defaultValue() :
+				config.getSchemaCompatibilityResolveStrategy(),
+			types,
+			fieldDigests,
+			fieldSerializers);
+	}
+
+	public RowDataSerializer(
+			RowDataSchemaCompatibilityResolveStrategy strategy,
+			LogicalType[] types,
+			FieldDigest[] fieldDigests,
+			TypeSerializer<?>[] fieldSerializers) {
+		this.strategy = strategy;
 		this.types = types;
+		this.fieldDigests = fieldDigests;
 		this.fieldSerializers = fieldSerializers;
 		this.binarySerializer = new BinaryRowDataSerializer(types.length);
 	}
@@ -100,7 +141,7 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		for (int i = 0; i < fieldSerializers.length; i++) {
 			duplicateFieldSerializers[i] = fieldSerializers[i].duplicate();
 		}
-		return new RowDataSerializer(types, duplicateFieldSerializers);
+		return new RowDataSerializer(strategy, types, fieldDigests, duplicateFieldSerializers);
 	}
 
 	@Override
@@ -114,6 +155,7 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		this.priorRowDataSerializer = (RowDataSerializer) priorSerializer;
 		parseDistinctTypes(priorRowDataSerializer.getTypes(), priorNonDistinctTypes, priorDistinctTypes);
 		parseDistinctTypes(this.getTypes(), newNonDistinctTypes, newDistinctTypes);
+		parseFieldMapping(priorRowDataSerializer);
 	}
 
 	private static void parseDistinctTypes(
@@ -129,6 +171,82 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		}
 	}
 
+	private void parseFieldMapping(RowDataSerializer priorSerializer) {
+		if (priorSerializer.fieldDigests == null || fieldDigests == null) {
+			return;
+		}
+		FieldDigest[] previousDigests = priorSerializer.fieldDigests;
+		LogicalType[] previousTypes = priorSerializer.types;
+		int[] matched = new int[previousDigests.length];
+		int[] mapping = new int[fieldDigests.length];
+		Arrays.fill(mapping, -1);
+		switch (strategy) {
+			case WEAK_RESTRICTIVE:
+				for (int i = 0; i < fieldDigests.length; i++) {
+					for (int j = 0; j < previousDigests.length; j++) {
+						if (matched[j] == 0 && LogicalTypeUtils.isCompatibleWith(previousTypes[j], types[i]) &&
+							previousDigests[j].resolveCompatibility(fieldDigests[i])) {
+							matched[j] = 1;
+							mapping[i] = j;
+							break;
+						}
+					}
+				}
+				this.fieldMapping = mapping;
+				break;
+			case STRONG_RESTRICTIVE:
+				for (int i = 0; i < fieldDigests.length; i++) {
+					for (int j = 0; j < previousDigests.length; j++) {
+						if (matched[j] == 0 && previousDigests[j].resolveCompatibility(fieldDigests[i])) {
+							if (LogicalTypeUtils.isCompatibleWith(previousTypes[j], types[i])) {
+								matched[j] = 1;
+								mapping[i] = j;
+								break;
+							}
+						}
+					}
+				}
+				this.fieldMapping = mapping;
+				break;
+			case EMPTY:
+				throw new FlinkRuntimeException("The strategy should not be empty");
+			default:
+				throw new UnsupportedOperationException(String.format("Unsupported strategy: %s", strategy));
+		}
+	}
+
+	private void serializeInMigration(RowData record, DataOutputView target) throws IOException {
+		GenericRowData newRow = new GenericRowData(this.getArity());
+		if (fieldMapping != null) {
+			LogicalType[] oldTypes = priorRowDataSerializer.types;
+			for (int i = 0; i < fieldMapping.length; i++) {
+				LogicalType oldType = fieldMapping[i] >= 0 ? oldTypes[fieldMapping[i]] : null;
+				setValueFromRestoredRowWithCast(record, newRow, fieldMapping[i], i, oldType, types[i]);
+			}
+		} else {
+			for (int i = 0; i < newNonDistinctTypes.size(); i++) {
+				if (i >= priorNonDistinctTypes.size()) {
+					newRow.setField(i, null);
+				} else {
+					setValueFromRestoredRowWithCast(record, newRow, i, i, priorNonDistinctTypes.get(i),
+						newNonDistinctTypes.get(i));
+				}
+			}
+
+			for (int i = 0; i < newDistinctTypes.size(); i++) {
+				int currentIndex = newNonDistinctTypes.size() + i;
+				int oldIndex = priorNonDistinctTypes.size() + i;
+				if (i >= priorDistinctTypes.size()) {
+					newRow.setField(currentIndex, null);
+				} else {
+					setValueFromRestoredRowWithCast(record, newRow, oldIndex, currentIndex, priorDistinctTypes.get(i),
+						newDistinctTypes.get(i));
+				}
+			}
+		}
+		binarySerializer.serialize(toBinaryRow(newRow), target);
+	}
+
 	@Override
 	public void serialize(RowData row, DataOutputView target) throws IOException {
 		if (priorRowDataSerializer != null) {
@@ -136,30 +254,6 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		} else {
 			binarySerializer.serialize(toBinaryRow(row), target);
 		}
-	}
-
-	private void serializeInMigration(RowData record, DataOutputView target) throws IOException {
-		GenericRowData newRow = new GenericRowData(this.getArity());
-		for (int i = 0; i < newNonDistinctTypes.size(); i++) {
-			if (i >= priorNonDistinctTypes.size()) {
-				newRow.setField(i, null);
-			} else {
-				setValueFromRestoredRowWithCast(record, newRow, i, i, priorNonDistinctTypes.get(i),
-					newNonDistinctTypes.get(i));
-			}
-		}
-
-		for (int i = 0; i < newDistinctTypes.size(); i++) {
-			int currentIndex = newNonDistinctTypes.size() + i;
-			int oldIndex = priorNonDistinctTypes.size() + i;
-			if (i >= priorDistinctTypes.size()) {
-				newRow.setField(currentIndex, null);
-			} else {
-				setValueFromRestoredRowWithCast(record, newRow, oldIndex, currentIndex, priorDistinctTypes.get(i),
-					newDistinctTypes.get(i));
-			}
-		}
-		binarySerializer.serialize(toBinaryRow(newRow), target);
 	}
 
 	@Override
@@ -324,7 +418,7 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 
 	@Override
 	public TypeSerializerSnapshot<RowData> snapshotConfiguration() {
-		return new RowDataSerializerSnapshot(types, fieldSerializers);
+		return new RowDataSerializerSnapshot(types, fieldDigests, fieldSerializers, strategy);
 	}
 
 	public LogicalType[] getTypes() {
@@ -338,34 +432,55 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 			int currentIndex,
 			LogicalType priorType,
 			LogicalType currentType) {
+		if (priorIndex < 0) {
+			currentRow.setField(currentIndex, null);
+			return;
+		}
 		Object oldValue = RowData.get(priorRow, priorIndex, priorType);
 		currentRow.setField(currentIndex, TypeCasts.implicitCast(oldValue, priorType, currentType));
 	}
-
 
 	/**
 	 * {@link TypeSerializerSnapshot} for {@link BinaryRowDataSerializer}.
 	 */
 	public static final class RowDataSerializerSnapshot implements TypeSerializerSnapshot<RowData> {
-		private static final int CURRENT_VERSION = 3;
+		private static final int CURRENT_VERSION = 4;
 
 		private LogicalType[] previousTypes;
+		private FieldDigest[] previousDigests;
 		private NestedSerializersSnapshotDelegate nestedSerializersSnapshotDelegate;
+		private RowDataSchemaCompatibilityResolveStrategy strategy;
+		private boolean isWriteLengthEnable;
 
 		@SuppressWarnings("unused")
 		public RowDataSerializerSnapshot() {
 			// this constructor is used when restoring from a checkpoint/savepoint.
 		}
 
-		RowDataSerializerSnapshot(LogicalType[] types, TypeSerializer[] serializers) {
+		RowDataSerializerSnapshot(
+				LogicalType[] types,
+				FieldDigest[] digests,
+				TypeSerializer[] serializers,
+				RowDataSchemaCompatibilityResolveStrategy strategy) {
 			this.previousTypes = types;
+			this.previousDigests = digests;
 			this.nestedSerializersSnapshotDelegate = new NestedSerializersSnapshotDelegate(
 				serializers);
+			this.strategy = strategy;
+			// See details in RowDataSchemaCompatibilityResolveStrategy
+			this.isWriteLengthEnable = !RowDataSchemaCompatibilityResolveStrategy.EMPTY.equals(strategy);
 		}
 
 		@Override
 		public int getCurrentVersion() {
-			return CURRENT_VERSION;
+			if (isWriteLengthEnable) {
+				return CURRENT_VERSION;
+			} else {
+				// A trick logic to make states unchanged if users don't enable Digests to be stored in the
+				// RowDataSerializerSnapshot.
+				// See details in RowDataSchemaCompatibilityResolveStrategy
+				return 3;
+			}
 		}
 
 		@Override
@@ -374,6 +489,16 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 			DataOutputViewStream stream = new DataOutputViewStream(out);
 			for (LogicalType previousType : previousTypes) {
 				InstantiationUtil.serializeObject(stream, previousType);
+			}
+			if (isWriteLengthEnable) {
+				if (previousDigests == null) {
+					out.writeInt(0);
+				} else {
+					out.writeInt(previousDigests.length);
+					for (FieldDigest previousDigest : previousDigests) {
+						InstantiationUtil.serializeObject(stream, previousDigest);
+					}
+				}
 			}
 			nestedSerializersSnapshotDelegate.writeNestedSerializerSnapshots(out);
 		}
@@ -395,6 +520,26 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 					throw new IOException(e);
 				}
 			}
+			// Since version 4, we support add digests.
+			if (readVersion >= 4) {
+				int len = in.readInt();
+				if (len > 0) {
+					previousDigests = new FieldDigest[len];
+					for (int i = 0; i < len; i++) {
+						try {
+							previousDigests[i] = InstantiationUtil.deserializeObject(
+								stream,
+								userCodeClassLoader
+							);
+						}
+						catch (ClassNotFoundException e) {
+							throw new IOException(e);
+						}
+					}
+				}
+			} else {
+				previousDigests = null;
+			}
 			this.nestedSerializersSnapshotDelegate = NestedSerializersSnapshotDelegate.readNestedSerializerSnapshots(
 				in,
 				userCodeClassLoader
@@ -404,16 +549,27 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		@Override
 		public RowDataSerializer restoreSerializer() {
 			return new RowDataSerializer(
+				strategy,
 				previousTypes,
+				previousDigests,
 				nestedSerializersSnapshotDelegate.getRestoredNestedSerializers()
 			);
 		}
 
+		/**
+		 * @param newSerializer the new serializer to check.
+		 * As {@link #fieldDigests} is a newly-added field which not contained by historical serializers.
+		 * We would fall back to old checking strategy if {@link #fieldDigests} is absent.
+		 */
 		@Override
 		public TypeSerializerSchemaCompatibility<RowData> resolveSchemaCompatibility(TypeSerializer<RowData> newSerializer) {
 			if (!(newSerializer instanceof RowDataSerializer)) {
 				String message = String.format("new serializer %s is not a RowDataSerializer.", newSerializer.getClass().getName());
 				return TypeSerializerSchemaCompatibility.incompatible(message);
+			}
+
+			if (this.previousDigests != null && ((RowDataSerializer) newSerializer).fieldDigests != null) {
+				return resolveFieldDigestCompatibility((RowDataSerializer) newSerializer);
 			}
 
 			RowDataSerializer newRowSerializer = (RowDataSerializer) newSerializer;
@@ -483,6 +639,68 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 			}
 
 			return intermediateResult.getFinalResult();
+		}
+
+		private TypeSerializerSchemaCompatibility<RowData> resolveFieldDigestCompatibility(RowDataSerializer newSerializer) {
+			FieldDigest[] newDigests = newSerializer.fieldDigests;
+			LogicalType[] newTypes = newSerializer.types;
+			int[] matched = new int[previousDigests.length];
+			switch (newSerializer.strategy) {
+				case WEAK_RESTRICTIVE:
+					int matchedCounts = 0;
+					for (int i = 0; i < newDigests.length; i++) {
+						for (int j = 0; j < previousDigests.length; j++) {
+							if (matched[j] == 0 && LogicalTypeUtils.isCompatibleWith(previousTypes[j], newTypes[i]) &&
+								previousDigests[j].resolveCompatibility(newDigests[i])) {
+								matched[j] = 1;
+								matchedCounts++;
+								break;
+							}
+						}
+					}
+					if (matchedCounts > 0) {
+						return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
+					} else {
+						String message = String.format("The new types are %s, but previous types are %s.",
+							asSummaryString(newDigests, newTypes), asSummaryString(previousDigests, previousTypes));
+						return TypeSerializerSchemaCompatibility.incompatible(message);
+					}
+				case STRONG_RESTRICTIVE:
+					for (int i = 0; i < newDigests.length; i++) {
+						for (int j = 0; j < previousDigests.length; j++) {
+							if (matched[j] == 0 && previousDigests[j].resolveCompatibility(newDigests[i])) {
+								if (LogicalTypeUtils.isCompatibleWith(previousTypes[j], newTypes[i])) {
+									matched[j] = 1;
+									break;
+								} else {
+									String message = String.format("The new type of %s is %s, but previous type of it " +
+											"is %s, new types are %s, but previous types are %s.", newDigests[i], newTypes[i],
+										previousTypes[j], asSummaryString(newDigests, newTypes), asSummaryString(previousDigests, previousTypes));
+									return TypeSerializerSchemaCompatibility.incompatible(message);
+								}
+							}
+						}
+					}
+					return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
+				case EMPTY:
+					throw new FlinkRuntimeException("The strategy should not be empty");
+				default:
+					throw new UnsupportedOperationException(String.format("Unsupported strategy: %s", newSerializer.strategy));
+			}
+		}
+
+		private String asSummaryString(FieldDigest[] digests, LogicalType[] types) {
+			StringBuilder sb = new StringBuilder();
+			for (int i = 0; i < digests.length; i++) {
+				if (i > 0) {
+					sb.append(", ");
+				}
+				sb.append(digests[i].toString());
+				sb.append("[");
+				sb.append(types[i].asSummaryString());
+				sb.append("]");
+			}
+			return sb.toString();
 		}
 	}
 }

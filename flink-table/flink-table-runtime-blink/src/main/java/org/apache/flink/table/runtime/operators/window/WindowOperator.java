@@ -58,6 +58,7 @@ import org.apache.flink.table.runtime.operators.window.internal.MergingWindowPro
 import org.apache.flink.table.runtime.operators.window.internal.PanedWindowProcessFunction;
 import org.apache.flink.table.runtime.operators.window.triggers.Trigger;
 import org.apache.flink.table.runtime.typeutils.RowDataSerializer;
+import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -131,7 +132,11 @@ public abstract class WindowOperator<K, W extends Window>
 
 	private final LogicalType[] accumulatorTypes;
 
+	private final FieldDigest[] accumulatorDigests;
+
 	private final LogicalType[] aggResultTypes;
+
+	private final FieldDigest[] aggResultDigests;
 
 	private final LogicalType[] windowPropertyTypes;
 
@@ -196,6 +201,8 @@ public abstract class WindowOperator<K, W extends Window>
 			LogicalType[] accumulatorTypes,
 			LogicalType[] aggResultTypes,
 			LogicalType[] windowPropertyTypes,
+			FieldDigest[] accumulatorDigests,
+			FieldDigest[] aggResultDigests,
 			int rowtimeIndex,
 			boolean produceUpdates,
 			long allowedLateness) {
@@ -208,6 +215,8 @@ public abstract class WindowOperator<K, W extends Window>
 		this.accumulatorTypes = checkNotNull(accumulatorTypes);
 		this.aggResultTypes = checkNotNull(aggResultTypes);
 		this.windowPropertyTypes = checkNotNull(windowPropertyTypes);
+		this.accumulatorDigests = accumulatorDigests;
+		this.aggResultDigests = aggResultDigests;
 		this.allowedLateness = allowedLateness;
 		this.produceUpdates = produceUpdates;
 
@@ -226,6 +235,8 @@ public abstract class WindowOperator<K, W extends Window>
 			LogicalType[] accumulatorTypes,
 			LogicalType[] aggResultTypes,
 			LogicalType[] windowPropertyTypes,
+			FieldDigest[] accumulatorDigests,
+			FieldDigest[] aggResultDigests,
 			int rowtimeIndex,
 			boolean produceUpdates,
 			long allowedLateness) {
@@ -237,6 +248,8 @@ public abstract class WindowOperator<K, W extends Window>
 		this.accumulatorTypes = checkNotNull(accumulatorTypes);
 		this.aggResultTypes = checkNotNull(aggResultTypes);
 		this.windowPropertyTypes = checkNotNull(windowPropertyTypes);
+		this.accumulatorDigests = accumulatorDigests;
+		this.aggResultDigests = aggResultDigests;
 		this.allowedLateness = allowedLateness;
 		this.produceUpdates = produceUpdates;
 
@@ -257,13 +270,17 @@ public abstract class WindowOperator<K, W extends Window>
 	public void registerState(StateRegistry stateRegistry) throws Exception {
 		StateDescriptor<ValueState<RowData>, RowData> windowStateDescriptor = new ValueStateDescriptor<>(
 			"window-aggs",
-			new RowDataSerializer(getExecutionConfig(), accumulatorTypes));
+			new RowDataSerializer(getExecutionConfig(), accumulatorDigests, accumulatorTypes));
 		this.windowState = (InternalValueState<K, W, RowData>) stateRegistry.getOrCreateKeyedState(windowSerializer, windowStateDescriptor);
 		if (produceUpdates) {
 			LogicalType[] valueTypes = ArrayUtils.addAll(aggResultTypes, windowPropertyTypes);
+			// We only support using digests for serializers in pure SQL jobs now. And in pure SQL jobs,
+			// `windowPropertyTypes` is an empty list. We will check the length of windowPropertyTypes is zero or not
+			// when set aggResultDigests in {@link StreamExecGroupWindowAggregateBase}.
+			// todo: support extracting digest for windowProperties set in Table API.
 			StateDescriptor<ValueState<RowData>, RowData> previousStateDescriptor = new ValueStateDescriptor<>(
 				"previous-aggs",
-				new RowDataSerializer(getExecutionConfig(), valueTypes));
+				new RowDataSerializer(getExecutionConfig(), aggResultDigests, valueTypes));
 			this.previousState = (InternalValueState<K, W, RowData>) stateRegistry.getOrCreateKeyedState(windowSerializer, previousStateDescriptor);
 		}
 	}

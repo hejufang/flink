@@ -149,7 +149,7 @@ public class CheckpointVerifier {
 					StateMetaCompatibility compatibility = operatorStateMeta.resolveCompatibility(stateMetaFromJobGraph);
 					if (compatibility.isIncompatible()) {
 						final String message = "The state schema in " + operatorState.getOperatorID() +
-						"is incompatible because " + compatibility.getMessage() + " If you see this, usually it means that the state schema is changed with incompatible. And" +
+						" is incompatible because " + compatibility.getMessage() + " If you see this, usually it means that the state schema is changed with incompatible. And" +
 						" the state in previous checkpoint cannot be used in current job !!! \n" +
 						" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.";
 						logAndSyserr(message);
