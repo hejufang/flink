@@ -29,6 +29,8 @@ COMMON_JAR_PATH_LIST=("com.bytedance.commons"
                        "com.codahale.metrics"
                        "kotlin"
                        "org.springframework"
+                       "org.apache.curator"
+                       "org.apache.zookeeper"
                        )
 
 CHECK_LIBS_LIST=("lib/*"

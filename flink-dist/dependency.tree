@@ -41,14 +41,8 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  +- commons-io:commons-io:jar:2.4:compile
 |  +- org.apache.flink:flink-shaded-netty:jar:4.1.39.Final-11.0-byted-SNAPSHOT:compile
 |  +- org.apache.flink:flink-shaded-jackson:jar:2.10.1-11.0-byted-SNAPSHOT:compile
-|  +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.4.14-11.0-byted-SNAPSHOT:compile
+|  +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.5.9-11.0-byted-SNAPSHOT:compile
 |  +- org.apache.flink:flink-shaded-commons-cli:jar:1.3.1-11.0-byted-SNAPSHOT:compile
-|  +- org.apache.curator:curator-recipes:jar:2.12.0:compile
-|  |  \- org.apache.curator:curator-framework:jar:2.12.0:compile
-|  |     \- org.apache.curator:curator-client:jar:2.12.0:compile
-|  |        \- org.apache.zookeeper:zookeeper:jar:3.4.14:compile
-|  |           +- com.github.spotbugs:spotbugs-annotations:jar:3.1.9:compile
-|  |           \- org.apache.yetus:audience-annotations:jar:0.5.0:compile
 |  +- org.javassist:javassist:jar:3.24.0-GA:compile
 |  +- com.typesafe.akka:akka-actor_2.11:jar:2.5.21:compile
 |  |  +- com.typesafe:config:jar:1.3.0:compile
@@ -77,9 +71,9 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  \- io.dropwizard.metrics:metrics-core:jar:3.2.6:compile
 +- org.apache.flink:flink-mesos_2.11:jar:1.11-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-container_2.11:jar:1.11-byted-SNAPSHOT:compile
-+- org.apache.flink:flink-statebackend-rocksdb_2.11:jar:1.11-byted-SNAPSHOT:provided
-+- com.data-artisans:frocksdbjni:jar:5.17.2-artisans-2.0:provided
-+- com.bytedance:fterarkdbjni:jar:5.18.3-bytedance-terark-5.0:provided
++- org.apache.flink:flink-statebackend-rocksdb_2.11:jar:1.11-byted-SNAPSHOT:compile
+|  \- com.data-artisans:frocksdbjni:jar:5.17.2-artisans-2.0:compile
++- org.apache.flink:flink-statebackend-terarkdb_2.11:jar:1.11-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-kubernetes_2.11:jar:1.11-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-yarn_2.11:jar:1.11-byted-SNAPSHOT:compile
 |  \- com.bytedance.sr:sr-estimater-client:jar:1.0-SNAPSHOT:compile
@@ -130,7 +124,6 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-table-uber_2.11:jar:1.11-byted-SNAPSHOT:provided
 |  \- org.apache.flink:flink-sql-parser:jar:1.11-byted-SNAPSHOT:provided
 |     \- org.apache.calcite:calcite-core:jar:1.22.0-byted-1.05:provided
-|        \- org.apiguardian:apiguardian-api:jar:1.1.0:provided
 +- org.apache.flink:flink-table-uber-blink_2.11:jar:1.11-byted-SNAPSHOT:provided
 |  \- org.apache.flink:flink-sql-parser-hive:jar:1.11-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-sql-client_2.11:jar:1.11-byted-SNAPSHOT:provided
@@ -182,7 +175,6 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  \- asm:asm:jar:3.1:provided
 |  +- com.alibaba:fastjson:jar:1.2.68:provided
 |  +- com.jsoniter:jsoniter:jar:0.9.19:provided
-|  +- com.bytedance:java-redis-client:jar:2.1.7-HADOOP-SNAPSHOT:provided
 |  +- net.amygdalum:stringsearchalgorithms:jar:0.4.2:provided
 |  |  +- net.amygdalum:regexparser:jar:0.2.3:provided
 |  |  \- net.amygdalum:compilerutils:jar:0.2.2:provided
@@ -242,6 +234,7 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  |  |     +- org.apache.directory.server:apacheds-i18n:jar:2.0.0-M15:provided
 |  |  |  |  |     +- org.apache.directory.api:api-asn1-api:jar:1.0.0-M20:provided
 |  |  |  |  |     \- org.apache.directory.api:api-util:jar:1.0.0-M20:provided
+|  |  |  |  +- org.apache.curator:curator-client:jar:2.7.1:provided
 |  |  |  |  +- com.bytedance:btrace:jar:1.0.3:provided
 |  |  |  |  |  \- com.bytedance.data:databus4j:jar:1.0.1:provided
 |  |  |  |  \- org.htrace:htrace-core:jar:3.0.4:provided
@@ -272,6 +265,19 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  +- org.bouncycastle:bcprov-jdk15on:jar:1.52:provided
 |  |  |  \- com.jamesmurty.utils:java-xmlbuilder:jar:1.1:provided
 |  |  |     \- net.iharder:base64:jar:2.3.8:provided
+|  |  +- org.apache.curator:curator-recipes:jar:2.6.0:provided
+|  |  |  +- org.apache.curator:curator-framework:jar:2.6.0:provided
+|  |  |  \- org.apache.zookeeper:zookeeper:jar:3.5.9:provided
+|  |  |     +- org.apache.zookeeper:zookeeper-jute:jar:3.5.9:provided
+|  |  |     +- org.apache.yetus:audience-annotations:jar:0.5.0:provided
+|  |  |     +- io.netty:netty-handler:jar:4.1.50.Final:provided
+|  |  |     |  +- io.netty:netty-common:jar:4.1.50.Final:provided
+|  |  |     |  +- io.netty:netty-resolver:jar:4.1.50.Final:provided
+|  |  |     |  +- io.netty:netty-buffer:jar:4.1.50.Final:provided
+|  |  |     |  +- io.netty:netty-transport:jar:4.1.50.Final:provided
+|  |  |     |  \- io.netty:netty-codec:jar:4.1.50.Final:provided
+|  |  |     \- io.netty:netty-transport-native-epoll:jar:4.1.50.Final:provided
+|  |  |        \- io.netty:netty-transport-native-unix-common:jar:4.1.50.Final:provided
 |  |  +- javax.servlet:javax.servlet-api:jar:3.1.0:provided
 |  |  +- org.slf4j:jcl-over-slf4j:jar:1.7.16:provided
 |  |  +- com.ning:compress-lzf:jar:1.0.3:provided
@@ -344,11 +350,6 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  |  \- com.squareup.okio:okio:jar:1.13.0:provided
 |  |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.10.1:provided
 |  |  |  \- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.10.1:provided
-|  |  +- com.bytedance:consul-lang:jar:1.0.0:provided
-|  |  |  \- com.bytedance:version-collector-core:jar:1.1.0-6-SNAPSHOT:provided
-|  |  |     \- com.bytedance:env-conf-core-shadow:jar:1.0.12-rc.9-shadow-SNAPSHOT:provided
-|  |  |        +- commons-validator:commons-validator:jar:1.6:provided
-|  |  |        \- com.googlecode.java-ipv6:java-ipv6:jar:0.17:provided
 |  |  \- org.zeroturnaround:zt-exec:jar:1.10:provided
 |  +- com.google.protobuf:protobuf-java-util:jar:3.12.2:provided
 |  |  \- com.google.errorprone:error_prone_annotations:jar:2.3.4:provided
@@ -363,6 +364,16 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:force-shading:jar:1.11-byted-SNAPSHOT:compile
 +- org.slf4j:slf4j-api:jar:1.7.15:compile
 +- com.google.code.findbugs:jsr305:jar:1.3.9:compile
++- org.junit.jupiter:junit-jupiter:jar:5.8.1:test
+|  +- org.junit.jupiter:junit-jupiter-api:jar:5.8.1:test
+|  |  +- org.opentest4j:opentest4j:jar:1.2.0:test
+|  |  \- org.junit.platform:junit-platform-commons:jar:1.8.1:test
+|  +- org.junit.jupiter:junit-jupiter-params:jar:5.8.1:test
+|  \- org.junit.jupiter:junit-jupiter-engine:jar:5.8.1:test
++- org.junit.vintage:junit-vintage-engine:jar:5.8.1:test
+|  +- org.junit.platform:junit-platform-engine:jar:1.8.1:test
+|  \- org.apiguardian:apiguardian-api:jar:1.1.2:test
++- org.assertj:assertj-core:jar:3.21.0:test
 +- junit:junit:jar:4.12:test
 |  \- org.hamcrest:hamcrest-core:jar:1.3:test
 +- org.mockito:mockito-core:jar:2.21.0:test

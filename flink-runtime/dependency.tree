@@ -31,16 +31,16 @@ org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-queryable-state-client-java:jar:1.11-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-hadoop-fs:jar:1.11-byted-SNAPSHOT:compile
 +- org.apache.hadoop:hadoop-common:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
-|  +- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd259:compile
+|  +- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
 |  +- com.google.guava:guava:jar:11.0.2:compile
-|  +- commons-cli:commons-cli:jar:1.2:compile
+|  +- commons-cli:commons-cli:jar:1.2:compile (optional)
 |  +- xmlenc:xmlenc:jar:0.52:compile (optional)
 |  +- commons-httpclient:commons-httpclient:jar:3.1:compile (optional)
-|  +- commons-codec:commons-codec:jar:1.10:compile
+|  +- commons-codec:commons-codec:jar:1.10:compile (optional)
 |  +- commons-net:commons-net:jar:3.1:compile (optional)
-|  +- com.bytedance:commons:jar:0.0.17:compile
-|  |  +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:compile
-|  |  \- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:compile
+|  +- com.bytedance:commons:jar:0.0.17:compile (optional)
+|  |  +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:compile (optional)
+|  |  \- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:compile (optional)
 |  +- org.byted.infsec:dps:jar:2.0.5:compile (optional)
 |  |  +- org.bouncycastle:bcprov-jdk16:jar:1.46:compile (optional)
 |  |  +- com.auth0:java-jwt:jar:3.11.0:compile (optional)
@@ -72,52 +72,54 @@ org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT
 |  |  +- io.fabric8:kubernetes-model-storageclass:jar:yodel-5.10.3:compile (optional)
 |  |  +- io.fabric8:kubernetes-model-node:jar:yodel-5.10.3:compile (optional)
 |  |  +- com.squareup.okhttp3:logging-interceptor:jar:3.12.12:compile (optional)
-|  |  +- com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.10.1:compile
-|  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.10.1:compile
+|  |  +- com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.10.1:compile (optional)
+|  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.10.1:compile (optional)
 |  |  +- io.fabric8:zjsonpatch:jar:0.3.0:compile (optional)
 |  |  \- com.github.mifmif:generex:jar:1.0.2:compile (optional)
 |  |     \- dk.brics.automaton:automaton:jar:1.11-8:compile (optional)
 |  +- org.byted.security:zti-jwt-helper-java:jar:1.0.14:compile (optional)
 |  +- org.byted.security:zti-jwt-java:jar:1.0.25:compile (optional)
 |  +- org.byted.security:zti-issuer-helper-java:jar:1.0.20:compile (optional)
-|  +- javax.servlet:servlet-api:jar:2.5:compile
+|  +- javax.servlet:servlet-api:jar:2.5:compile (optional)
 |  +- org.mortbay.jetty:jetty:jar:6.1.26.cloudera.4:compile (optional)
-|  +- org.mortbay.jetty:jetty-util:jar:6.1.26.cloudera.4:compile
-|  +- com.sun.jersey:jersey-core:jar:1.9:compile
-|  +- com.sun.jersey:jersey-json:jar:1.9:compile
-|  |  +- org.codehaus.jettison:jettison:jar:1.1:compile
-|  |  +- com.sun.xml.bind:jaxb-impl:jar:2.2.3-1:compile
-|  |  +- org.codehaus.jackson:jackson-jaxrs:jar:1.8.3:compile
-|  |  \- org.codehaus.jackson:jackson-xc:jar:1.8.3:compile
-|  +- com.sun.jersey:jersey-server:jar:1.9:compile
-|  |  \- asm:asm:jar:3.1:compile
+|  +- org.mortbay.jetty:jetty-util:jar:6.1.26.cloudera.4:compile (optional)
+|  +- com.sun.jersey:jersey-core:jar:1.9:compile (optional)
+|  +- com.sun.jersey:jersey-json:jar:1.9:compile (optional)
+|  |  +- org.codehaus.jettison:jettison:jar:1.1:compile (optional)
+|  |  +- com.sun.xml.bind:jaxb-impl:jar:2.2.3-1:compile (optional)
+|  |  +- org.codehaus.jackson:jackson-jaxrs:jar:1.8.3:compile (optional)
+|  |  \- org.codehaus.jackson:jackson-xc:jar:1.8.3:compile (optional)
+|  +- com.sun.jersey:jersey-server:jar:1.9:compile (optional)
+|  |  \- asm:asm:jar:3.1:compile (optional)
 |  +- tomcat:jasper-compiler:jar:5.5.23:runtime (optional)
 |  +- tomcat:jasper-runtime:jar:5.5.23:compile (optional)
 |  +- javax.servlet.jsp:jsp-api:jar:2.1:compile (optional)
 |  +- commons-el:commons-el:jar:1.0:compile (optional)
-|  +- commons-logging:commons-logging:jar:1.1.3:compile
+|  +- commons-logging:commons-logging:jar:1.1.3:compile (optional)
 |  +- net.java.dev.jets3t:jets3t:jar:0.9.0:compile (optional)
 |  |  \- com.jamesmurty.utils:java-xmlbuilder:jar:0.4:compile (optional)
-|  +- commons-lang:commons-lang:jar:2.6:compile
-|  +- commons-configuration:commons-configuration:jar:1.7:compile
-|  |  +- commons-digester:commons-digester:jar:1.8.1:compile
-|  |  \- commons-beanutils:commons-beanutils:jar:1.8.3:compile
-|  +- org.codehaus.jackson:jackson-core-asl:jar:1.8.8:compile
-|  +- org.codehaus.jackson:jackson-mapper-asl:jar:1.8.8:compile
-|  +- org.apache.avro:avro:jar:1.8.2:compile
-|  |  +- com.thoughtworks.paranamer:paranamer:jar:2.7:compile
-|  |  \- org.tukaani:xz:jar:1.5:compile
-|  +- com.google.protobuf:protobuf-java:jar:2.5.0:compile
+|  +- commons-lang:commons-lang:jar:2.6:compile (optional)
+|  +- commons-configuration:commons-configuration:jar:1.7:compile (optional)
+|  |  +- commons-digester:commons-digester:jar:1.8.1:compile (optional)
+|  |  \- commons-beanutils:commons-beanutils:jar:1.8.3:compile (optional)
+|  +- org.codehaus.jackson:jackson-core-asl:jar:1.8.8:compile (optional)
+|  +- org.codehaus.jackson:jackson-mapper-asl:jar:1.8.8:compile (optional)
+|  +- org.apache.avro:avro:jar:1.8.2:compile (optional)
+|  |  +- com.thoughtworks.paranamer:paranamer:jar:2.7:compile (optional)
+|  |  \- org.tukaani:xz:jar:1.5:compile (optional)
+|  +- com.google.protobuf:protobuf-java:jar:2.5.0:compile (optional)
 |  +- com.google.code.gson:gson:jar:2.2.4:compile (optional)
 |  +- org.apache.hadoop:hadoop-auth:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
-|  |  \- org.apache.directory.server:apacheds-kerberos-codec:jar:2.0.0-M15:compile (optional)
-|  |     +- org.apache.directory.server:apacheds-i18n:jar:2.0.0-M15:compile (optional)
-|  |     +- org.apache.directory.api:api-asn1-api:jar:1.0.0-M20:compile (optional)
-|  |     \- org.apache.directory.api:api-util:jar:1.0.0-M20:compile (optional)
+|  |  +- org.apache.directory.server:apacheds-kerberos-codec:jar:2.0.0-M15:compile (optional)
+|  |  |  +- org.apache.directory.server:apacheds-i18n:jar:2.0.0-M15:compile (optional)
+|  |  |  +- org.apache.directory.api:api-asn1-api:jar:1.0.0-M20:compile (optional)
+|  |  |  \- org.apache.directory.api:api-util:jar:1.0.0-M20:compile (optional)
+|  |  \- org.apache.curator:curator-framework:jar:2.7.1:compile (optional)
 |  +- com.jcraft:jsch:jar:0.1.54:compile (optional)
-|  +- org.apache.curator:curator-client:jar:2.7.1:compile
-|  +- com.bytedance:btrace:jar:1.0.3:compile
-|  |  \- com.bytedance.data:databus4j:jar:1.0.1:compile
+|  +- org.apache.curator:curator-client:jar:2.7.1:compile (optional)
+|  +- org.apache.curator:curator-recipes:jar:2.7.1:compile (optional)
+|  +- com.bytedance:btrace:jar:1.0.3:compile (optional)
+|  |  \- com.bytedance.data:databus4j:jar:1.0.1:compile (optional)
 |  +- org.htrace:htrace-core:jar:3.0.4:compile (optional)
 |  \- org.apache.zookeeper:zookeeper:jar:3.5.9:compile
 |     +- org.apache.zookeeper:zookeeper-jute:jar:3.5.9:compile
@@ -133,7 +135,7 @@ org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.hadoop:hadoop-hdfs:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
 |  +- commons-daemon:commons-daemon:jar:1.0.13:compile (optional)
 |  +- org.fusesource.leveldbjni:leveldbjni-all:jar:1.8:compile (optional)
-|  +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:compile
+|  +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:compile (optional)
 |  +- com.bytedance:java-redis-client:jar:2.3.10:compile (optional)
 |  |  +- org.bytedance:jedis:jar:3.1.7:compile (optional)
 |  |  \- cglib:cglib:jar:3.2.5:compile (optional)
@@ -141,23 +143,23 @@ org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT
 |  |     \- org.apache.ant:ant:jar:1.9.6:compile (optional)
 |  |        \- org.apache.ant:ant-launcher:jar:1.9.6:compile (optional)
 |  +- org.apache.mina:mina-core:jar:2.0.10:compile (optional)
-|  +- org.apache.httpcomponents:httpclient:jar:4.5.3:compile
-|  +- org.apache.httpcomponents:httpcore:jar:4.4.6:compile
+|  +- org.apache.httpcomponents:httpclient:jar:4.5.3:compile (optional)
+|  +- org.apache.httpcomponents:httpcore:jar:4.4.6:compile (optional)
 |  \- org.apache.hadoop:hadoop-qlimiter-client:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
 +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
-|  +- org.apache.hadoop:hadoop-yarn-common:jar:2.6.0-cdh5.4.4-bd259:compile
-|  |  +- org.apache.hadoop:hadoop-yarn-api:jar:2.6.0-cdh5.4.4-bd259:compile
-|  |  +- javax.xml.bind:jaxb-api:jar:2.3.1:compile
-|  |  |  \- javax.activation:javax.activation-api:jar:1.2.0:compile
-|  |  +- com.sun.jersey:jersey-client:jar:1.9:compile
-|  |  +- com.google.inject:guice:jar:3.0:compile
-|  |  |  +- javax.inject:javax.inject:jar:1:compile
-|  |  |  \- aopalliance:aopalliance:jar:1.0:compile
-|  |  \- com.sun.jersey.contribs:jersey-guice:jar:1.9:compile
+|  +- org.apache.hadoop:hadoop-yarn-common:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
+|  |  +- org.apache.hadoop:hadoop-yarn-api:jar:2.6.0-cdh5.4.4-bd259:compile (optional)
+|  |  +- javax.xml.bind:jaxb-api:jar:2.3.1:compile (optional)
+|  |  |  \- javax.activation:javax.activation-api:jar:1.2.0:compile (optional)
+|  |  +- com.sun.jersey:jersey-client:jar:1.9:compile (optional)
+|  |  +- com.google.inject:guice:jar:3.0:compile (optional)
+|  |  |  +- javax.inject:javax.inject:jar:1:compile (optional)
+|  |  |  \- aopalliance:aopalliance:jar:1.0:compile (optional)
+|  |  \- com.sun.jersey.contribs:jersey-guice:jar:1.9:compile (optional)
 |  +- com.bytedance:metrics4j:jar:1.0.4:compile (optional)
 |  +- com.codahale.metrics:metrics-core:jar:3.0.1:compile (optional)
 |  +- com.hadoop.fourmc:hadoop-4mc:jar:2.0.0-bd2-SNAPSHOT:compile (optional)
-|  \- com.google.inject.extensions:guice-servlet:jar:3.0:compile
+|  \- com.google.inject.extensions:guice-servlet:jar:3.0:compile (optional)
 +- commons-io:commons-io:jar:2.4:compile
 +- org.apache.flink:flink-shaded-netty:jar:4.1.39.Final-11.0-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-shaded-guava:jar:18.0-11.0-byted-SNAPSHOT:compile
@@ -165,8 +167,6 @@ org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.5.9-11.0-byted-SNAPSHOT:compile
 +- org.apache.commons:commons-lang3:jar:3.3.2:compile
 +- org.apache.flink:flink-shaded-commons-cli:jar:1.3.1-11.0-byted-SNAPSHOT:compile
-+- org.apache.curator:curator-recipes:jar:5.2.0:compile
-|  \- org.apache.curator:curator-framework:jar:5.2.0:compile
 +- org.javassist:javassist:jar:3.24.0-GA:compile
 +- org.scala-lang:scala-library:jar:2.11.12:compile
 +- com.typesafe.akka:akka-actor_2.11:jar:2.5.21:compile
