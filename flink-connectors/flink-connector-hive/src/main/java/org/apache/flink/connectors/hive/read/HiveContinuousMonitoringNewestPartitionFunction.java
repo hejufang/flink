@@ -135,7 +135,10 @@ public class HiveContinuousMonitoringNewestPartitionFunction
 	private transient String defaultPartitionName;
 
 	private final short partitionNumLimit = 10000;
+
 	private final int hiveClientRetryTimes;
+
+	private final boolean useFlinkGetSplits;
 
 	public HiveContinuousMonitoringNewestPartitionFunction(
 			HiveShim hiveShim,
@@ -151,7 +154,8 @@ public class HiveContinuousMonitoringNewestPartitionFunction
 			String partitionFilter,
 			Tuple2<Integer, Integer> partitionPendingRange,
 			long partitionPendingTimeout,
-			int hiveClientRetryTimes) {
+			int hiveClientRetryTimes,
+			boolean useFlinkGetSplits) {
 
 		this.hiveShim = hiveShim;
 		this.conf = new JobConfWrapper(conf);
@@ -185,6 +189,7 @@ public class HiveContinuousMonitoringNewestPartitionFunction
 		this.cal = Calendar.getInstance();
 
 		this.hiveClientRetryTimes = hiveClientRetryTimes;
+		this.useFlinkGetSplits = useFlinkGetSplits;
 	}
 
 	@Override
@@ -275,7 +280,8 @@ public class HiveContinuousMonitoringNewestPartitionFunction
 			splits = HiveTableInputFormat.createInputSplits(
 				this.readerParallelism,
 				Collections.singletonList(toHiveTablePartition(this.newestPartitions.get(i))),
-				this.conf.conf());
+				this.conf.conf(),
+				this.useFlinkGetSplits);
 
 			for (HiveTableInputSplit split : splits) {
 				splitsWithTs.add(new Tuple2<>(split, this.newestPartitions.get(i).getLastAccessTime()));

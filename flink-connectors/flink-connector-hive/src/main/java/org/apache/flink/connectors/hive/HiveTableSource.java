@@ -435,6 +435,8 @@ public class HiveTableSource implements
 			long partitionPendingTimeout = configuration.get(SCAN_HIVE_PARTITION_PENDING_TIMEOUT).toMillis();
 			int hiveClientRetryTimes = configuration.get(SCAN_HIVE_CLIENT_RETRY_TIMES);
 
+			boolean useFlinkGetSplits = flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_USE_FLINK_GET_SPLITS);
+
 			monitoringFunction = new HiveContinuousMonitoringNewestPartitionFunction(
 				hiveShim,
 				jobConf,
@@ -449,7 +451,8 @@ public class HiveTableSource implements
 				partitionFilter,
 				partitionPendingRange,
 				partitionPendingTimeout,
-				hiveClientRetryTimes);
+				hiveClientRetryTimes,
+				useFlinkGetSplits);
 		}
 
 		boolean isSync = scanInterval != null;

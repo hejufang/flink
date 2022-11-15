@@ -313,6 +313,14 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		return createInputSplits(minNumSplits, partitions, jobConf, false, s -> s, false);
 	}
 
+	public static HiveTableInputSplit[] createInputSplits(
+			int minNumSplits,
+			List<HiveTablePartition> partitions,
+			JobConf jobConf,
+			boolean useFastGetSplits) throws IOException {
+		return createInputSplits(minNumSplits, partitions, jobConf, false, s -> s, useFastGetSplits);
+	}
+
 	protected HiveTableInputSplit[] createInputSplits(
 			int minNumSplits,
 			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {

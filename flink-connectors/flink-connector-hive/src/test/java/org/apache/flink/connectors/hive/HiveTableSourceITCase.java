@@ -889,6 +889,68 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 		assertEquals(expected, results);
 	}
 
+	@Test(timeout = 120000)
+	public void testBroadcastJoinUseFlinkGetSplits() throws Exception {
+
+		String dbName = "source_db";
+		String tblName = "broadcastjoin_default";
+
+		StreamTableEnvironment stEnv = createEnvForBroadcastJoin();
+		stEnv.getConfig().getConfiguration().setBoolean(HiveOptions.TABLE_EXEC_HIVE_USE_FLINK_GET_SPLITS, true);
+
+		stEnv.executeSql(
+			"CREATE TABLE " + dbName + "." + tblName + " (" +
+				" a INT," +
+				" b STRING" +
+				") PARTITIONED BY (p_date STRING) TBLPROPERTIES (" +
+				"'streaming-source.enable'='true'," +
+				"'scan.input-format-read-interval' = '5s'," +
+				"'scan.count-of-scan-times' = '2'," +
+				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
+				"'scan.hive.forward-partition-num' = '1'" +
+				")"
+		);
+
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+		dateFormat.setLenient(false);
+
+		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(new Date()));
+		String formattedDate = null;
+		for (int i = -1; i <= 1; i++) {
+			cal.setTime(formattedCurrentDate);
+			cal.add(Calendar.DATE, i);
+			formattedDate = dateFormat.format(cal.getTime());
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "'");
+		}
+
+		getStreamSourceForBroadcastJoin(stEnv, 0L);
+
+		Iterator<Row> collected = stEnv.executeSql(
+			"select\n" +
+				"/*+ use_broadcast_join('table' = '" + tblName + "', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min') */\n" +
+				"*\n" +
+				"from A a left join hive." + dbName + "." + tblName + " " +
+				"h on a.a_id = h.a\n"
+		).collect();
+
+		List<String> results = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+
+		List<String> expected = Arrays.asList(
+			"0,A0,0,0," + formattedDate.split(" ")[0],
+			"1,A1,null,null,null",
+			"2,A2,null,null,null"
+		);
+
+		assertEquals(expected, results);
+	}
+
 	@Test(timeout = 30000)
 	public void testNonPartitionStreamingSourceWithMapredReader() throws Exception {
 		testNonPartitionStreamingSource(true, "test_mapred_reader");
