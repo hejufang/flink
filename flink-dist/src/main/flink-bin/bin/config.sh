@@ -229,7 +229,12 @@ function get_value_from_config_yaml() {
                     delete nameLevel[i]
                 }
             }
-            # if has value and top-level is common/cluster
+            # if the key in first-level for server
+            if (nameLevel[0] == "'$configKey'") {
+                value=$3
+                printf(";;;%s", value);
+            }
+            # if has value and top-level is common/cluster for client
             if (length($3) > 0 && (nameLevel[0] == "'$checkDomain'" || nameLevel[0] == "'$clusterName'" || nameLevel[0] == "common")) {
                 key="";
                 # do not need top-level
