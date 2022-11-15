@@ -162,6 +162,10 @@ public class DashboardTemplate {
 	public static final String OPERATOR_LATENCY_TARGET_TEMPLATE = "operatorlatency/operator_latency_target_template.txt";
 	public static final String OPERATOR_LATENCY_TEMPLATE = "operatorlatency/operator_latency_template.txt";
 	public static final String OPERATOR_LATENCY_ROW_TEMPLATE = "operatorlatency/operator_latency_row_template.txt";
+	public static final String TASK_IDLE_TIME_TARGET_TEMPLATE = "task_idle_time_target_template.txt";
+	public static final String TASK_BUSY_TIME_TARGET_TEMPLATE = "task_busy_time_target_template.txt";
+	public static final String TASK_BACKPRESSURED_TIME_TARGET_TEMPLATE = "task_backpressured_time_target_template.txt";
+	public static final String TASK_STATUS_TEMPLATE = "task_status_template.txt";
 
 	/**
 	 * Process Latency.

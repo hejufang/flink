@@ -649,6 +649,39 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
+	private String renderTaskWorkStatusRow(List<String> operators) {
+		String idleTimeTargetTemplate;
+		String busyTimeTargetTemplate;
+		String backPressuredTimeTargetTemplate;
+		String taskStatusTemplate;
+
+		try {
+			idleTimeTargetTemplate = renderFromResource(DashboardTemplate.TASK_IDLE_TIME_TARGET_TEMPLATE);
+			busyTimeTargetTemplate = renderFromResource(DashboardTemplate.TASK_BUSY_TIME_TARGET_TEMPLATE);
+			backPressuredTimeTargetTemplate = renderFromResource(DashboardTemplate.TASK_BACKPRESSURED_TIME_TARGET_TEMPLATE);
+			taskStatusTemplate = renderFromResource(DashboardTemplate.TASK_STATUS_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> taskStatusList = new ArrayList<>();
+		for (int i = 0; i < operators.size(); i++) {
+			Map<String, String> taskStatusTargetValues = new HashMap<>();
+			taskStatusTargetValues.put("operator", operators.get(i));
+			taskStatusTargetValues.put("jobname", formatJobName);
+			taskStatusTargetValues.put("hide", i > targetLimit / 2 ? "true" : "false");
+			taskStatusList.add(renderString(idleTimeTargetTemplate, taskStatusTargetValues));
+			taskStatusList.add(renderString(busyTimeTargetTemplate, taskStatusTargetValues));
+			taskStatusList.add(renderString(backPressuredTimeTargetTemplate, taskStatusTargetValues));
+		}
+		String targets = String.join(",", taskStatusList);
+		Map<String, String> taskStatusValues = new HashMap<>();
+		taskStatusValues.put("targets", targets);
+		taskStatusValues.put("datasource", dataSource);
+		String taskStatusRow = renderString(taskStatusTemplate, taskStatusValues);
+		return taskStatusRow;
+	}
+
 	private String renderPoolUsageRow(List<String> operators) {
 		String inPoolUsageTargetTemplate;
 		String outPoolUsageTargetTemplate;
@@ -1260,6 +1293,7 @@ public class Dashboard {
 		overViewPanels.add(renderOperatorLatencyRow(operatorsButSources));
 		overViewPanels.add(renderPoolUsageRow(tasks));
 		overViewPanels.add(renderRecordNumRow(operators));
+		overViewPanels.add(renderTaskWorkStatusRow(tasks));
 		// if latency marker is opened.
 		LOG.info("latency interval: {}", streamGraph.getExecutionConfig().getLatencyTrackingInterval());
 		if (streamGraph.getExecutionConfig().getLatencyTrackingInterval() > 0) {

@@ -144,6 +144,10 @@ non-global:
         outPoolUsage,
       # Task InputChannels number
         numberOfInputChannels,
+      # Task work status
+        idleTimeMsPerSecond,
+        backPressuredTimeMsPerSecond,
+        busyTimeMsPerSecond,
       # Task error info
         upstreamTaskErrorNum,
       # In/Out Record Number
