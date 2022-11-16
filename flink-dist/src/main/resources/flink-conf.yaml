@@ -144,7 +144,8 @@ common:
   kubernetes.pod.termination-grace-period-seconds: 1
 
   # Databus Sidecar
-  kubernetes.sidecar.databus.image: hub.byted.org/tce/bytedance.inf.databus_sidecar:abd3dc16c5ab1d3a4f33ea6d45a7b120
+  # ref: https://cloud.bytedance.net/image/351153
+  kubernetes.sidecar.databus.image: hub.byted.org/tce/bytedance.inf.databus_sidecar:63e4d81a2a8760f61cd0a17bb9c6ffc0
 
   # Arcee configuration
   kubernetes.arcee.scheduling-config.schedule-timeout-seconds: 120
