@@ -23,6 +23,7 @@ import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 
 import java.util.Set;
 
@@ -31,7 +32,7 @@ import java.util.Set;
  */
 public interface BlacklistTracker extends AutoCloseable {
 
-	void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions);
+	void start(ScheduledExecutor scheduledExecutor, ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions);
 
 	void clearAll();
 

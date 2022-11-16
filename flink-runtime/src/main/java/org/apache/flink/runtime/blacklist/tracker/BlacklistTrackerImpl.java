@@ -32,8 +32,12 @@ import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.blacklist.WarehouseBlacklistFailureMessage;
 import org.apache.flink.runtime.blacklist.WarehouseBlacklistRecordMessage;
+import org.apache.flink.runtime.blacklist.tracker.handler.CountBasedFailureHandler;
+import org.apache.flink.runtime.blacklist.tracker.handler.FailureHandler;
+import org.apache.flink.runtime.blacklist.tracker.handler.NetworkFailureHandler;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.throwable.ThrowableType;
 import org.apache.flink.util.clock.Clock;
@@ -42,12 +46,15 @@ import org.apache.flink.util.clock.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -75,14 +82,19 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private final ResourceManagerMetricGroup jobManagerMetricGroup;
 	private final Set<BlacklistRecord> blackedRecords;
 	private final Set<FailureHandler> failureHandlers;
-	private ComponentMainThreadExecutor mainThreadExecutor;
-	private BlacklistActions blacklistActions;
 	private final Time checkInterval;
 
 	private final Set<String> ignoreExceptionClassNames;
 	private final Clock clock;
 
 	private final FailureHandlerRouter router;
+	private final AtomicBoolean scheduleToUpdateBlacklist = new AtomicBoolean(false);
+	private final Time scheduleToUpdateBlacklistTime;
+	private final List<ScheduledFuture<?>> periodicScheduledFutures = new ArrayList<>();
+
+	private ScheduledExecutor scheduledExecutor;
+	private ComponentMainThreadExecutor mainThreadExecutor;
+	private BlacklistActions blacklistActions;
 
 	public BlacklistTrackerImpl(
 			BlacklistConfiguration blacklistConfiguration,
@@ -99,10 +111,18 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				blacklistConfiguration.getMaxHostPerExceptionMinNumber(),
 				blacklistConfiguration.getMaxHostPerExceptionRatio(),
 				blacklistConfiguration.getIgnoredExceptionClassNames(),
+				blacklistConfiguration.getFailureEffectiveTime(),
+				blacklistConfiguration.getNetworkFailureExpireTime(),
+				blacklistConfiguration.getTimestampRecordExpireTime(),
+				blacklistConfiguration.getMeanSdRatioAllBlockedThreshold(),
+				blacklistConfiguration.getMeanSdRatioSomeBlockedThreshold(),
+				blacklistConfiguration.getExpectedMinHost(),
+				blacklistConfiguration.getExpectedBlockedHostRatio(),
 				jobManagerMetricGroup,
 				SystemClock.getInstance());
 	}
 
+	@VisibleForTesting
 	public BlacklistTrackerImpl(
 			int maxTaskFailureNumPerHost,
 			int maxTaskManagerFailureNumPerHost,
@@ -117,6 +137,50 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			List<String> ignoredExceptions,
 			ResourceManagerMetricGroup jobManagerMetricGroup,
 			Clock clock) {
+		this(
+				maxTaskFailureNumPerHost,
+				maxTaskManagerFailureNumPerHost,
+				taskBlacklistMaxLength,
+				taskManagerBlacklistMaxLength,
+				failureTimeout,
+				checkInterval,
+				isCriticalErrorEnable,
+				maxFailureNum,
+				maxHostPerExceptionMinNumber,
+				maxHostPerExceptionRatio,
+				ignoredExceptions,
+				Time.seconds(30),
+				Time.minutes(30),
+				Time.seconds(60),
+				0.5f,
+				0.5f,
+				1,
+				0.5f,
+				jobManagerMetricGroup,
+				clock);
+	}
+
+	public BlacklistTrackerImpl(
+			int maxTaskFailureNumPerHost,
+			int maxTaskManagerFailureNumPerHost,
+			int taskBlacklistMaxLength,
+			int taskManagerBlacklistMaxLength,
+			Time failureTimeout,
+			Time checkInterval,
+			boolean isCriticalErrorEnable,
+			int maxFailureNum,
+			int maxHostPerExceptionMinNumber,
+			double maxHostPerExceptionRatio,
+			List<String> ignoredExceptions,
+			Time failureEffectiveTime,
+			Time networkFailureExpireTime,
+			Time timestampRecordExpireTime,
+			float meanSdRatioAllBlockedThreshold,
+			float meanSdRatioThresholdSomeBlocked,
+			int expectedMinHost,
+			float expectedBlockedHostRatio,
+			ResourceManagerMetricGroup jobManagerMetricGroup,
+			Clock clock) {
 
 		this.blackedRecords = new HashSet<>();
 		this.failureHandlers = new HashSet<>();
@@ -124,6 +188,9 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		this.jobManagerMetricGroup = checkNotNull(jobManagerMetricGroup);
 		this.clock = clock;
 		this.ignoreExceptionClassNames = new HashSet<>(ignoredExceptions);
+		// we want to accumulate a range of exception and then update blacklist, so the schedule time to update blacklist
+		// should be longer than failureEffectiveTime. Here set it as twice.
+		this.scheduleToUpdateBlacklistTime = Time.milliseconds(2 * failureEffectiveTime.toMilliseconds());
 
 		FailureHandler taskFailoverHandler = new CountBasedFailureHandler(
 				maxTaskFailureNumPerHost,
@@ -133,7 +200,6 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				maxHostPerExceptionRatio,
 				maxHostPerExceptionMinNumber,
 				clock,
-				blacklistFailureMessageSet,
 				BlacklistUtil.FailureActionType.RELEASE_BLACKED_RESOURCE,
 				BlacklistUtil.FailureType.TASK);
 		failureHandlers.add(taskFailoverHandler);
@@ -150,7 +216,6 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				maxHostPerExceptionRatio,
 				maxHostPerExceptionMinNumber,
 				clock,
-				blacklistFailureMessageSet,
 				BlacklistUtil.FailureActionType.NO_SCHEDULE,
 				BlacklistUtil.FailureType.TASK_MANAGER);
 		failureHandlers.add(taskManagerFailoverHandler);
@@ -163,39 +228,75 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 					taskBlacklistMaxLength,
 					maxFailureNum,
 					clock,
-					blacklistFailureMessageSet,
 					BlacklistUtil.FailureActionType.RELEASE_BLACKED_HOST,
 					BlacklistUtil.FailureType.CRITICAL_EXCEPTION);
 			failureHandlers.add(criticalFailoverHandler);
 			router.registerFailureHandler(ThrowableType.CriticalError, criticalFailoverHandler);
 		}
 
+		// network failure handler
+		FailureHandler networkFailureHandler = new NetworkFailureHandler(
+				failureEffectiveTime,
+				networkFailureExpireTime,
+				timestampRecordExpireTime,
+				meanSdRatioAllBlockedThreshold,
+				meanSdRatioThresholdSomeBlocked,
+				expectedMinHost,
+				expectedBlockedHostRatio,
+				maxTaskFailureNumPerHost,
+				clock);
+		failureHandlers.add(networkFailureHandler);
+		router.registerFailureHandler(BlacklistUtil.FailureType.NETWORK, networkFailureHandler);
+
 		registerMetrics();
 	}
 
 	@Override
-	public void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions) {
-		this.blacklistActions = blacklistActions;
+	public void start(ScheduledExecutor scheduledExecutor, ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions) {
+		this.scheduledExecutor = scheduledExecutor;
 		this.mainThreadExecutor = mainThreadExecutor;
-		this.mainThreadExecutor.schedule(
-				this::checkFailureExceedTimeout,
+		this.blacklistActions = blacklistActions;
+		this.failureHandlers.forEach(h -> h.start(mainThreadExecutor, blacklistActions));
+		// mainThreadExecutor in RpcEndpoint doesn't implement scheduleAtFixedRate(), so here we use another scheduledExecutor
+		// to call execute() of mainThreadExecutor in the future.
+		ScheduledFuture<?> checkFailureExceedTimeoutFuture = scheduledExecutor.scheduleAtFixedRate(
+				() -> mainThreadExecutor.execute(this::checkFailureExceedTimeout),
+				0,
 				checkInterval.toMilliseconds(),
-				TimeUnit.MILLISECONDS);
-		this.mainThreadExecutor.schedule(
-				this::reportBlackedRecordAccuracy,
+				TimeUnit.MILLISECONDS
+		);
+		ScheduledFuture<?> reportBlackedRecordAccuracyFuture = scheduledExecutor.scheduleAtFixedRate(
+				() -> mainThreadExecutor.execute(this::reportBlackedRecordAccuracy),
 				checkInterval.toMilliseconds(),
-				TimeUnit.MILLISECONDS);
-		this.mainThreadExecutor.schedule(
-				this::tryUpdateMaxHostPerExceptionThreshold,
 				checkInterval.toMilliseconds(),
-				TimeUnit.MILLISECONDS);
-		tryUpdateBlacklist();
+				TimeUnit.MILLISECONDS
+		);
+		ScheduledFuture<?> updateMaxHostPerExceptionThresholdFuture = scheduledExecutor.scheduleAtFixedRate(
+				() -> mainThreadExecutor.execute(this::tryUpdateMaxHostPerExceptionThreshold),
+				checkInterval.toMilliseconds(),
+				checkInterval.toMilliseconds(),
+				TimeUnit.MILLISECONDS
+		);
+		ScheduledFuture<?> updateTotalNumberOfHostsFuture = scheduledExecutor.scheduleAtFixedRate(
+				() -> mainThreadExecutor.execute(this::tryUpdateTotalNumberOfHosts),
+				checkInterval.toMilliseconds(),
+				checkInterval.toMilliseconds(),
+				TimeUnit.MILLISECONDS
+		);
+		periodicScheduledFutures.add(checkFailureExceedTimeoutFuture);
+		periodicScheduledFutures.add(reportBlackedRecordAccuracyFuture);
+		periodicScheduledFutures.add(updateMaxHostPerExceptionThresholdFuture);
+		periodicScheduledFutures.add(updateTotalNumberOfHostsFuture);
 	}
 
 	@Override
-	public void close() throws Exception {
+	public void close() {
 		LOG.info("Closing the SessionBlacklistTracker.");
 		clearAll();
+		for (ScheduledFuture<?> scheduledFuture : periodicScheduledFutures) {
+			scheduledFuture.cancel(true);
+		}
+		periodicScheduledFutures.clear();
 	}
 
 	@Override
@@ -232,6 +333,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	@Override
 	public void clearAll() {
 		this.blackedRecords.clear();
+		scheduleToUpdateBlacklist.set(false);
 		for (FailureHandler failureHandler : failureHandlers) {
 			failureHandler.clear();
 		}
@@ -248,8 +350,17 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		}
 
 		HostFailure hostFailure = new HostFailure(failureType, hostname, resourceID, cause, timestamp);
-		if (router.routeFailure(hostFailure)) {
-			tryUpdateBlacklist();
+		router.routeFailure(hostFailure);
+		blacklistFailureMessageSet.addMessage(
+				new Message<>(WarehouseBlacklistFailureMessage.fromHostFailure(hostFailure)));
+		if (scheduleToUpdateBlacklist.compareAndSet(false, true)) {
+			this.mainThreadExecutor.schedule(
+					() -> {
+						tryUpdateBlacklist();
+						scheduleToUpdateBlacklist.set(false);
+					},
+					scheduleToUpdateBlacklistTime.toMilliseconds(),
+					TimeUnit.MILLISECONDS);
 		}
 	}
 
@@ -318,11 +429,6 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		} catch (Exception e) {
 			LOG.error("checkFailureExceedTimeout error", e);
 		}
-
-		this.mainThreadExecutor.schedule(
-				this::checkFailureExceedTimeout,
-				checkInterval.toMilliseconds(),
-				TimeUnit.MILLISECONDS);
 	}
 
 	public void reportBlackedRecordAccuracy() {
@@ -370,11 +476,6 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		} catch (Exception e) {
 			LOG.error("reportBlackedRecordAccuracy error", e);
 		}
-
-		this.mainThreadExecutor.schedule(
-				this::reportBlackedRecordAccuracy,
-				checkInterval.toMilliseconds(),
-				TimeUnit.MILLISECONDS);
 	}
 
 	public void tryUpdateMaxHostPerExceptionThreshold() {
@@ -389,10 +490,19 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		} catch (Exception e) {
 			LOG.error("updateMaxHostPerExceptionThreshold error", e);
 		}
+	}
 
-		this.mainThreadExecutor.schedule(
-				this::tryUpdateMaxHostPerExceptionThreshold,
-				checkInterval.toMilliseconds(),
-				TimeUnit.MILLISECONDS);
+	public void tryUpdateTotalNumberOfHosts(){
+		try {
+			LOG.debug("Start to updateTotalNumberOfHosts.");
+			int totalHostNumber = blacklistActions.queryNumberOfHosts();
+			if (totalHostNumber > 0) {
+				for (FailureHandler failureHandler : failureHandlers) {
+					failureHandler.updateTotalNumberOfHosts(totalHostNumber);
+				}
+			}
+		} catch (Exception e) {
+			LOG.error("updateTotalNumberOfHosts error", e);
+		}
 	}
 }

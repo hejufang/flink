@@ -56,6 +56,7 @@ import org.apache.flink.runtime.heartbeat.HeartbeatTarget;
 import org.apache.flink.runtime.heartbeat.NoOpHeartbeatManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.instance.InstanceID;
+import org.apache.flink.runtime.io.network.NetworkAddress;
 import org.apache.flink.runtime.io.network.partition.DataSetMetaInfo;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
@@ -108,9 +109,11 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -151,6 +154,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	/** All currently registered TaskExecutors with there framework specific worker information. */
 	private final Map<ResourceID, WorkerRegistration<WorkerType>> taskExecutors;
+
+	/** store the map between history network address (hostname/ip, data port) and task manager id. */
+	private final Map<NetworkAddress, ResourceID> historyNetworkAddressToTaskManagerID;
 
 	/** Ongoing registration of TaskExecutors per resource ID. */
 	private final Map<ResourceID, CompletableFuture<TaskExecutorGateway>> taskExecutorGatewayFutures;
@@ -286,6 +292,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.jobManagerRegistrations = new HashMap<>(4);
 		this.jmResourceIdRegistrations = new HashMap<>(4);
 		this.taskExecutors = new HashMap<>(8);
+		this.historyNetworkAddressToTaskManagerID = new HashMap<>(8);
 		this.taskExecutorGatewayFutures = new HashMap<>(8);
 		this.dispatcherGatewayFutures = new HashMap<>(4);
 		this.dispatcherRegistrations = new HashMap<>(4);
@@ -1049,7 +1056,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				} else {
 					blacklistTracker.onFailure(
 							failureType,
-							taskExecutor.getTaskExecutorGateway().getHostname(),
+							hostname,
 							taskManagerId,
 							cause,
 							timestamp);
@@ -1199,6 +1206,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			log.info("Registering TaskManager with ResourceID {} ({}) at ResourceManager", taskExecutorResourceId, taskExecutorAddress);
 			taskExecutors.put(taskExecutorResourceId, registration);
+			historyNetworkAddressToTaskManagerID.put(
+					new NetworkAddress(registration.getTaskExecutorGateway().getHostname(), registration.getDataPort()), taskExecutorResourceId);
 
 			taskManagerHeartbeatManager.monitorTarget(taskExecutorResourceId, new HeartbeatTarget<Void>() {
 				@Override
@@ -1453,7 +1462,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		if (workerRegistration != null) {
 			log.warn("Closing TaskExecutor connection {} with exit code {} because: {}", LoggerHelper.secMark("resourceID", resourceID), LoggerHelper.secMark("exitCode", exitCode), LoggerHelper.secMark("errMsg", cause.getMessage()));
-
+			// remove network address record after 300s.
+			NetworkAddress networkAddress = new NetworkAddress(
+					workerRegistration.getTaskExecutorGateway().getHostname(), workerRegistration.getDataPort());
+			scheduleRunAsync(() -> historyNetworkAddressToTaskManagerID.remove(networkAddress), 300, TimeUnit.SECONDS);
 			// TODO :: suggest failed task executor to stop itself
 			slotManager.unregisterTaskManager(workerRegistration.getInstanceID(), cause);
 			clusterPartitionTracker.processTaskExecutorShutdown(resourceID);
@@ -1617,7 +1629,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	protected void startServicesOnLeadership() {
 		startHeartbeatServices();
 
-		blacklistTracker.start(getMainThreadExecutor(), new BlacklistActionsImpl());
+		blacklistTracker.start(getRpcService().getScheduledExecutor(), getMainThreadExecutor(), new BlacklistActionsImpl());
 		slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
 	}
 
@@ -1636,7 +1648,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 				slotManager.suspend();
 
-				blacklistTracker.clearAll();
+				try {
+					blacklistTracker.close();
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
 
 				stopHeartbeatServices();
 
@@ -1826,7 +1842,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
-	private class BlacklistActionsImpl implements BlacklistActions {
+	/**
+	 * Implementation of BlacklistActions by delegating actions to Resource Manager.
+	 */
+	public class BlacklistActionsImpl implements BlacklistActions {
+
+		private final Map<ResourceID, String> resourceIDToHostName = new HashMap<>();
+
 		@Override
 		public void notifyBlacklistUpdated() {
 			validateRunsInMainThread();
@@ -1836,6 +1858,32 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		@Override
 		public int getRegisteredWorkerNumber() {
 			return taskExecutors.size();
+		}
+
+		@Override
+		public int queryNumberOfHosts() {
+			validateRunsInMainThread();
+			Map<ResourceID, WorkerRegistration<WorkerType>> taskExecutors = ResourceManager.this.getTaskExecutors();
+			Set<String> hosts = new HashSet<>(taskExecutors.size());
+			for (WorkerRegistration<?> workerRegistration : taskExecutors.values()) {
+				resourceIDToHostName.computeIfAbsent(workerRegistration.getResourceID(),
+						resourceID -> workerRegistration.getTaskExecutorGateway().getHostname());
+				hosts.add(resourceIDToHostName.get(workerRegistration.getResourceID()));
+			}
+			resourceIDToHostName.entrySet().removeIf(e -> !taskExecutors.containsKey(e.getKey()));
+			return hosts.size();
+		}
+
+		@Override
+		public ResourceID queryTaskManagerID(NetworkAddress networkAddress) {
+			validateRunsInMainThread();
+			return historyNetworkAddressToTaskManagerID.get(networkAddress);
+		}
+
+		@Override
+		public boolean isTaskManagerOffline(ResourceID taskManagerID) {
+			validateRunsInMainThread();
+			return !ResourceManager.this.getTaskExecutors().containsKey(taskManagerID);
 		}
 	}
 

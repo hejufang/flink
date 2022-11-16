@@ -25,7 +25,6 @@ import org.apache.flink.runtime.blacklist.tracker.BlackedExceptionAccuracy;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTrackerImpl;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.clock.ManualClock;
@@ -46,14 +45,16 @@ public class BlacklistTrackerImplTest {
 	public void testBlacklistAdd() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
 				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
-		blacklistTracker.start(mainThreadExecutor, createTestingBlacklistActions());
+		blacklistTracker.start(executor, mainThreadExecutor, createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host1", new ResourceID("resource2"), new RuntimeException("exception2"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertTrue(blacklistRecord.getBlackedHosts().contains("host1"));
 		Assert.assertEquals(1, blacklistRecord.getBlackedHosts().size());
@@ -64,23 +65,26 @@ public class BlacklistTrackerImplTest {
 	@Test
 	public void testFailureOutdatedExcess() throws Exception {
 		ManualClock clock = new ManualClock();
+		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
 				Time.milliseconds(1000), Time.milliseconds(250), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
-		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host1", new ResourceID("resource2"), new RuntimeException("exception2"), clock.absoluteTimeMillis() + 2000);
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertTrue(blacklistRecord.getBlackedHosts().contains("host1"));
 		Assert.assertEquals(1, blacklistRecord.getBlackedHosts().size());
 		clock.advanceTime(2000, TimeUnit.MILLISECONDS);
-
-		executor.triggerNonPeriodicScheduledTask();
+		// trigger periodic task of updating blacklist when some exception were expired.
+		BlacklistTestUtils.triggerPeriodicScheduledTasksInMainThreadExecutor(executor);
 		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertTrue(blacklistRecord.getBlackedHosts().isEmpty());
 		blacklistTracker.close();
@@ -90,20 +94,25 @@ public class BlacklistTrackerImplTest {
 	public void testBlacklistLengthExcess() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
 				Time.seconds(60), Time.seconds(1), false, 100, 5, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource3"), new RuntimeException("exception2"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(2, blacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host2", "host3"));
@@ -114,22 +123,27 @@ public class BlacklistTrackerImplTest {
 	public void testMultiTypeFailure() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
 				Time.seconds(60), Time.seconds(1), false, 100, 10, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource3"), new RuntimeException("exception2"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(2, blacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
 
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(2, blacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host2", "host3"));
@@ -137,12 +151,16 @@ public class BlacklistTrackerImplTest {
 		BlacklistReporter taskBlacklistReporter = createBlacklistReporter(blacklistTracker, BlacklistUtil.FailureType.UNKNOWN);
 
 		taskBlacklistReporter.onFailure("host4", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK, blacklistTracker);
 		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host4"));
 
 		clock.advanceTime(1, TimeUnit.MILLISECONDS);
 		taskBlacklistReporter.onFailure("host5", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK, blacklistTracker);
 		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host5"));
@@ -154,16 +172,17 @@ public class BlacklistTrackerImplTest {
 	public void testCriticalFailure() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 			3, 3, 1, 2,
 			Time.seconds(60), Time.seconds(1), true, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
-		blacklistTracker.start(mainThreadExecutor, createTestingBlacklistActions());
+		blacklistTracker.start(executor, mainThreadExecutor, createTestingBlacklistActions());
 
 		BlacklistReporter blacklistReporter = createBlacklistReporter(blacklistTracker, BlacklistUtil.FailureType.UNKNOWN);
 
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new CriticalExceptionTest("exception1"), clock.absoluteTimeMillis());
-
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.CRITICAL_EXCEPTION, blacklistTracker);
 		Assert.assertEquals(BlacklistUtil.FailureActionType.RELEASE_BLACKED_HOST, taskBlacklistRecord.getActionType());
 		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
@@ -176,22 +195,25 @@ public class BlacklistTrackerImplTest {
 	public void testIgnoreClass() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
 				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.addIgnoreExceptionClass(RuntimeException.class);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-
-		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
-		Assert.assertEquals(0, taskBlacklistRecord.getBlackedHosts().size());
+		// trigger all possible task of calculating blacklist, the blacked record should be empty because this exception was ignored.
+		executor.triggerNonPeriodicScheduledTasks();
+		Assert.assertEquals(0, blacklistTracker.getBlackedRecords().size());
 
 		blacklistReporter.onFailure("host2", new ResourceID("resource1"), new Exception("exception1"), clock.absoluteTimeMillis());
-		taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
+		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
 		blacklistTracker.close();
 	}
@@ -200,7 +222,7 @@ public class BlacklistTrackerImplTest {
 	public void testUpdateExceptionFilterThreshold() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		TestingBlacklistActions testingBlacklistActions = new TestingBlacklistActions.TestingBlacklistActionsBuilder()
 				.setRegisteredWorkerNumberSupplier(
 						() -> 100)
@@ -210,18 +232,15 @@ public class BlacklistTrackerImplTest {
 				1, 1, 1, 2,
 				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				testingBlacklistActions);
 
-		Assert.assertEquals(blacklistTracker.getMaxHostPerExceptionNumber().size(), 2);
 		Assert.assertEquals(3, (long) blacklistTracker.getMaxHostPerExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 		Assert.assertEquals(3, (long) blacklistTracker.getMaxHostPerExceptionNumber().get(BlacklistUtil.FailureType.TASK));
 
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
+		BlacklistTestUtils.triggerPeriodicScheduledTasksInMainThreadExecutor(executor);
 
-		Assert.assertEquals(blacklistTracker.getMaxHostPerExceptionNumber().size(), 2);
 		Assert.assertEquals(5, (long) blacklistTracker.getMaxHostPerExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 		Assert.assertEquals(5, (long) blacklistTracker.getMaxHostPerExceptionNumber().get(BlacklistUtil.FailureType.TASK));
 		blacklistTracker.close();
@@ -231,7 +250,7 @@ public class BlacklistTrackerImplTest {
 	public void testReportBlackedRecordAccuracy() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 		TestingBlacklistActions testingBlacklistActions = new TestingBlacklistActions.TestingBlacklistActionsBuilder()
 				.setRegisteredWorkerNumberSupplier(
 						() -> 100)
@@ -241,6 +260,7 @@ public class BlacklistTrackerImplTest {
 				1, 2, 2, 3,
 				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				testingBlacklistActions);
 
@@ -250,7 +270,8 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host1", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource3"), new Exception("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource4"), new Exception("exception1"), clock.absoluteTimeMillis());
-
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(2, taskBlacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
@@ -262,11 +283,15 @@ public class BlacklistTrackerImplTest {
 		// RuntimeException occur after 65s, check RuntimeException will be marked as Wrong.
 		clock.advanceTime(65_000L, TimeUnit.MILLISECONDS);
 		blacklistReporter.onFailure("host3", new ResourceID("resource5"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
 		Assert.assertEquals(1, blackedExceptionAccuracy.getWrongBlackedException().size());
 		Assert.assertEquals(1, blackedExceptionAccuracy.getUnknownBlackedException().size());
 
 		blacklistReporter.onFailure("host3", new ResourceID("resource5"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
 		Assert.assertEquals(1, blackedExceptionAccuracy.getWrongBlackedException().size());
 		Assert.assertEquals(1, blackedExceptionAccuracy.getUnknownBlackedException().size());
@@ -284,12 +309,13 @@ public class BlacklistTrackerImplTest {
 	public void testExceptionFiltered() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 2, 1, 2,
 				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				createTestingBlacklistActions());
 
@@ -299,16 +325,15 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host4", new ResourceID("resource4"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(0, blacklistRecord.getBlackedHosts().size());
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
-		// failure timeout.
+		// failure timeout, trigger periodic task of removing expired exceptions.
 		clock.advanceTime(601_000L, TimeUnit.MILLISECONDS);
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
+		BlacklistTestUtils.triggerPeriodicScheduledTasksInMainThreadExecutor(executor);
 
 		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(0, blacklistRecord.getBlackedHosts().size());
@@ -321,12 +346,13 @@ public class BlacklistTrackerImplTest {
 	public void testExceptionFilteredRenew() throws Exception {
 		ManualClock clock = new ManualClock();
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
-		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
+		ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
 
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 2, 1, 2,
 				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
+				executor,
 				mainThreadExecutor,
 				createTestingBlacklistActions());
 
@@ -336,6 +362,8 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host4", new ResourceID("resource4"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
 		Assert.assertEquals(0, blacklistRecord.getBlackedHosts().size());
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
@@ -343,16 +371,14 @@ public class BlacklistTrackerImplTest {
 		// renew filtered exception.
 		clock.advanceTime(301_000L, TimeUnit.MILLISECONDS);
 		blacklistReporter.onFailure("host5", new ResourceID("resource5"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
+		// trigger calculating blacklist, the expired time of filtered exception should be updated.
 		executor.triggerNonPeriodicScheduledTask();
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		// failure(resource1~4) timeout, left failure(resource5)
 		clock.advanceTime(301_000L, TimeUnit.MILLISECONDS);
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
-		executor.triggerNonPeriodicScheduledTask();
+		// trigger periodic task of removing expired exceptions.
+		BlacklistTestUtils.triggerPeriodicScheduledTasksInMainThreadExecutor(executor);
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		blacklistTracker.close();
@@ -360,13 +386,6 @@ public class BlacklistTrackerImplTest {
 
 	public TestingBlacklistActions createTestingBlacklistActions() {
 		return new TestingBlacklistActions.TestingBlacklistActionsBuilder().build();
-	}
-
-	public ComponentMainThreadExecutor createManuallyTriggeredMainThreadExecutor(ManuallyTriggeredScheduledExecutor manuallyTriggeredScheduledExecutor) {
-		final Thread main = Thread.currentThread();
-		return new ComponentMainThreadExecutorServiceAdapter(
-				manuallyTriggeredScheduledExecutor,
-				main);
 	}
 
 	public BlacklistReporter createBlacklistReporter(BlacklistTrackerImpl blacklistTracker, BlacklistUtil.FailureType failureType) {

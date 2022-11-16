@@ -16,14 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.blacklist.tracker;
+package org.apache.flink.runtime.blacklist.tracker.handler;
 
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.metrics.Message;
-import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
-import org.apache.flink.runtime.blacklist.WarehouseBlacklistFailureMessage;
+import org.apache.flink.runtime.blacklist.tracker.BlackedExceptionAccuracy;
 import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
@@ -39,8 +37,8 @@ import java.util.Set;
  * the abstract implement of {@link FailureHandler}.
  * maintain all failures and filtered exceptions.
  */
-public abstract class AbstractFailureHandler implements FailureHandler {
-	private static final Logger LOG = LoggerFactory.getLogger(AbstractFailureHandler.class);
+public abstract class AbstractCountBasedFailureHandler implements FailureHandler {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractCountBasedFailureHandler.class);
 
 	// Exceptions within this time period will be ignored after the blacked record. These exceptions may cause by old failover.
 	private final Long failureTolerateTime = 60_000L;
@@ -55,12 +53,11 @@ public abstract class AbstractFailureHandler implements FailureHandler {
 	private final int maxFailureNumPerHost;
 	private final Time failureTimeout;
 	private final int blacklistMaxLength;
-	private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet;
 	private final Clock clock;
 	private final BlacklistUtil.FailureActionType failureActionType;
 	private final BlacklistUtil.FailureType failureType;
 
-	public AbstractFailureHandler(
+	public AbstractCountBasedFailureHandler(
 			int maxFailureNumPerHost,
 			Time failureTimeout,
 			int blacklistMaxLength,
@@ -68,7 +65,6 @@ public abstract class AbstractFailureHandler implements FailureHandler {
 			double maxHostPerExceptionRatio,
 			int maxHostPerExceptionMinNumber,
 			Clock clock,
-			MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet,
 			BlacklistUtil.FailureActionType failureActionType,
 			BlacklistUtil.FailureType failureType) {
 		this.hostFailureQueue = new LinkedList<>();
@@ -76,7 +72,6 @@ public abstract class AbstractFailureHandler implements FailureHandler {
 		this.maxFailureNumPerHost = maxFailureNumPerHost;
 		this.failureTimeout = failureTimeout;
 		this.blacklistMaxLength = blacklistMaxLength;
-		this.blacklistFailureMessageSet = blacklistFailureMessageSet;
 		this.maxFailureNum = maxFailureNum;
 		this.maxHostPerExceptionRatio = maxHostPerExceptionRatio;
 		this.maxHostPerExceptionMinNumber = maxHostPerExceptionMinNumber;
@@ -128,8 +123,6 @@ public abstract class AbstractFailureHandler implements FailureHandler {
 
 	@Override
 	public boolean addFailure(HostFailure hostFailure) {
-		blacklistFailureMessageSet.addMessage(
-				new Message<>(WarehouseBlacklistFailureMessage.fromHostFailure(hostFailure)));
 		Class<? extends Throwable> t = hostFailure.getException().getClass();
 		if (filteredExceptions.containsKey(t) &&
 				clock.absoluteTimeMillis() - filteredExceptions.get(t) < failureTimeout.toMilliseconds()) {

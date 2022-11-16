@@ -18,18 +18,31 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.runtime.io.network.ConnectionID;
+import org.apache.flink.runtime.io.network.NetworkAddress;
+import org.apache.flink.runtime.io.network.NetworkTraceable;
 import org.apache.flink.runtime.io.network.partition.PartitionException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+
+import java.net.InetSocketAddress;
 
 /**
  * Exception for failed partition requests due to connection failure
  * with unreachable producer.
  */
-public class PartitionConnectionException extends PartitionException {
+public class PartitionConnectionException extends PartitionException implements NetworkTraceable {
 
 	private static final long serialVersionUID = 0L;
+	private final ConnectionID connectionID;
 
-	public PartitionConnectionException(ResultPartitionID partitionId, Throwable throwable) {
+	public PartitionConnectionException(ResultPartitionID partitionId, ConnectionID connectionID, Throwable throwable) {
 		super("Connection for partition " + partitionId + " not reachable.", partitionId, throwable);
+		this.connectionID = connectionID;
+	}
+
+	@Override
+	public NetworkAddress getRemoteAddress() {
+		InetSocketAddress inetSocketAddress = connectionID.getAddress();
+		return new NetworkAddress(inetSocketAddress.getHostName(), inetSocketAddress.getPort());
 	}
 }

@@ -16,17 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.blacklist.tracker;
+package org.apache.flink.runtime.blacklist.tracker.handler;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
+import org.apache.flink.runtime.blacklist.tracker.BlackedExceptionAccuracy;
+import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 
 /**
  * handle failures and provide blacked records.
  */
-interface FailureHandler {
+public interface FailureHandler {
+
 	@VisibleForTesting
 	int getMaxHostPerException();
 
@@ -48,4 +52,8 @@ interface FailureHandler {
 	void tryUpdateMaxHostPerExceptionThreshold(int totalWorkerNumber);
 
 	void clear();
+
+	void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions);
+
+	void updateTotalNumberOfHosts(int currentTotalNumHosts);
 }

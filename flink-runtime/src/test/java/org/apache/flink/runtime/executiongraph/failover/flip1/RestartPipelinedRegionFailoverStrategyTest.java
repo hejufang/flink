@@ -169,6 +169,7 @@ public class RestartPipelinedRegionFailoverStrategyTest extends TestLogger {
 					new ResultPartitionID(
 						v4InputEdgeIterator.next().getId(),
 						new ExecutionAttemptID()),
+					null,
 					new Exception("Test failure"))));
 
 		// when v4 fails to consume data from v2, {v2,v4,v5} should be restarted
@@ -195,6 +196,7 @@ public class RestartPipelinedRegionFailoverStrategyTest extends TestLogger {
 					new ResultPartitionID(
 						v5InputEdgeIterator.next().getId(),
 						new ExecutionAttemptID()),
+					null,
 					new Exception("Test failure"))));
 
 		// when v5 fails to consume data from v2, {v2,v4,v5} should be restarted
@@ -220,6 +222,7 @@ public class RestartPipelinedRegionFailoverStrategyTest extends TestLogger {
 					new ResultPartitionID(
 						v6InputEdgeIterator.next().getId(),
 						new ExecutionAttemptID()),
+					null,
 					new Exception("Test failure"))));
 	}
 
@@ -392,6 +395,7 @@ public class RestartPipelinedRegionFailoverStrategyTest extends TestLogger {
 					new ResultPartitionID(
 						v3.getConsumedResults().iterator().next().getId(),
 						new ExecutionAttemptID()),
+					null,
 					new Exception("Test failure"))));
 	}
 

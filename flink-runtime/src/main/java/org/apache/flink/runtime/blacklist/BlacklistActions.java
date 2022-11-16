@@ -19,6 +19,10 @@
 package org.apache.flink.runtime.blacklist;
 
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.io.network.NetworkAddress;
+
+import javax.annotation.Nullable;
 
 /**
  * blacklist related actions which the {@link BlacklistTracker} can perform.
@@ -28,6 +32,30 @@ public interface BlacklistActions {
 	 * Notifies that blacklist has updated.
 	 */
 	void notifyBlacklistUpdated();
+
+	/**
+	 * Query number of hosts among all task managers.
+	 * @return Number of hosts
+	 */
+	int queryNumberOfHosts();
+
+	/**
+	 * Query the task manager id that has this network address (host name, data port). Return null if Flink can't find
+	 * the corresponding task manager.
+	 *
+	 * @param networkAddress the network address containing host name and data port
+	 * @return the resource id of target task manager
+	 */
+	@Nullable
+	ResourceID queryTaskManagerID(NetworkAddress networkAddress);
+
+	/**
+	 * Given by the task manager id, query whether this task manager is offline.
+	 *
+	 * @param taskManagerID the id of this task manager
+	 * @return true if this task manager is offline.
+	 */
+	boolean isTaskManagerOffline(ResourceID taskManagerID);
 
 	int getRegisteredWorkerNumber();
 }

@@ -28,6 +28,7 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.SmartResourceOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.blacklist.BlacklistTestUtils;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -36,6 +37,8 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
+import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
@@ -1299,12 +1302,25 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
 				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
+				// use ManuallyTriggeredScheduledExecutor instead of rpc scheduled executor for blacklistTracker.
+				ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
+				resourceManager.runInMainThread(() -> {
+					BlacklistTracker blacklistTracker = resourceManager.getBlacklistTracker();
+					ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
+					blacklistTracker.start(executor, mainThreadExecutor, resourceManager.new BlacklistActionsImpl());
+					return null;
+				}).get();
 				// container 000000,000001 completed. this host will be blacked.
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
 				testingContainerStatus = createTestingContainerStatus(previousContainers.get(1).getId());
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
 				waitContainerCompleted(resourceManager, new ResourceID(testingContainerStatus.getContainerId().toString()), 100);
+				/// trigger calculating blacklist
+				resourceManager.runInMainThread(() -> {
+					executor.triggerNonPeriodicScheduledTask();
+					return null;
+				}).get();
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(1, resourceManager.getYarnBlackedHosts().size());
@@ -1378,8 +1394,16 @@ public class YarnResourceManagerTest extends TestLogger {
 				BlacklistTracker blacklistTracker = resourceManager.getBlacklistTracker();
 
 				resourceManager.runInMainThread(() -> {
+					// use ManuallyTriggeredScheduledExecutor instead of rpc scheduled executor for blacklistTracker.
+					ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
+					ComponentMainThreadExecutor mainThreadExecutor = BlacklistTestUtils.createManuallyTriggeredMainThreadExecutor(executor);
+					blacklistTracker.start(executor, mainThreadExecutor, resourceManager.new BlacklistActionsImpl());
+
 					blacklistTracker.onFailure(BlacklistUtil.FailureType.TASK_MANAGER, host, ResourceID.generate(), new Exception("expected"), System.currentTimeMillis());
 					blacklistTracker.onFailure(BlacklistUtil.FailureType.TASK_MANAGER, host, ResourceID.generate(), new Exception("expected"), System.currentTimeMillis());
+
+					// trigger calculating blacklist.
+					executor.triggerNonPeriodicScheduledTask();
 					return null;
 				}).get();
 				assertEquals(1, resourceManager.getYarnBlackedHosts().size());

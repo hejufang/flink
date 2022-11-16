@@ -142,7 +142,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 					inputChannel.onError(
 							new LocalTransportException(
 								String.format("Sending the partition request to '%s' failed.", remoteAddr),
-								future.channel().localAddress(), future.cause()
+								future.channel().localAddress(), remoteAddr, future.cause()
 							));
 				} else {
 					LOG.debug("Successfully request subpartition {} of partition {}.", subpartitionIndex, partitionId);
@@ -198,7 +198,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 							inputChannel.onError(
 								new LocalTransportException(
 									String.format("Sending the partition request to '%s' failed.", remoteAddr),
-									future.channel().localAddress(), future.cause()
+									future.channel().localAddress(), remoteAddr, future.cause()
 								));
 						}
 					}
@@ -232,7 +232,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 									SocketAddress remoteAddr = future.channel().remoteAddress();
 									inputChannel.onError(new LocalTransportException(
 										String.format("Sending the task event to '%s' failed.", remoteAddr),
-										future.channel().localAddress(), future.cause()
+										future.channel().localAddress(), remoteAddr, future.cause()
 									));
 								}
 							}
@@ -278,7 +278,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 		if (closeReferenceCounter.isDisposed()) {
 			final SocketAddress localAddr = tcpChannel.localAddress();
 			final SocketAddress remoteAddr = tcpChannel.remoteAddress();
-			throw new LocalTransportException(String.format("Channel to '%s' closed.", remoteAddr), localAddr);
+			throw new LocalTransportException(String.format("Channel to '%s' closed.", remoteAddr), localAddr, remoteAddr, null);
 		}
 	}
 }

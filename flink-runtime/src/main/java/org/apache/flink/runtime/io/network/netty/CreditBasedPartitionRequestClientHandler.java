@@ -20,12 +20,12 @@ package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
+import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
+import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
+import org.apache.flink.runtime.io.network.netty.exception.AbstractTransportException;
 import org.apache.flink.runtime.io.network.netty.exception.LocalTransportException;
 import org.apache.flink.runtime.io.network.netty.exception.ProducerInactiveException;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
-import org.apache.flink.runtime.io.network.netty.exception.TransportException;
-import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
-import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.TcpConnectionLostException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
@@ -160,21 +160,21 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 	 */
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-		if (cause instanceof TransportException) {
+		if (cause instanceof AbstractTransportException) {
 			notifyAllChannelsOfErrorAndClose(cause);
 		} else {
 			final SocketAddress remoteAddr = ctx.channel().remoteAddress();
+			final SocketAddress localAddr = ctx.channel().localAddress();
 
-			final TransportException tex;
+			final AbstractTransportException tex;
 
 			// Improve on the connection reset by peer error message
-			if (cause instanceof IOException && cause.getMessage().equals("Connection reset by peer")) {
+			if (cause instanceof IOException && cause.getMessage().contains("Connection reset by peer")) {
 				tex = new RemoteTransportException("Lost connection to task manager '" + remoteAddr + "'. " +
 					"This indicates that the remote task manager was lost.", remoteAddr, cause);
 			} else {
-				final SocketAddress localAddr = ctx.channel().localAddress();
 				tex = new LocalTransportException(
-					String.format("%s (connection to '%s')", cause.getMessage(), remoteAddr), localAddr, cause);
+					String.format("%s (connection to '%s')", cause.getMessage(), remoteAddr), localAddr, remoteAddr, cause);
 			}
 
 			notifyAllChannelsOfErrorAndClose(tex);

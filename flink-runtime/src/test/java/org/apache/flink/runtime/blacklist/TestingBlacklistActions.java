@@ -18,18 +18,31 @@
 
 package org.apache.flink.runtime.blacklist;
 
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.io.network.NetworkAddress;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
  * Testing BlacklistActions.
  */
 public class TestingBlacklistActions implements BlacklistActions{
+
+	private Map<NetworkAddress, ResourceID> historyNetworkAddressToTaskManagerID;
+	private Set<ResourceID> aliveTaskManagers;
+
 	Runnable notifyBlacklistUpdatedConsumer;
 	Supplier<Integer> registeredWorkerNumberSupplier;
 
 	public TestingBlacklistActions(Runnable notifyBlacklistUpdatedConsumer, Supplier<Integer> registeredWorkerNumberSupplier) {
 		this.notifyBlacklistUpdatedConsumer = notifyBlacklistUpdatedConsumer;
 		this.registeredWorkerNumberSupplier = registeredWorkerNumberSupplier;
+		historyNetworkAddressToTaskManagerID = new HashMap<>();
+		aliveTaskManagers = new HashSet<>();
 	}
 
 	@Override
@@ -40,6 +53,30 @@ public class TestingBlacklistActions implements BlacklistActions{
 	@Override
 	public int getRegisteredWorkerNumber() {
 		return registeredWorkerNumberSupplier.get();
+	}
+
+	@Override
+	public int queryNumberOfHosts() {
+		return 0;
+	}
+
+	@Override
+	public ResourceID queryTaskManagerID(NetworkAddress networkAddress) {
+		return historyNetworkAddressToTaskManagerID.get(networkAddress);
+	}
+
+	@Override
+	public boolean isTaskManagerOffline(ResourceID taskManagerID) {
+		return !aliveTaskManagers.contains(taskManagerID);
+	}
+
+	public void addNewTaskManagerWith(ResourceID taskManagerID, String hostName, int dataPort) {
+		this.aliveTaskManagers.add(taskManagerID);
+		recordHistoryTaskManagerWith(taskManagerID, hostName, dataPort);
+	}
+
+	public void recordHistoryTaskManagerWith(ResourceID taskManagerID, String hostName, int dataPort) {
+		this.historyNetworkAddressToTaskManagerID.put(new NetworkAddress(hostName, dataPort), taskManagerID);
 	}
 
 	/**

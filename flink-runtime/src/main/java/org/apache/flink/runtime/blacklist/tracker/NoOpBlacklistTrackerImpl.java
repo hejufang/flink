@@ -23,6 +23,7 @@ import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 
 import java.util.Collections;
 import java.util.Set;
@@ -32,7 +33,7 @@ import java.util.Set;
  */
 public class NoOpBlacklistTrackerImpl implements BlacklistTracker {
 	@Override
-	public void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions) { }
+	public void start(ScheduledExecutor executor, ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions) { }
 
 	@Override
 	public void clearAll() { }

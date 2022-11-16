@@ -41,7 +41,9 @@ import org.slf4j.LoggerFactory;
 public class BlacklistUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(BlacklistUtil.class);
 
-	public static BlacklistTracker createBlacklistTracker(Configuration configuration, ResourceManagerMetricGroup resourceManagerMetricGroup) {
+	public static BlacklistTracker createBlacklistTracker(
+			Configuration configuration,
+			ResourceManagerMetricGroup resourceManagerMetricGroup) {
 		BlacklistConfiguration blacklistConfiguration = BlacklistConfiguration.fromConfiguration(configuration);
 		if (blacklistConfiguration.isTaskBlacklistEnabled() || blacklistConfiguration.isTaskManagerBlacklistEnabled()) {
 			LOG.info("create new Blacklist with config: {}", blacklistConfiguration);
@@ -93,6 +95,7 @@ public class BlacklistUtil {
 	public enum FailureType {
 		TASK_MANAGER,
 		TASK,
+		NETWORK,
 		CRITICAL_EXCEPTION,
 		UNKNOWN
 	}

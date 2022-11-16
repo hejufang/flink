@@ -163,7 +163,7 @@ public class RemoteInputChannel extends InputChannel {
 					partitionRequestClient = connectionManager.createPartitionRequestClient(connectionId);
 				} catch (IOException e) {
 					// IOExceptions indicate that we could not open a connection to the remote TaskExecutor
-					throw new PartitionConnectionException(partitionId, e);
+					throw new PartitionConnectionException(partitionId, connectionId, e);
 				}
 
 				partitionRequestClient.requestSubpartition(partitionId, subpartitionIndex, this, 0);
@@ -186,7 +186,7 @@ public class RemoteInputChannel extends InputChannel {
 				partitionRequestClient = connectionManager.createPartitionRequestClient(connectionId);
 			} catch (IOException e) {
 				// IOExceptions indicate that we could not open a connection to the remote TaskExecutor
-				throw new PartitionConnectionException(partitionId, e);
+				throw new PartitionConnectionException(partitionId, connectionId, e);
 			}
 			PartitionRequestChannel partitionRequestChannel = partitionRequestClient.buildRequestSubpartitionRequest(partitionId, subpartitionIndex, this);
 			inputGate.registerPartitionRequestClient(partitionRequestClient, partitionRequestChannel);

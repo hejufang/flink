@@ -347,7 +347,7 @@ class PartitionRequestClientFactory {
 						String.format(
 							"Connecting to remote task manager '%s' has been cancelled.",
 							connectionId.getAddress()),
-						null));
+						null, connectionId.getAddress()));
 				}
 			}
 		}

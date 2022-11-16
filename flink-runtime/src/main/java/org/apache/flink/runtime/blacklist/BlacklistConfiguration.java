@@ -24,6 +24,7 @@ import org.apache.flink.configuration.Configuration;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -46,6 +47,15 @@ public class BlacklistConfiguration {
 	private final double maxHostPerExceptionRatio;
 
 	private final List<String> ignoredExceptionClassNames;
+	private final Time failureEffectiveTime;
+
+	// network related
+	private final Time networkFailureExpireTime;
+	private final Time timestampRecordExpireTime;
+	private final float meanSdRatioAllBlockedThreshold;
+	private final float meanSdRatioSomeBlockedThreshold;
+	private final int expectedMinHost;
+	private final float expectedBlockedHostRatio;
 
 	public BlacklistConfiguration(
 			boolean taskManagerBlacklistEnabled,
@@ -62,7 +72,14 @@ public class BlacklistConfiguration {
 			int maxFailureNum,
 			int maxHostPerExceptionMinNumber,
 			double maxHostPerExceptionRatio,
-			List<String> ignoredExceptionClassNames) {
+			List<String> ignoredExceptionClassNames,
+			Time failureEffectiveTime,
+			Time networkFailureExpireTime,
+			Time timestampRecordExpireTime,
+			float meanSdRatioAllBlockedThreshold,
+			float meanSdRatioThresholdSomeBlocked,
+			int expectedMinHost,
+			float expectedBlockedHostRatio) {
 		this.taskManagerBlacklistEnabled = taskManagerBlacklistEnabled;
 		this.taskBlacklistEnabled = taskBlacklistEnabled;
 		this.blacklistCriticalEnable = blacklistCriticalEnable;
@@ -78,6 +95,13 @@ public class BlacklistConfiguration {
 		this.maxHostPerExceptionMinNumber = maxHostPerExceptionMinNumber;
 		this.maxHostPerExceptionRatio = maxHostPerExceptionRatio;
 		this.ignoredExceptionClassNames = ignoredExceptionClassNames;
+		this.failureEffectiveTime = failureEffectiveTime;
+		this.networkFailureExpireTime = networkFailureExpireTime;
+		this.timestampRecordExpireTime = timestampRecordExpireTime;
+		this.meanSdRatioAllBlockedThreshold = meanSdRatioAllBlockedThreshold;
+		this.meanSdRatioSomeBlockedThreshold = meanSdRatioThresholdSomeBlocked;
+		this.expectedMinHost = expectedMinHost;
+		this.expectedBlockedHostRatio = expectedBlockedHostRatio;
 	}
 
 	public boolean isTaskManagerBlacklistEnabled() {
@@ -140,6 +164,34 @@ public class BlacklistConfiguration {
 		return ignoredExceptionClassNames;
 	}
 
+	public Time getFailureEffectiveTime() {
+		return failureEffectiveTime;
+	}
+
+	public Time getNetworkFailureExpireTime() {
+		return networkFailureExpireTime;
+	}
+
+	public Time getTimestampRecordExpireTime() {
+		return timestampRecordExpireTime;
+	}
+
+	public float getMeanSdRatioAllBlockedThreshold() {
+		return meanSdRatioAllBlockedThreshold;
+	}
+
+	public float getMeanSdRatioSomeBlockedThreshold() {
+		return meanSdRatioSomeBlockedThreshold;
+	}
+
+	public int getExpectedMinHost() {
+		return expectedMinHost;
+	}
+
+	public float getExpectedBlockedHostRatio() {
+		return expectedBlockedHostRatio;
+	}
+
 	@Override
 	public String toString() {
 		return "BlacklistConfiguration{" +
@@ -158,6 +210,13 @@ public class BlacklistConfiguration {
 				", maxHostPerExceptionMinNumber=" + maxHostPerExceptionMinNumber +
 				", maxHostPerExceptionRatio=" + maxHostPerExceptionRatio +
 				", ignoredExceptionClassNames=" + ignoredExceptionClassNames +
+				", failureEffectiveTime=" + failureEffectiveTime +
+				", networkFailureExpireTime=" + networkFailureExpireTime +
+				", timestampRecordExpireTime=" + timestampRecordExpireTime +
+				", meanSdRatioAllBlockedThreshold=" + meanSdRatioAllBlockedThreshold +
+				", meanSdRatioSomeBlockedThreshold=" + meanSdRatioSomeBlockedThreshold +
+				", expectedMinHost=" + expectedMinHost +
+				", expectedBlockedHostRatio=" + expectedBlockedHostRatio +
 				'}';
 	}
 
@@ -187,12 +246,24 @@ public class BlacklistConfiguration {
 		int maxHostPerExceptionMinNumber = configuration.getInteger(BlacklistOptions.MAX_HOST_PER_EXCEPTION_MIN_NUMBER);
 		double maxHostPerExceptionRatio = configuration.getDouble(BlacklistOptions.MAX_HOST_PER_EXCEPTION_RATIO);
 
-		final List<String> ignoredExceptionClassNames = configuration.get(BlacklistOptions.IGNORED_EXCEPTION_CLASS_NAMES);
-		final List<String> additionalIgnoredExceptionClassNames = configuration.get(BlacklistOptions.ADDITIONAL_IGNORED_EXCEPTION_CLASS_NAMES);
+		final List<String> ignoredExceptionClassNames = configuration.getOptional(BlacklistOptions.IGNORED_EXCEPTION_CLASS_NAMES)
+				.orElse(Collections.emptyList());
+		final List<String> additionalIgnoredExceptionClassNames = configuration.getOptional(BlacklistOptions.ADDITIONAL_IGNORED_EXCEPTION_CLASS_NAMES)
+				.orElse(Collections.emptyList());
 		final List<String> allIgnoredExceptionClassNames = new ArrayList<>(ignoredExceptionClassNames.size() + additionalIgnoredExceptionClassNames.size());
 		allIgnoredExceptionClassNames.addAll(ignoredExceptionClassNames);
 		allIgnoredExceptionClassNames.addAll(additionalIgnoredExceptionClassNames);
-
+		Time failureEffectiveTime = Time.milliseconds(
+				scala.concurrent.duration.Duration.apply(configuration.getString(BlacklistOptions.EXCEPTION_EFFECTIVE_TIME)).toMillis());
+		// network configurations
+		Time networkFailureExpireTime = Time.milliseconds(
+				scala.concurrent.duration.Duration.apply(configuration.getString(BlacklistOptions.NETWORK_EXCEPTION_EXPIRE_TIME)).toMillis());
+		Time timestampRecordExpireTime = Time.milliseconds(
+				scala.concurrent.duration.Duration.apply(configuration.getString(BlacklistOptions.NETWORK_TIMESTAMP_RECORD_EXPIRE_TIME)).toMillis());
+		float meanSdRatioAllBlockedThreshold = configuration.getFloat(BlacklistOptions.NETWORK_MEAN_SD_RATIO_ALL_BLOCKED_THRESHOLD);
+		float meanSdRatioThresholdSomeBlocked = configuration.getFloat(BlacklistOptions.NETWORK_MEAN_SD_RATIO_SOME_BLOCKED_THRESHOLD);
+		int expectedMinHost = configuration.getInteger(BlacklistOptions.NETWORK_EXPECTED_MIN_HOST);
+		float expectedBlockedHostRatio = configuration.getFloat(BlacklistOptions.NETWORK_EXPECTED_BLOCKED_HOST_RATIO);
 		return new BlacklistConfiguration(
 				taskManagerBlacklistEnabled,
 				taskBlacklistEnabled,
@@ -208,6 +279,13 @@ public class BlacklistConfiguration {
 				maxFailureNum,
 				maxHostPerExceptionMinNumber,
 				maxHostPerExceptionRatio,
-				allIgnoredExceptionClassNames);
+				allIgnoredExceptionClassNames,
+				failureEffectiveTime,
+				networkFailureExpireTime,
+				timestampRecordExpireTime,
+				meanSdRatioAllBlockedThreshold,
+				meanSdRatioThresholdSomeBlocked,
+				expectedMinHost,
+				expectedBlockedHostRatio);
 	}
 }

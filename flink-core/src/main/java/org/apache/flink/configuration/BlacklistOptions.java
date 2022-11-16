@@ -132,6 +132,56 @@ public class BlacklistOptions {
 			.noDefaultValue()
 			.withDescription("List of additional ignored exception class name, split by ';'.");
 
+	public static final ConfigOption<String> EXCEPTION_EFFECTIVE_TIME = ConfigOptions
+			.key("blacklist.exception-effective-time")
+			.stringType()
+			.defaultValue("30s")
+			.withDescription("The effective time for an exception to calculating blacklist. The exception happened before this time should be ignored in some handlers.");
+
+	public static final ConfigOption<String> NETWORK_EXCEPTION_EXPIRE_TIME = ConfigOptions
+			.key("blacklist.network.exception-expire-time")
+			.stringType()
+			.defaultValue("10 min")
+			.withDescription("The expire time of network failures. The exception exceeding this time will be removed from the exception list.");
+
+	public static final ConfigOption<String> NETWORK_TIMESTAMP_RECORD_EXPIRE_TIME = ConfigOptions
+			.key("blacklist.network.timestamp-record-expire-time")
+			.stringType()
+			.defaultValue("1 min")
+			.withDescription("The expire time for timestamp record of network failures. NetworkFailureHandler will save " +
+					"all the timestamp of network failures by task manager id and remote address. The network failures from " +
+					"the same task manager to the same remote address within this expire time will be skipped.");
+
+	public static final ConfigOption<Float> NETWORK_MEAN_SD_RATIO_ALL_BLOCKED_THRESHOLD = ConfigOptions
+			.key("blacklist.network.mean-sd-ratio-all-blocked-threshold")
+			.floatType()
+			.defaultValue(0.5f)
+			.withDescription("The threshold of ratio for mean and standard derivation (sd) of the number of failures" +
+					" in hosts that all the host should be considered as blacked hosts. For example, if the threshold" +
+					" is r and 'sd < mean * r', then all the hosts should be added to the blacklist.");
+
+	public static final ConfigOption<Float> NETWORK_MEAN_SD_RATIO_SOME_BLOCKED_THRESHOLD = ConfigOptions
+			.key("blacklist.network.mean-sd-ratio-some-blocked-threshold")
+			.floatType()
+			.defaultValue(1.0f)
+			.withDescription("The threshold of ratio for 1. subtraction between number of failures of one host and mean" +
+					" of the number of failures in all hosts and 2. the standard derivation (sd) of the number of" +
+					" failures in all hosts that this host should be considered as a blacked host. For example, if the" +
+					" threshold is r, then those hosts that have number of exceptions greater than 'mean + r * sd' should" +
+					" be added to the blacklist.");
+
+	public static final ConfigOption<Float> NETWORK_EXPECTED_BLOCKED_HOST_RATIO = ConfigOptions
+			.key("blacklist.network.expected-blocked-host-ratio")
+			.floatType()
+			.defaultValue(0.2f)
+			.withDescription("The ratio of maximum expected number of hosts that should be added to the blacklist.");
+
+	public static final ConfigOption<Integer> NETWORK_EXPECTED_MIN_HOST = ConfigOptions
+			.key("blacklist.network.expected-min-host")
+			.intType()
+			.defaultValue(5)
+			.withDescription("The minimum expected number of hosts for one Flink job.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

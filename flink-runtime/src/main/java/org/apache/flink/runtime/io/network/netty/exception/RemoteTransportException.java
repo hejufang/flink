@@ -18,9 +18,15 @@
 
 package org.apache.flink.runtime.io.network.netty.exception;
 
+import org.apache.flink.runtime.io.network.NetworkAddress;
+import org.apache.flink.runtime.io.network.NetworkTraceable;
+
 import java.net.SocketAddress;
 
-public class RemoteTransportException extends TransportException {
+/**
+ * This class represents a Transport layer exception that may be caused by the remote endpoint.
+ */
+public class RemoteTransportException extends AbstractTransportException {
 
 	private static final long serialVersionUID = 4373615529545893089L;
 
@@ -31,4 +37,11 @@ public class RemoteTransportException extends TransportException {
 	public RemoteTransportException(String message, SocketAddress address, Throwable cause) {
 		super(message, address, cause);
 	}
+
+	@Override
+	public NetworkAddress getRemoteAddress() {
+		String socketAddress = getAddress().toString();
+		return NetworkTraceable.parseFromString(socketAddress);
+	}
+
 }

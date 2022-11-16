@@ -18,17 +18,35 @@
 
 package org.apache.flink.runtime.io.network.netty.exception;
 
+import org.apache.flink.runtime.io.network.NetworkAddress;
+import org.apache.flink.runtime.io.network.NetworkTraceable;
+
 import java.net.SocketAddress;
 
-public class LocalTransportException extends TransportException {
+/**
+ * This class represents a Transport layer exception that may be caused by the local endpoint.
+ */
+public class LocalTransportException extends AbstractTransportException {
 
 	private static final long serialVersionUID = 2366708881288640674L;
 
-	public LocalTransportException(String message, SocketAddress address) {
+	private SocketAddress remoteAddress;
+
+	public LocalTransportException(String message, SocketAddress address, SocketAddress remoteAddress) {
 		super(message, address);
+		this.remoteAddress = remoteAddress;
 	}
 
-	public LocalTransportException(String message, SocketAddress address, Throwable cause) {
+	public LocalTransportException(String message, SocketAddress address, SocketAddress remoteAddress, Throwable cause) {
 		super(message, address, cause);
+		this.remoteAddress = remoteAddress;
+	}
+
+	@Override
+	public NetworkAddress getRemoteAddress() {
+		if (remoteAddress == null) {
+			return null;
+		}
+		return NetworkTraceable.parseFromString(remoteAddress.toString());
 	}
 }

@@ -18,20 +18,25 @@
 
 package org.apache.flink.runtime.io.network.netty.exception;
 
+import org.apache.flink.runtime.io.network.NetworkTraceable;
+
 import java.io.IOException;
 import java.net.SocketAddress;
 
-public abstract class TransportException extends IOException {
+/**
+ * This class represents an abstract Transport Layer network exception.
+ */
+public abstract class AbstractTransportException extends IOException implements NetworkTraceable {
 
 	private static final long serialVersionUID = 3637820720589866570L;
 
 	private final SocketAddress address;
 
-	public TransportException(String message, SocketAddress address) {
+	public AbstractTransportException(String message, SocketAddress address) {
 		this(message, address, null);
 	}
 
-	public TransportException(String message, SocketAddress address, Throwable cause) {
+	public AbstractTransportException(String message, SocketAddress address, Throwable cause) {
 		super(message, cause);
 
 		this.address = address;

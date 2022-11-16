@@ -20,6 +20,7 @@ package org.apache.flink.runtime.blacklist.tracker;
 
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
+import org.apache.flink.runtime.blacklist.tracker.handler.FailureHandler;
 import org.apache.flink.runtime.throwable.ThrowableAnnotation;
 import org.apache.flink.runtime.throwable.ThrowableType;
 
@@ -117,10 +118,6 @@ public class FailureHandlerRouter {
 	}
 
 	public boolean routeFailure(HostFailure hostFailure) {
-		if (failureTypeToHandler.containsKey(hostFailure.getFailureType())) {
-			return failureTypeToHandler.get(hostFailure.getFailureType()).addFailure(hostFailure);
-		}
-
 		Class<? extends Throwable> exceptionClass = hostFailure.getException().getClass();
 		if (exceptionClassToHandler.containsKey(exceptionClass)) {
 			return exceptionClassToHandler.get(exceptionClass).addFailure(hostFailure);
@@ -130,6 +127,10 @@ public class FailureHandlerRouter {
 		ThrowableType throwableType = throwableAnnotation == null ? null : throwableAnnotation.value();
 		if (throwableType != null && throwableTypeToHandler.containsKey(throwableType)) {
 			return throwableTypeToHandler.get(throwableType).addFailure(hostFailure);
+		}
+
+		if (failureTypeToHandler.containsKey(hostFailure.getFailureType())) {
+			return failureTypeToHandler.get(hostFailure.getFailureType()).addFailure(hostFailure);
 		}
 
 		if (defaultFailureHandler != null) {

@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.blacklist.tracker;
+package org.apache.flink.runtime.blacklist.tracker.handler;
 
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
-import org.apache.flink.runtime.blacklist.WarehouseBlacklistFailureMessage;
+import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
@@ -39,7 +39,7 @@ import java.util.Map;
 /**
  * Count based Failure handler, check failure on same host whether exceed the threshold.
  */
-public class CountBasedFailureHandler extends AbstractFailureHandler {
+public class CountBasedFailureHandler extends AbstractCountBasedFailureHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(CountBasedFailureHandler.class);
 	private final Map<String, LinkedList<HostFailure>> blackedHosts;
 
@@ -51,10 +51,9 @@ public class CountBasedFailureHandler extends AbstractFailureHandler {
 			double maxHostPerExceptionRatio,
 			int maxHostPerExceptionMinNumber,
 			Clock clock,
-			MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet,
 			BlacklistUtil.FailureActionType failureActionType,
 			BlacklistUtil.FailureType failureType) {
-		super(maxFailureNumPerHost, failureTimeout, blacklistMaxLength, maxFailureNum, maxHostPerExceptionRatio, maxHostPerExceptionMinNumber, clock, blacklistFailureMessageSet, failureActionType, failureType);
+		super(maxFailureNumPerHost, failureTimeout, blacklistMaxLength, maxFailureNum, maxHostPerExceptionRatio, maxHostPerExceptionMinNumber, clock, failureActionType, failureType);
 		blackedHosts = new HashMap<>();
 	}
 
@@ -103,15 +102,24 @@ public class CountBasedFailureHandler extends AbstractFailureHandler {
 		super.clear();
 	}
 
+	@Override
+	public void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions) {
+		// do nothing
+	}
+
+	@Override
+	public void updateTotalNumberOfHosts(int currentTotalNumHosts) {
+		// not need
+	}
+
 	public static CountBasedFailureHandler createAlwaysBlackedHandler(
 			Time failureTimeout,
 			int blacklistMaxLength,
 			int maxFailureNum,
 			Clock clock,
-			MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet,
 			BlacklistUtil.FailureActionType failureActionType,
 			BlacklistUtil.FailureType failureType) {
-		return new CountBasedFailureHandler(1, failureTimeout, blacklistMaxLength, maxFailureNum, 0, 0, clock, blacklistFailureMessageSet, failureActionType, failureType);
+		return new CountBasedFailureHandler(1, failureTimeout, blacklistMaxLength, maxFailureNum, 0, 0, clock, failureActionType, failureType);
 	}
 
 }

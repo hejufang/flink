@@ -26,6 +26,7 @@ import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
+import org.apache.flink.runtime.io.network.NetworkTraceable;
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
@@ -164,6 +165,10 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 				LOG.info("Task failed due to NoResourceAvailableException, clear blacklist now.");
 				resourceManagerGateway.clearBlacklist(jobID, jobMasterId, rpcTimeout);
 			} else {
+				BlacklistUtil.FailureType failureType = this.failureType;
+				if (t instanceof NetworkTraceable) {
+					failureType = BlacklistUtil.FailureType.NETWORK;
+				}
 				if (hostname != null && resourceID != null) {
 					resourceManagerGateway.onTaskFailure(
 							jobID, jobMasterId, failureType, hostname, resourceID, t, timestamp, rpcTimeout);
