@@ -21,13 +21,15 @@ package org.apache.flink.connector.hsap;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
-import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
-import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
 
 /**
  * DorisOptions.
@@ -69,6 +71,33 @@ public class HsapOptions implements Serializable {
 		.noDefaultValue()
 		.withDescription("Optional. It defines hsap server data-center.");
 
+	public static final ConfigOption<Boolean> STREAMING_INGESTION = ConfigOptions
+		.key("streaming-ingestion")
+		.booleanType()
+		.defaultValue(true)
+		.withDeprecatedKeys("Optional. it defines use streaming or batch ingestion mode");
+
+	public static final ConfigOption<Boolean> AUTO_FLUSH = ConfigOptions
+		.key("auto-flush")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. will flush for every record if enabled");
+
+	public static final ConfigOption<String> HLL_COLUMNS = ConfigOptions
+		.key("hll-columns")
+		.stringType()
+		.defaultValue("")
+		.withDescription("Optional. specify hll columns which be be convert to hyper loglog types," +
+			"ex: \"col_a,col_b\"");
+
+	public static final ConfigOption<String> RAW_HLL_COLUMNS = ConfigOptions
+		.key("raw-hll-columns")
+		.stringType()
+		.defaultValue("")
+		.withDescription("Optional. specified columns are in form of HyperLogLog bytes, will be sent " +
+			"to ingestion server as HLL Type" +
+			"ex: \"col_a,col_b\"");
+
 	public static final ConfigOption<Integer> CONNECTION_PER_SERVER = ConfigOptions
 		.key("sink.connection-per-server")
 		.intType()
@@ -77,13 +106,13 @@ public class HsapOptions implements Serializable {
 
 	private final String addr;
 
-	private final int batchRowNum;
+	private final MemorySize bufferSize;
+
+	private final int maxRetryTimes;
 
 	private final String database;
 
 	private final String table;
-
-	private final int connectionPerServer;
 
 	private final FlinkConnectorRateLimiter rateLimiter;
 
@@ -95,35 +124,55 @@ public class HsapOptions implements Serializable {
 
 	private final String dataCenter;
 
+	private boolean streamingIngestion;
+
+	private boolean autoFlush;
+
+	private Set<String> hllColumns;
+
+	private Set<String> rawHllColumns;
+
 	public HsapOptions(
 			String addr,
-			int batchRowNum,
+			MemorySize bufferSize,
+			int maxRetryTimes,
 			String database,
 			String table,
-			int connectionPerServer,
 			int parallelism,
 			FlinkConnectorRateLimiter rateLimiter,
 			long flushIntervalMs,
 			String hsapPsm,
-			String dataCenter) {
+			String dataCenter,
+			boolean streamingIngestion,
+			boolean autoFlush,
+			Set<String> hllColumns,
+			Set<String> rawHllColumns) {
 		this.addr = addr;
-		this.batchRowNum = batchRowNum;
+		this.bufferSize = bufferSize;
+		this.maxRetryTimes = maxRetryTimes;
 		this.database = database;
 		this.table = table;
-		this.connectionPerServer = connectionPerServer;
 		this.parallelism = parallelism;
 		this.rateLimiter = rateLimiter;
 		this.flushIntervalMs = flushIntervalMs;
 		this.hsapPsm = hsapPsm;
 		this.dataCenter = dataCenter;
+		this.streamingIngestion = streamingIngestion;
+		this.autoFlush = autoFlush;
+		this.hllColumns = hllColumns;
+		this.rawHllColumns = rawHllColumns;
 	}
 
 	public String getAddr() {
 		return addr;
 	}
 
-	public int getBatchRowNum() {
-		return batchRowNum;
+	public MemorySize getBufferSize() {
+		return bufferSize;
+	}
+
+	public int getMaxRetryTimes() {
+		return maxRetryTimes;
 	}
 
 	public String getDatabase() {
@@ -132,10 +181,6 @@ public class HsapOptions implements Serializable {
 
 	public String getTable() {
 		return table;
-	}
-
-	public int getConnectionPerServer() {
-		return connectionPerServer;
 	}
 
 	public int getParallelism() {
@@ -158,6 +203,22 @@ public class HsapOptions implements Serializable {
 		return dataCenter;
 	}
 
+	public boolean isStreamingIngestion() {
+		return streamingIngestion;
+	}
+
+	public boolean isAutoFlush() {
+		return autoFlush;
+	}
+
+	public boolean isHllColumn(String name) {
+		return hllColumns.contains(name.toLowerCase());
+	}
+
+	public boolean isRawHllColumn(String name) {
+		return rawHllColumns.contains(name.toLowerCase());
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -168,31 +229,44 @@ public class HsapOptions implements Serializable {
 	public static class Builder {
 		private String addr;
 
-		private int batchRowNum = SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue();
+		private MemorySize bufferSize = MemorySize.ofMebiBytes(4);
+
+		private int maxRetryTimes = SINK_MAX_RETRIES.defaultValue();
 
 		private String database;
 
 		private String table;
 
-		private int connectionPerServer = CONNECTION_PER_SERVER.defaultValue();
-
 		private int parallelism = PARALLELISM.defaultValue();
 
 		private FlinkConnectorRateLimiter rateLimiter;
 
-		private long flushIntervalMs = SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis();
+		private long flushIntervalMs = 0L;
 
 		private String hsapPsm;
 
 		private String dataCenter;
+
+		private Boolean streamingIngestion = STREAMING_INGESTION.defaultValue();
+
+		private Boolean autoFlush = AUTO_FLUSH.defaultValue();
+
+		private Set<String> hllColumns = new HashSet<>();
+
+		private Set<String> rawHllColumns = new HashSet<>();
 
 		public Builder setAddr(String addr) {
 			this.addr = addr;
 			return this;
 		}
 
-		public Builder setBatchRowNum(int batchRowNum) {
-			this.batchRowNum = batchRowNum;
+		public Builder setBufferSize(MemorySize bufferSize) {
+			this.bufferSize = bufferSize;
+			return this;
+		}
+
+		public Builder setMaxRetryTimes(int maxRetryTimes) {
+			this.maxRetryTimes = maxRetryTimes;
 			return this;
 		}
 
@@ -203,11 +277,6 @@ public class HsapOptions implements Serializable {
 
 		public Builder setTable(String table) {
 			this.table = table;
-			return this;
-		}
-
-		public Builder setConnectionPerServer(int connectionPerServer) {
-			this.connectionPerServer = connectionPerServer;
 			return this;
 		}
 
@@ -236,13 +305,54 @@ public class HsapOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setStreamingIngestion(Boolean streamingIngestion) {
+			this.streamingIngestion = streamingIngestion;
+			return this;
+		}
+
+		public Builder setAutoFlush(Boolean autoFlush) {
+			this.autoFlush = autoFlush;
+			return this;
+		}
+
+		public Builder setHllColumns(String hllColumns) {
+			String[] cols = hllColumns.split(",");
+			Set<String> columnList = new HashSet<>();
+			if (cols != null) {
+				for (String col : cols) {
+					col = col.trim();
+					if (!col.isEmpty()) {
+						columnList.add(col.toLowerCase());
+					}
+				}
+			}
+			this.hllColumns = columnList;
+			return this;
+		}
+
+		public Builder setRawHllColumns(String rawHllColumns) {
+			String[] cols = rawHllColumns.split(",");
+			Set<String> columnList = new HashSet<>();
+			if (cols != null) {
+				for (String col : cols) {
+					col = col.trim();
+					if (!col.isEmpty()) {
+						columnList.add(col.toLowerCase());
+					}
+				}
+			}
+			this.rawHllColumns = columnList;
+			return this;
+		}
+
 		public HsapOptions build() {
 			Preconditions.checkState(addr != null || (hsapPsm != null && dataCenter != null),
 				String.format("Address and psm can not be null at same time " +
 					"and if you set %s you have to set %s", PSM.key(), DATA_CENTER.key()));
 
-			return new HsapOptions(addr, batchRowNum, database, table, connectionPerServer, parallelism,
-				rateLimiter, flushIntervalMs, hsapPsm, dataCenter);
+			return new HsapOptions(addr, bufferSize, maxRetryTimes, database, table, parallelism,
+				rateLimiter, flushIntervalMs, hsapPsm, dataCenter, streamingIngestion, autoFlush, hllColumns,
+				rawHllColumns);
 		}
 	}
 }

@@ -30,15 +30,21 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.apache.flink.connector.hsap.HsapOptions.ADDR_LIST;
+import static org.apache.flink.connector.hsap.HsapOptions.AUTO_FLUSH;
 import static org.apache.flink.connector.hsap.HsapOptions.CONNECTION_PER_SERVER;
 import static org.apache.flink.connector.hsap.HsapOptions.DATA_CENTER;
 import static org.apache.flink.connector.hsap.HsapOptions.DB_NAME;
+import static org.apache.flink.connector.hsap.HsapOptions.HLL_COLUMNS;
 import static org.apache.flink.connector.hsap.HsapOptions.PSM;
+import static org.apache.flink.connector.hsap.HsapOptions.RAW_HLL_COLUMNS;
+import static org.apache.flink.connector.hsap.HsapOptions.STREAMING_INGESTION;
 import static org.apache.flink.connector.hsap.HsapOptions.TABLE_NAME;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_SIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
 
 /**
@@ -79,6 +85,12 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 		set.add(CONNECTION_PER_SERVER);
 		set.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		set.add(SINK_BUFFER_FLUSH_INTERVAL);
+		set.add(SINK_BUFFER_FLUSH_SIZE);
+		set.add(SINK_MAX_RETRIES);
+		set.add(STREAMING_INGESTION);
+		set.add(AUTO_FLUSH);
+		set.add(HLL_COLUMNS);
+		set.add(RAW_HLL_COLUMNS);
 		return set;
 	}
 
@@ -93,9 +105,37 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 		readableConfig.getOptional(ADDR_LIST).ifPresent(hsapOptions::setAddr);
 		readableConfig.getOptional(PSM).ifPresent(hsapOptions::setHsapPsm);
 		readableConfig.getOptional(DATA_CENTER).ifPresent(hsapOptions::setDataCenter);
+		readableConfig.getOptional(SINK_BUFFER_FLUSH_SIZE).ifPresent(
+			bufferSize -> {
+				hsapOptions.setBufferSize(bufferSize);
+			}
+		);
 
-		readableConfig.getOptional(SINK_BUFFER_FLUSH_MAX_ROWS).ifPresent(hsapOptions::setBatchRowNum);
-		readableConfig.getOptional(CONNECTION_PER_SERVER).ifPresent(hsapOptions::setConnectionPerServer);
+		readableConfig.getOptional(STREAMING_INGESTION).ifPresent(
+			streamingIngestion -> {
+				hsapOptions.setStreamingIngestion(streamingIngestion);
+			}
+		);
+
+		readableConfig.getOptional(AUTO_FLUSH).ifPresent(
+			autoFlush -> {
+				hsapOptions.setAutoFlush(autoFlush);
+			}
+		);
+
+		readableConfig.getOptional(HLL_COLUMNS).ifPresent(
+			hllColumns -> {
+				hsapOptions.setHllColumns(hllColumns);
+			}
+		);
+
+		readableConfig.getOptional(RAW_HLL_COLUMNS).ifPresent(
+			rawHllColumns -> {
+				hsapOptions.setRawHllColumns(rawHllColumns);
+			}
+		);
+
+		readableConfig.getOptional(SINK_MAX_RETRIES).ifPresent(hsapOptions::setMaxRetryTimes);
 		readableConfig.getOptional(RATE_LIMIT_NUM).ifPresent(
 			limit -> {
 				GuavaFlinkConnectorRateLimiter rateLimit = new GuavaFlinkConnectorRateLimiter();
