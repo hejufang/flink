@@ -39,7 +39,7 @@ public class CloudShuffleChannelSelectorRecordWriter<T extends IOReadableWritabl
 		ChannelSelector<T> channelSelector,
 		long timeout,
 		String taskName) {
-		super(writer, timeout, taskName, null);
+		super(writer, timeout, taskName, null, null);
 
 		this.channelSelector = checkNotNull(channelSelector);
 		this.channelSelector.setup(numberOfChannels, writer.getSubpartitions());

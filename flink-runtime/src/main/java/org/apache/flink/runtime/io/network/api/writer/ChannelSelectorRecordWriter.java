@@ -48,8 +48,9 @@ public class ChannelSelectorRecordWriter<T extends IOReadableWritable> extends R
 			ChannelSelector<T> channelSelector,
 			long timeout,
 			String taskName,
+			String threadName,
 			TaskThreadPoolExecutor taskThreadPoolExecutor) {
-		super(writer, timeout, taskName, taskThreadPoolExecutor);
+		super(writer, timeout, taskName, threadName, taskThreadPoolExecutor);
 
 		this.channelSelector = checkNotNull(channelSelector);
 		this.channelSelector.setup(numberOfChannels, writer.getSubpartitions());

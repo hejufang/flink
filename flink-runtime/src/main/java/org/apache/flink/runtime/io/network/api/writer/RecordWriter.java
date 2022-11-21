@@ -98,7 +98,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	/** To avoid synchronization overhead on the critical path, best-effort error tracking is enough here.*/
 	private Throwable flusherException;
 
-	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName, TaskThreadPoolExecutor taskThreadPoolExecutor) {
+	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName, String threadName, TaskThreadPoolExecutor taskThreadPoolExecutor) {
 		this.targetPartition = writer;
 		this.numberOfChannels = writer.getNumberOfSubpartitions();
 
@@ -110,13 +110,17 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 		if (timeout == -1 || timeout == 0) {
 			outputFlusher = null;
 		} else {
-			String threadName = taskName == null ?
-				DEFAULT_OUTPUT_FLUSH_THREAD_NAME :
-				DEFAULT_OUTPUT_FLUSH_THREAD_NAME + " for " + taskName;
-
-			outputFlusher = new OutputFlusher(threadName, timeout);
+			String outputFlushThreadName;
+			if (threadName != null) {
+				outputFlushThreadName = threadName;
+			} else {
+				outputFlushThreadName = taskName == null ?
+					DEFAULT_OUTPUT_FLUSH_THREAD_NAME :
+					DEFAULT_OUTPUT_FLUSH_THREAD_NAME + " for " + taskName;
+			}
+			outputFlusher = new OutputFlusher(outputFlushThreadName, timeout);
 			if (null != taskThreadPoolExecutor) {
-				taskDaemonExecutor.submit(outputFlusher, threadName);
+				taskDaemonExecutor.submit(outputFlusher, outputFlushThreadName);
 			} else {
 				outputFlusher.start();
 			}

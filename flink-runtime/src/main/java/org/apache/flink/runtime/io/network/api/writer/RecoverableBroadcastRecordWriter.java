@@ -34,7 +34,7 @@ public final class RecoverableBroadcastRecordWriter<T extends IOReadableWritable
 			ChannelSelector<T> channelSelector,
 			long timeout,
 			String taskName) {
-		super(writer, channelSelector, timeout, taskName, null);
+		super(writer, channelSelector, timeout, taskName, null, null);
 	}
 
 	@Override

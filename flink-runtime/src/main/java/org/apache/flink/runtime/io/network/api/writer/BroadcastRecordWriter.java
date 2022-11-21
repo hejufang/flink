@@ -57,8 +57,9 @@ public final class BroadcastRecordWriter<T extends IOReadableWritable> extends R
 			ResultPartitionWriter writer,
 			long timeout,
 			String taskName,
+			String threadName,
 			TaskThreadPoolExecutor taskThreadPoolExecutor) {
-		super(writer, timeout, taskName, taskThreadPoolExecutor);
+		super(writer, timeout, taskName, threadName, taskThreadPoolExecutor);
 	}
 
 	@Override

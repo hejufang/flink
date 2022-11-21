@@ -18,8 +18,11 @@
 
 package org.apache.flink.runtime.io.network.api.writer;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
+
+import static org.apache.flink.runtime.io.network.api.writer.RecordWriter.DEFAULT_OUTPUT_FLUSH_THREAD_NAME;
 
 /**
  * Utility class to encapsulate the logic of building a {@link RecordWriter} instance.
@@ -31,6 +34,10 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 	private long timeout = -1;
 
 	private String taskName = "test";
+
+	private String taskMetricNameWithSubtask = "test";
+
+	private JobID jobId = null;
 
 	private boolean cloudShuffleMode = false;
 
@@ -53,6 +60,16 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 		return this;
 	}
 
+	public RecordWriterBuilder<T> setTaskMetricNameWithSubtask(String taskMetricNameWithSubtask) {
+		this.taskMetricNameWithSubtask = taskMetricNameWithSubtask;
+		return this;
+	}
+
+	public RecordWriterBuilder<T> setJobId(JobID jobId) {
+		this.jobId = jobId;
+		return this;
+	}
+
 	public RecordWriterBuilder<T> setCloudShuffleMode(boolean cloudShuffleMode) {
 		this.cloudShuffleMode = cloudShuffleMode;
 		return this;
@@ -69,19 +86,20 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 	}
 
 	public RecordWriter<T> build(ResultPartitionWriter writer) {
+		String threadName = taskDaemonExecutor == null ? null : DEFAULT_OUTPUT_FLUSH_THREAD_NAME + " for " + jobId + "-" + taskMetricNameWithSubtask;
 		if (selector.isBroadcast()) {
 			if (cloudShuffleMode) {
 				return new CloudShuffleBroadcastRecordWriter<>(writer, timeout, taskName);
 			} else if (isRecoverable) {
 				return new RecoverableBroadcastRecordWriter<>(writer, selector, timeout, taskName);
 			} else {
-				return new BroadcastRecordWriter<>(writer, timeout, taskName, taskDaemonExecutor);
+				return new BroadcastRecordWriter<>(writer, timeout, taskName, threadName, taskDaemonExecutor);
 			}
 		} else {
 			if (cloudShuffleMode) {
 				return new CloudShuffleChannelSelectorRecordWriter<>(writer, selector, timeout, taskName);
 			} else {
-				return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName, taskDaemonExecutor);
+				return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName, threadName, taskDaemonExecutor);
 			}
 		}
 	}

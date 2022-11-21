@@ -522,7 +522,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.taskCancellationInterval = tmConfig.getLong(TaskManagerOptions.TASK_CANCELLATION_INTERVAL);
 		this.taskCancellationTimeout = tmConfig.getLong(TaskManagerOptions.TASK_CANCELLATION_TIMEOUT);
 		this.useTaskThreadPool = tmConfig.getBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE);
-		this.taskThreadName = useTaskThreadPool ? jobUID + "-" + taskMetricNameWithSubtask : taskMetricNameWithSubtask;
+		this.taskThreadName = useTaskThreadPool ? jobId + "-" + taskMetricNameWithSubtask : taskMetricNameWithSubtask;
 		this.memoryManager = Preconditions.checkNotNull(memManager);
 		this.ioManager = Preconditions.checkNotNull(ioManager);
 		this.broadcastVariableManager = Preconditions.checkNotNull(bcVarManager);

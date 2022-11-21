@@ -1588,6 +1588,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			.setChannelSelector(outputPartitioner)
 			.setTimeout(bufferTimeout)
 			.setTaskName(taskName)
+			.setTaskMetricNameWithSubtask(environment.getTaskInfo().getTaskMetricNameWithSubtasks())
+			.setJobId(environment.getJobID())
 			.setCloudShuffleMode(cloudShuffleMode)
 			.setRecoverable(isRecoverable)
 			.setTaskDaemonExecutor(environment.getTaskDaemonExecutor())
