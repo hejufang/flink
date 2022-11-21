@@ -29,6 +29,7 @@ import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -97,6 +98,7 @@ public class KubernetesTaskManagerTestBase extends KubernetesTestBase {
 				DYNAMIC_PROPERTIES,
 				containeredTaskManagerParameters,
 				0,
+				Collections.emptyList(),
 				ExternalResourceUtils.getExternalResources(flinkConfig, KubernetesConfigOptions.EXTERNAL_RESOURCE_KUBERNETES_CONFIG_KEY_SUFFIX));
 	}
 }

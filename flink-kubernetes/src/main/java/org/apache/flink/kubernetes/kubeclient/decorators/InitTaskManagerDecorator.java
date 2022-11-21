@@ -29,12 +29,15 @@ import org.apache.flink.kubernetes.kubeclient.resources.KubernetesToleration;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 
+import io.fabric8.kubernetes.api.model.Affinity;
+import io.fabric8.kubernetes.api.model.AffinityBuilder;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.EnvVarSourceBuilder;
+import io.fabric8.kubernetes.api.model.NodeSelectorTermBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
@@ -99,6 +102,7 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withTolerations(kubernetesTaskManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
 					.collect(Collectors.toList()))
+				.withAffinity(generateBlackedNodeAffinity())
 				.addAllToVolumes(volumeList)
 				.endSpec()
 			.build();
@@ -109,6 +113,28 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 			.withPod(basicPod)
 			.withMainContainer(basicMainContainer)
 			.build();
+	}
+
+	private Affinity generateBlackedNodeAffinity() {
+		List<String> blackedHosts = kubernetesTaskManagerParameters.getBlackedHost();
+		if (blackedHosts == null || blackedHosts.isEmpty()) {
+			// empty Affinity
+			return new Affinity();
+		}
+		return new AffinityBuilder()
+				.withNewNodeAffinity()
+				.withNewRequiredDuringSchedulingIgnoredDuringExecution()
+				.withNodeSelectorTerms(
+						new NodeSelectorTermBuilder()
+								.addNewMatchExpression()
+								.withKey("kubernetes.io/hostname")
+								.withOperator("NotIn")
+								.withValues(blackedHosts)
+								.endMatchExpression()
+								.build())
+				.endRequiredDuringSchedulingIgnoredDuringExecution()
+				.endNodeAffinity()
+				.build();
 	}
 
 	private Container decorateMainContainer(Container container) {

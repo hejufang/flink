@@ -25,12 +25,17 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
 import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 import org.apache.flink.util.Preconditions;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 /**
  * This class extends the {@link TaskExecutorConnection}, adding the worker information.
  */
 public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extends TaskExecutorConnection {
 
 	private final WorkerType worker;
+
+	private final String hostName;
 
 	private final int dataPort;
 
@@ -51,6 +56,13 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 		super(worker.getResourceID(), taskExecutorGateway);
 
 		this.worker = Preconditions.checkNotNull(worker);
+		String fqdnHostName;
+		try {
+			fqdnHostName = InetAddress.getByName(taskExecutorGateway.getHostname()).getCanonicalHostName();
+		} catch (UnknownHostException e) {
+			fqdnHostName = taskExecutorGateway.getHostname();
+		}
+		this.hostName = fqdnHostName;
 		this.dataPort = dataPort;
 		this.hardwareDescription = Preconditions.checkNotNull(hardwareDescription);
 		this.memoryConfiguration = Preconditions.checkNotNull(memoryConfiguration);
@@ -59,6 +71,10 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 
 	public WorkerType getWorker() {
 		return worker;
+	}
+
+	public String getHostName() {
+		return hostName;
 	}
 
 	public int getDataPort() {

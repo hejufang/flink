@@ -58,6 +58,8 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 	 * */
 	private final int minNumTaskManager;
 
+	private final List<String> blackedHosts;
+
 	private final Map<String, Long> taskManagerExternalResources;
 
 	public KubernetesTaskManagerParameters(
@@ -66,12 +68,14 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 			String dynamicProperties,
 			ContaineredTaskManagerParameters containeredTaskManagerParameters,
 			int minNumTaskManager,
+			List<String> blackedHosts,
 			Map<String, Long> taskManagerExternalResources) {
 		super(flinkConfig);
 		this.podName = checkNotNull(podName);
 		this.dynamicProperties = checkNotNull(dynamicProperties);
 		this.containeredTaskManagerParameters = checkNotNull(containeredTaskManagerParameters);
 		this.minNumTaskManager = minNumTaskManager;
+		this.blackedHosts = checkNotNull(blackedHosts);
 		this.taskManagerExternalResources = checkNotNull(taskManagerExternalResources);
 	}
 
@@ -157,5 +161,9 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 		} else {
 			return String.join(" && ", postStartCommands);
 		}
+	}
+
+	public List<String> getBlackedHost() {
+		return blackedHosts;
 	}
 }

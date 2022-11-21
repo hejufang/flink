@@ -52,6 +52,7 @@ import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.TagGaugeStoreImpl;
+import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -74,10 +75,12 @@ import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
+import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.runtime.taskexecutor.exceptions.ContainerCompletedException;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
@@ -95,6 +98,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -155,8 +159,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private volatile boolean running;
 
-	/** Map from pod name to hostIP. */
-	private final HashMap<String, String> podNameAndHostIPMap;
+	/** Map from pod name to node name. */
+	private final HashMap<String, String> podNameToNodeNameMap;
 
 	private final Map<WorkerResourceSpec, KubernetesPod.CpuMemoryResource> realResourceToWorkerResourceSpec;
 
@@ -200,6 +204,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final boolean fastRecovery;
 
+	private final Set<String> blackedHosts = new HashSet<>();
+
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -239,7 +245,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.podWorkerResources = new HashMap<>();
 		this.pendingPhasePods = new HashMap<>();
 		this.running = false;
-		this.podNameAndHostIPMap = new HashMap<>();
+		this.podNameToNodeNameMap = new HashMap<>();
 		this.realResourceToWorkerResourceSpec = new HashMap<>(4);
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.restServerPort = clusterInformation.getRestServerPort();
@@ -538,6 +544,50 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
+	public void onBlacklistUpdated() {
+		Set<BlacklistRecord> blackedRecords = blacklistTracker.getBlackedRecords();
+		// update blacklist to kubernetes, don't want to query every time when creating task-managers
+		Set<String> newBlackedHosts = blackedRecords.stream()
+				.flatMap(r -> r.getBlackedHosts().stream())
+				.collect(Collectors.toSet());
+		log.info("update new blacked hosts {}, before is {}", newBlackedHosts, blackedHosts);
+		this.blackedHosts.clear();
+		this.blackedHosts.addAll(newBlackedHosts);
+		for (BlacklistRecord record : blackedRecords) {
+			switch (record.getActionType()) {
+				case RELEASE_BLACKED_RESOURCE:
+					record.getBlackedResources().forEach(
+							resourceID -> {
+								if (this.workerNodes.containsKey(resourceID)) {
+									releaseBlackedResource(resourceID, WorkerExitCode.IN_BLACKLIST);
+								}
+							});
+					break;
+				case RELEASE_BLACKED_HOST:
+					Set<String> blackedHosts = record.getBlackedHosts();
+					for (ResourceID taskManagerID : workerNodes.keySet()) {
+						// blackedHosts contains node name instead of host name for Kubernetes.
+						String nodeName = getPodHost(taskManagerID);
+						if (blackedHosts.contains(nodeName)) {
+							log.info("release resource {} ,node {}, because of critical error", taskManagerID, nodeName);
+							releaseBlackedResource(taskManagerID, WorkerExitCode.IN_BLACKLIST_BECAUSE_CRITICAL_ERROR);
+						}
+					}
+					break;
+				case NO_SCHEDULE:
+				default:
+					break;
+			}
+		}
+	}
+
+	@Override
+	protected String getTaskManagerNodeName(WorkerRegistration<?> taskExecutor){
+		// kubernetes uses a different node name which can be found in spec.nodeName
+		return podNameToNodeNameMap.get(taskExecutor.getResourceID().getResourceIdString());
+	}
+
+	@Override
 	protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause, int exitCode) {
 		KubernetesWorkerNode workerNode = workerNodes.get(resourceID);
 		if (workerNode != null) {
@@ -611,10 +661,13 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 				PodStatus status = pod.getInternalResource().getStatus();
 				if (status != null) {
 					String podName = pod.getName();
-					String hostIP = status.getHostIP();
-					if (!StringUtils.isNullOrWhitespaceOnly(hostIP) && !hostIP.equals(podNameAndHostIPMap.get(podName))) {
-						podNameAndHostIPMap.put(podName, hostIP);
-						LOG.info("modified event: a taskManager pod, it's podName: {}, hostIP: {}", podName, hostIP);
+					String nodeName = pod.getInternalResource().getSpec().getNodeName();
+					if (!StringUtils.isNullOrWhitespaceOnly(nodeName) && !nodeName.equals(podNameToNodeNameMap.get(podName))) {
+						podNameToNodeNameMap.put(podName, nodeName);
+						LOG.info("modified event: a taskManager pod, it's podName: {}, nodeName: {}", podName, nodeName);
+					}
+					if (blackedHosts.contains(nodeName)) {
+						recordWorkerFailureAndStop(pod, new FlinkException("Return due to blacklist"), WorkerExitCode.IN_BLACKLIST);
 					}
 				}
 				handlePendingPodToRunning(pod);
@@ -627,6 +680,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public void onDeleted(List<KubernetesPod> pods) {
 		runAsync(() -> {
 			for (KubernetesPod pod : pods) {
+				String nodeName = pod.getInternalResource().getSpec().getNodeName();
+				LOG.info("deleted event: a taskManager pod, it's podName: {}, nodeName: {}", pod.getName(), nodeName);
 				recordWorkerFailureAndStop(pod, new FlinkException("Pod Deleted."), WorkerExitCode.POD_DELETED);
 			}
 		});
@@ -683,7 +738,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	private String getPodHost(String podName) {
-		return podNameAndHostIPMap.getOrDefault(podName, "unKnown");
+		return podNameToNodeNameMap.getOrDefault(podName, "unKnown");
 	}
 
 	private void registerMetrics() {
@@ -1053,6 +1108,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			dynamicProperties,
 			taskManagerParameters,
 			getMinNumberOfTaskManagerForPodGroup(),
+			new ArrayList<>(blackedHosts),
 			ExternalResourceUtils.getExternalResources(flinkConfig, KubernetesConfigOptions.EXTERNAL_RESOURCE_KUBERNETES_CONFIG_KEY_SUFFIX));
 	}
 
@@ -1098,39 +1154,43 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	private void recordWorkerFailureAndStop(KubernetesPod pod, Exception cause, int exitCode) {
-		recordWorkerFailure();
 		int containerExitCode = exitCode;
-		if (podWorkerResources.containsKey(pod.getName())) {
+		String exitReason = "";
+		String podName = pod.getName();
+		if (podWorkerResources.containsKey(podName)) {
+			String nodeName = pod.getInternalResource().getSpec().getNodeName();
 			List<Tuple2<String, ContainerStateTerminated>> terminatedContainers = pod.getContainerStateTerminated();
 			for (Tuple2<String, ContainerStateTerminated> terminatedContainer : terminatedContainers) {
 				if (terminatedContainer.f1.getExitCode() != null) {
 					if (containerExitCode != terminatedContainer.f1.getExitCode()) {
 						log.info("pod {} container {} exit code update from {} to {}.",
-								pod.getName(), terminatedContainer.f0, containerExitCode, terminatedContainer.f1.getExitCode());
+								podName, terminatedContainer.f0, containerExitCode, terminatedContainer.f1.getExitCode());
 						containerExitCode = terminatedContainer.f1.getExitCode();
+						exitReason = terminatedContainer.f1.getReason();
 					}
 				}
-				log.error("Pod {} failed with container {} terminated: {}",
-						pod.getName(), terminatedContainer.f0, terminatedContainer.f1);
+				log.error("Pod {} (node name:{}) failed with container {} terminated: {}",
+						podName, nodeName, terminatedContainer.f0, terminatedContainer.f1);
+			}
+			if (!StringUtils.isNullOrWhitespaceOnly(nodeName)) {
+				ContainerCompletedException containerCompletedException = ContainerCompletedException.fromExitCode(
+						containerExitCode,
+						exitReason);
+				recordWorkerFailure(nodeName, new ResourceID(podName), containerCompletedException);
 			}
 			completedContainerGauge.addMetric(
 					1,
 					new TagGaugeStoreImpl.TagValuesBuilder()
-							.addTagValue("pod_host", getPodHost(pod.getName()))
-							.addTagValue("pod_name", prunePodName(pod.getName()))
+							.addTagValue("pod_host", getPodHost(podName))
+							.addTagValue("pod_name", prunePodName(podName))
 							.addTagValue("exit_code", String.valueOf(containerExitCode))
 							.build());
 		}
-		internalStopPod(pod.getName());
-		closeTaskManagerConnection(new ResourceID(pod.getName()), cause, containerExitCode);
+		internalStopPod(podName);
+		closeTaskManagerConnection(new ResourceID(podName), cause, containerExitCode);
 	}
 
 	private void internalStopPod(String podName) {
-		String hostIP = podNameAndHostIPMap.remove(podName);
-		if (!StringUtils.isNullOrWhitespaceOnly(hostIP)){
-			LOG.info("deleted event: a taskManager pod, it's podName: {}, hostIP: {}", podName, hostIP);
-		}
-
 		final ResourceID resourceId = new ResourceID(podName);
 		final boolean isPendingWorkerOfCurrentAttempt = isPendingWorkerOfCurrentAttempt(podName);
 
@@ -1146,6 +1206,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		final WorkerResourceSpec workerResourceSpec = podWorkerResources.remove(podName);
 		pendingPhasePods.remove(podName);
 		workerNodes.remove(resourceId);
+		podNameToNodeNameMap.remove(podName);
 
 		if (isPendingWorkerOfCurrentAttempt) {
 			notifyNewWorkerAllocationFailed(

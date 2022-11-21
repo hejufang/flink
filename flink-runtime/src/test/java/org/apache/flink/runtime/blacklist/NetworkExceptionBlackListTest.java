@@ -248,6 +248,11 @@ public class NetworkExceptionBlackListTest {
 		}
 
 		@Override
+		public String queryNodeName(NetworkAddress networkAddress) {
+			return networkAddress.getHostName();
+		}
+
+		@Override
 		public boolean isTaskManagerOffline(ResourceID taskManagerID) {
 			return false;
 		}

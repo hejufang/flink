@@ -14,10 +14,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package org.apache.flink.yarn.exceptions;
+package org.apache.flink.runtime.taskexecutor.exceptions;
+
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 
 /**
  * Container Completed Exception.
@@ -45,6 +46,7 @@ public class ContainerCompletedException extends Exception {
 			case -10004: // work dir usage over limit.
 			case -10005: // shuffle disk usage over limit.
 			case -10006: // total disk usage over limit.
+			case WorkerExitCode.IN_BLACKLIST: // this worker is in blacklist
 				return new ExpectedContainerCompletedException(exitCode, errorMessage);
 			default:
 				return new ContainerCompletedException(exitCode, errorMessage);

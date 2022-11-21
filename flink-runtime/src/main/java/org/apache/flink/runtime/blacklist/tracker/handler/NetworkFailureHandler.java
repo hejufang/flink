@@ -30,8 +30,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The handler used to process network failure, specially, for those exceptions that inherits {@code NetworkTraceable}.
@@ -122,12 +124,13 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 		}
 		clearExpiredTimestampRecord(2 * timestampRecordExpireTime.toMilliseconds());
 		// should not add host if either the src and dest host has been in the blacklist.
-		if (checkHostInBlacklist(hostFailure.getHostname()) || checkHostInBlacklist(remoteAddress.getHostName())) {
+		String remoteNodeName = blacklistActions.queryNodeName(remoteAddress);
+		if (checkHostInBlacklist(hostFailure.getHostname()) || checkHostInBlacklist(remoteNodeName)) {
 			LOG.debug("src and dest host is already in blacklist: {}", hostFailure);
 			return false;
 		}
 		boolean addSrc = addFailureIfNotInBlacklist(hostFailure, hostFailure.getHostname());
-		boolean addDest = addFailureIfNotInBlacklist(hostFailure, remoteAddress.getHostName());
+		boolean addDest = addFailureIfNotInBlacklist(hostFailure, remoteNodeName);
 		return addSrc && addDest;
 	}
 
@@ -153,14 +156,17 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 
 	protected void removeFailuresFromBlackedHosts() {
 		// remove record whose src host is in blacklist
-		this.failureHosts.entrySet().removeIf(e -> blackedHosts.containsKey(e.getKey()));
+		Set<HostFailure> removedFailures = new HashSet<>();
+		this.failureHosts.entrySet().removeIf(e -> {
+			if (blackedHosts.containsKey(e.getKey())) {
+				removedFailures.addAll(e.getValue());
+				return true;
+			}
+			return false;
+		});
 		// remove record whose dest host is in blacklist
 		for (Map.Entry<String, LinkedList<HostFailure>> hostFailuresEntry : failureHosts.entrySet()) {
-			hostFailuresEntry.getValue().removeIf(failure -> {
-				NetworkTraceable networkTraceable = (NetworkTraceable) failure.getException();
-				NetworkAddress remoteAddress = networkTraceable.getRemoteAddress();
-				return remoteAddress == null || blackedHosts.containsKey(remoteAddress.getHostName());
-			});
+			hostFailuresEntry.getValue().removeIf(removedFailures::contains);
 		}
 		this.failureHosts.entrySet().removeIf(e -> e.getValue().isEmpty());
 	}

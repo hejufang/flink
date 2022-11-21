@@ -1126,6 +1126,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 					"",
 					taskManagerParameters,
 					0,
+					Collections.emptyList(),
 					ExternalResourceUtils.getExternalResources(flinkConfig, KubernetesConfigOptions.EXTERNAL_RESOURCE_KUBERNETES_CONFIG_KEY_SUFFIX));
 			final KubernetesPod pod = KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
 			flinkKubeClient.createTaskManagerPod(pod);

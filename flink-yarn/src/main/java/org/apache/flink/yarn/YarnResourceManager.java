@@ -55,10 +55,11 @@ import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
-import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.taskexecutor.exceptions.ContainerCompletedException;
+import org.apache.flink.runtime.taskexecutor.exceptions.ExpectedContainerCompletedException;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
@@ -69,8 +70,6 @@ import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.clock.Clock;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
-import org.apache.flink.yarn.exceptions.ContainerCompletedException;
-import org.apache.flink.yarn.exceptions.ExpectedContainerCompletedException;
 import org.apache.flink.yarn.smartresources.ContainerResources;
 import org.apache.flink.yarn.smartresources.SmartResourceManager;
 import org.apache.flink.yarn.smartresources.UpdateContainersResources;
@@ -680,15 +679,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 	}
 
-	private void releaseBlackedResource(ResourceID resourceID, int exitCode) {
-		WorkerRegistration<YarnWorkerNode> registration = getTaskExecutors().get(resourceID);
-		if (registration != null) {
-			releaseResource(
-				registration.getInstanceID(),
-				new Exception("worker " + resourceID + " in blacklist."),
-				exitCode);
-		}
-	}
+
 
 	// ------------------------------------------------------------------------
 	//  AMRMClientAsync CallbackHandler methods

@@ -42,6 +42,7 @@ import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -268,6 +269,7 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 			"",
 			containeredTaskManagerParameters,
 			5,
+			Collections.emptyList(),
 			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
 		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
 		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
@@ -283,6 +285,7 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 			"",
 			containeredTaskManagerParameters,
 			0,
+			Collections.emptyList(),
 			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
 		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
 		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
@@ -298,6 +301,7 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 			"",
 			containeredTaskManagerParameters,
 			5,
+			Collections.emptyList(),
 			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
 		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
 		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, false);
@@ -313,6 +317,7 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 			"",
 			containeredTaskManagerParameters,
 			5,
+			Collections.emptyList(),
 			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
 		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesSessionClusterEntrypoint.class.getName());
 		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);

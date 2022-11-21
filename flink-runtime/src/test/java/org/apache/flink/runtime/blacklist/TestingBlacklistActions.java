@@ -66,6 +66,11 @@ public class TestingBlacklistActions implements BlacklistActions{
 	}
 
 	@Override
+	public String queryNodeName(NetworkAddress networkAddress) {
+		return networkAddress.getHostName();
+	}
+
+	@Override
 	public boolean isTaskManagerOffline(ResourceID taskManagerID) {
 		return !aliveTaskManagers.contains(taskManagerID);
 	}

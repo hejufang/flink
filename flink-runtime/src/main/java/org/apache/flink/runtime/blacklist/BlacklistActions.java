@@ -50,6 +50,13 @@ public interface BlacklistActions {
 	ResourceID queryTaskManagerID(NetworkAddress networkAddress);
 
 	/**
+	 * Query the node name of a NetworkAddress by its host name.
+	 * @param networkAddress the network address containing host name and data port
+	 * @return the node name of host in networkAddress
+	 */
+	String queryNodeName(NetworkAddress networkAddress);
+
+	/**
 	 * Given by the task manager id, query whether this task manager is offline.
 	 *
 	 * @param taskManagerID the id of this task manager

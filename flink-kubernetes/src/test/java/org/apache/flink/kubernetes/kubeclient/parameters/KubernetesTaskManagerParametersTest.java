@@ -82,12 +82,14 @@ public class KubernetesTaskManagerParametersTest extends KubernetesTestBase {
 		final ContaineredTaskManagerParameters containeredTaskManagerParameters =
 			ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec);
 
-		this.kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(flinkConfig,
-			POD_NAME,
-			DYNAMIC_PROPERTIES,
-			containeredTaskManagerParameters,
-			0,
-			Collections.emptyMap());
+		this.kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
+				flinkConfig,
+				POD_NAME,
+				DYNAMIC_PROPERTIES,
+				containeredTaskManagerParameters,
+				0,
+				Collections.emptyList(),
+				Collections.emptyMap());
 	}
 
 	@Test
