@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-+- com.bytedance:hsap-client:jar:1.2.11:compile
++- com.bytedance:hsap-client:jar:1.2.12:compile
 |  +- net.sourceforge.javacsv:javacsv:jar:2.0:compile
 |  +- com.baidu:jprotobuf:jar:jar-with-dependencies:2.2.11:compile
 |  |  +- javassist:javassist:jar:3.12.1.GA:compile
