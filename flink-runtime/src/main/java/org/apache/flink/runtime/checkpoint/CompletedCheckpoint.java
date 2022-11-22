@@ -197,26 +197,6 @@ public class CompletedCheckpoint implements Serializable {
 		return result;
 	}
 
-	public long getTotalStateSize() {
-		long result = 0L;
-
-		for (OperatorState operatorState : operatorStates.values()) {
-			result += operatorState.getTotalStateSize();
-		}
-
-		return result;
-	}
-
-	public long getRawTotalStateSize() {
-		long result = 0L;
-
-		for (OperatorState operatorState : operatorStates.values()) {
-			result += operatorState.getRawTotalStateSize();
-		}
-
-		return result;
-	}
-
 	public CompletedCheckpointStorageLocation getStorageLocation() {
 		return storageLocation;
 	}
@@ -293,13 +273,6 @@ public class CompletedCheckpoint implements Serializable {
 			if (completedCheckpointStats != null) {
 				completedCheckpointStats.discard();
 			}
-		}
-	}
-
-	/** NOT Thread safe. This method can be called only from CheckpointCoordinator thread. */
-	public void markAsDiscarded() {
-		if (completedCheckpointStats != null) {
-			completedCheckpointStats.discard();
 		}
 	}
 

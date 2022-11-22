@@ -90,7 +90,8 @@ public class DiscardStateTest {
 			Collections.<OperatorID, OperatorState>emptyMap(),
 			Collections.<MasterState>emptyList(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new TestCompletedCheckpointStorageLocation()));
+			new TestCompletedCheckpointStorageLocation(),
+			null));
 
 		store.addCheckpoint(new CompletedCheckpoint(
 			new JobID(),
@@ -100,7 +101,8 @@ public class DiscardStateTest {
 			Collections.<OperatorID, OperatorState>emptyMap(),
 			Collections.<MasterState>emptyList(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new TestCompletedCheckpointStorageLocation()));
+			new TestCompletedCheckpointStorageLocation(),
+			null));
 
 		long currentTimestamp = System.currentTimeMillis();
 		TreeMap<Long, Long> abortedPendingCheckpoints = new TreeMap<>();

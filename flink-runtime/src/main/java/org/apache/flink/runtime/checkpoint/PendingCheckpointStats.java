@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import javax.annotation.Nullable;
@@ -153,7 +154,7 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @param externalPointer Optional external storage path if checkpoint was externalized.
 	 * @return Callback for the {@link CompletedCheckpoint} instance to notify about disposal.
 	 */
-	@Deprecated
+	@VisibleForTesting
 	CompletedCheckpointStats toCompletedCheckpointStats(String externalPointer) {
 		return toCompletedCheckpointStats(externalPointer, currentStateSize, currentStateSize, numberOfSubtasks);
 	}

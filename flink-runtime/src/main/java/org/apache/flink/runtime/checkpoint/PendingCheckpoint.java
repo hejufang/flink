@@ -586,7 +586,10 @@ public class PendingCheckpoint {
 		CompletedCheckpointStorageLocation finalizedLocation) {
 		return pendingCheckpointStats != null
 			? pendingCheckpointStats.toCompletedCheckpointStats(
-			finalizedLocation.getExternalPointer())
+			finalizedLocation.getExternalPointer(),
+			getTotalStateSize(),
+			getRawTotalStateSize(),
+			numNeedAcknowledgedSubtasks)
 			: null;
 	}
 
@@ -888,5 +891,25 @@ public class PendingCheckpoint {
 			}
 		}
 		throw new FlinkRuntimeException("Write metadata for checkpoint[" + checkpointId + "] failed");
+	}
+
+	public long getTotalStateSize() {
+		long result = 0L;
+
+		for (OperatorState operatorState : operatorStates.values()) {
+			result += operatorState.getTotalStateSize();
+		}
+
+		return result;
+	}
+
+	public long getRawTotalStateSize() {
+		long result = 0L;
+
+		for (OperatorState operatorState : operatorStates.values()) {
+			result += operatorState.getRawTotalStateSize();
+		}
+
+		return result;
 	}
 }

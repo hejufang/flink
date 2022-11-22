@@ -32,8 +32,6 @@ import org.apache.flink.util.function.FunctionWithException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
@@ -97,7 +95,8 @@ public class CompletedCheckpointPlaceHolder<T extends Serializable> extends Comp
 			Collections.emptyMap(),
 			null,
 			CheckpointProperties.forSavepoint(false),
-			storageLocation);
+			storageLocation,
+			null);
 		this.isSavepoint = isSavepoint;
 		this.actualState = actualState;
 		this.transformer = transformer;
@@ -145,16 +144,6 @@ public class CompletedCheckpointPlaceHolder<T extends Serializable> extends Comp
 
 	@Override
 	public long getStateSize() {
-		throw new UnsupportedOperationException("Should never be called in placeHolder.");
-	}
-
-	@Override
-	public long getTotalStateSize() {
-		throw new UnsupportedOperationException("Should never be called in placeHolder.");
-	}
-
-	@Override
-	public long getRawTotalStateSize() {
 		throw new UnsupportedOperationException("Should never be called in placeHolder.");
 	}
 
@@ -211,11 +200,6 @@ public class CompletedCheckpointPlaceHolder<T extends Serializable> extends Comp
 
 	public void setTransformCallback(BiConsumer<Boolean, String> transformCallback) {
 		this.transformCallback = transformCallback;
-	}
-
-	@Override
-	void setDiscardCallback(@Nullable CompletedCheckpointStats.DiscardCallback discardCallback) {
-		throw new UnsupportedOperationException("unsupported in placeHolder");
 	}
 
 	public void appendTransformer(
