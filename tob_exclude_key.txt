@@ -164,6 +164,8 @@ flink.checkpoint.hdfs.dfs.pipeline.fast-failover.max.failover.times
 # cloud shuffle service
 flink.cloud-shuffle-service.coordinator.url
 flink.cloud-shuffle-service.css.recovery.mode
+flink.cloud-shuffle-service.need-freshen-real-dc
+flink.cloud-shuffle-service.platform
 
 # local state quota limit
 state.backend.local-state.expected-max-size

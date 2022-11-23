@@ -33,7 +33,17 @@ import java.util.Map;
  */
 public class CloudShuffleOptions {
 
-	public static final String PREFIX = "flink.cloud-shuffle-service.";
+	// css coordinator request
+	public static final String CSS_ASK_PATH = "/css/v1/api/permission/ask";
+	public static final String CSS_APPLICATION_TYPE_KEY = "applicationType";
+	public static final String CSS_APPLICATION_TYPE_VALUE = "FLINK";
+	public static final String CSS_APPLICATION_NAME_KEY = "appName";
+	public static final String CSS_DC_KEY = "dc";
+	public static final String CSS_PLATFORM_KEY = "platform";
+	public static final String CSS_PLATFORM_DEFAULT_VALUE = "unknown";
+
+	// css master info
+	public static final String CSS_PREFIX = "flink.cloud-shuffle-service.";
 	public static final String CSS_MASTER_ADDRESS = "css.master.address";
 	public static final int CLOUD_HISTOGRAM_SIZE = 10;
 
@@ -43,6 +53,14 @@ public class CloudShuffleOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Whether the cluster supports CSS or not.");
+
+	/**  Whether the css is enabled. */
+	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_NEED_FRESHEN_REAL_DC = ConfigOptions
+		.key("flink.cloud-shuffle-service.need-freshen-real-dc")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Whether the css client need to get the real dc before submitting, it need get from res-lake "
+			+ "for internal yarn. This only supports in yarn per-job mode.");
 
 	/** Flink client use css coordinator get the css configurations, but it has a lower priority than the configuration alone. */
 	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL = ConfigOptions
@@ -70,6 +88,13 @@ public class CloudShuffleOptions {
 		.stringType()
 		.noDefaultValue()
 		.withDescription("CSS master port, css master is running in jobMaster.");
+
+	/** Which the job come form. */
+	public static final ConfigOption<String> CLOUD_SHUFFLE_JOB_PLATFORM = ConfigOptions
+		.key("flink.cloud-shuffle-service.platform")
+		.stringType()
+		.defaultValue(CSS_PLATFORM_DEFAULT_VALUE)
+		.withDescription("which platform this job from.");
 
 	/** The css configurations. */
 	public static final ConfigOption<String> CLOUD_SHUFFLE_CLUSTER = ConfigOptions
@@ -140,8 +165,8 @@ public class CloudShuffleOptions {
 	public static Map<String, String> propertiesFromConfiguration(Configuration configuration) {
 		Map<String, String> m = new HashMap<>();
 		for (Map.Entry<String, String> entry : configuration.toMap().entrySet()) {
-			if (entry.getKey().startsWith(CloudShuffleOptions.PREFIX)) {
-				m.put(entry.getKey().substring(CloudShuffleOptions.PREFIX.length()), entry.getValue());
+			if (entry.getKey().startsWith(CloudShuffleOptions.CSS_PREFIX)) {
+				m.put(entry.getKey().substring(CloudShuffleOptions.CSS_PREFIX.length()), entry.getValue());
 			}
 		}
 		return m;

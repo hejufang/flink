@@ -100,7 +100,11 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 
 			// whether enable cloud shuffle service
 			if (configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_SUPPORT)) {
-				CloudShuffleConfiguration.reconfigureConfig(jobGraph, clusterSpecification, configuration);
+				LOG.info("The switch of CSS is true, and the need_freshen_real_dc is {}.",
+					configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_NEED_FRESHEN_REAL_DC));
+				if (!configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_NEED_FRESHEN_REAL_DC)) {
+					CloudShuffleConfiguration.reconfigureConfig(jobGraph, clusterSpecification, configuration);
+				}
 			}
 
 			final ClusterClientProvider<ClusterID> clusterClientProvider = clusterDescriptor

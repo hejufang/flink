@@ -2075,6 +2075,10 @@ public final class ConfigConstants {
 	public static final String OWNER_KEY = "owner";
 	public static final String OWNER_DEFAULT = "unknown";
 
+	// yarn dc info, like: lf/hl/lq
+	public static final String YARN_DC_KEY = "yarnDc";
+	public static final String YARN_DC_DEFAULT = "unknown";
+
 	// Key and default value of environment variables for Databus Appender
 	public static final String FLINK_JOB_NAME_KEY = "_FLINK_JOB_NAME";
 	public static final String FLINK_JOB_NAME_DEFAULT = "unknown";

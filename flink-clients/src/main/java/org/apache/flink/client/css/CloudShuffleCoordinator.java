@@ -46,10 +46,6 @@ import static org.apache.flink.configuration.ConfigOptions.key;
 public class CloudShuffleCoordinator {
 	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleCoordinator.class);
 
-	private static final String PATH = "/css/v1/api/permission/ask";
-
-	public static final String PREFIX = "flink.cloud-shuffle-service.";
-
 	/** copy from YarnConfigOptions. */
 	public static final ConfigOption<List<String>> PROVIDED_USER_SHARED_LIB_DIRS =
 		key("yarn.provided.user.shared.libs")
@@ -77,12 +73,16 @@ public class CloudShuffleCoordinator {
 			}
 
 			Map<String, String> params = new HashMap<>();
-			params.put("applicationType", "FLINK");
-			params.put("appName", System.getProperty(ConfigConstants.JOB_NAME_KEY));
+			params.put(CloudShuffleOptions.CSS_APPLICATION_TYPE_KEY, CloudShuffleOptions.CSS_APPLICATION_TYPE_VALUE);
+			params.put(CloudShuffleOptions.CSS_APPLICATION_NAME_KEY, System.getProperty(ConfigConstants.JOB_NAME_KEY));
+			params.put(CloudShuffleOptions.CSS_DC_KEY, configuration.getString(ConfigConstants.YARN_DC_KEY, ConfigConstants.YARN_DC_DEFAULT));
+			// css require this
+			params.put(CloudShuffleOptions.CSS_PLATFORM_KEY, configuration.getString(CloudShuffleOptions.CLOUD_SHUFFLE_JOB_PLATFORM));
+			LOG.info("The params of css is: {}.", params);
 
 			final CoordinatorQuery query = new CoordinatorQuery(region, cluster, queue, params);
 			final String coordinatorURL = configuration.getString(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL);
-			final String targetUrl = coordinatorURL + PATH;
+			final String targetUrl = coordinatorURL + CloudShuffleOptions.CSS_ASK_PATH;
 
 			Map<String, String> header = new HashMap<>();
 			header.put("Content-Type", "application/json");
@@ -153,7 +153,7 @@ public class CloudShuffleCoordinator {
 		while (iter.hasNext()) {
 			String key = iter.next();
 			String value = commonConf.get(key).asText();
-			if (setIfAbsent(configuration, PREFIX + key, value)) {
+			if (setIfAbsent(configuration, CloudShuffleOptions.CSS_PREFIX + key, value)) {
 				LOG.info("CloudShuffleCoordinator inject configuration(key={}, value={}).", key, value);
 			}
 		}

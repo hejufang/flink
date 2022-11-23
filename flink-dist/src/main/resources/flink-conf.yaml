@@ -353,10 +353,12 @@ common:
   # cloud shuffle service
   flink.cloud-shuffle-service.support: false
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator.byted.org
+  flink.cloud-shuffle-service.need-freshen-real-dc: true
   flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
   flink.cloud-shuffle-service.report-job-status-to-coordinator: true
   flink.cloud-shuffle-service.css.compression.codec: lz4
   flink.cloud-shuffle-service.css.recovery.mode: zookeeper
+  flink.cloud-shuffle-service.platform: dorado
 
   # stateBackend cache layer
   state.backend.cache.enable: true

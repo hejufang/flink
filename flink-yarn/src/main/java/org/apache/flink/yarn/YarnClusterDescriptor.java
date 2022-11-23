@@ -21,6 +21,7 @@ package org.apache.flink.yarn;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.client.css.CloudShuffleConfiguration;
 import org.apache.flink.client.deployment.ClusterDeploymentException;
 import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterRetrieveException;
@@ -51,6 +52,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessSpec;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessUtils;
+import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.CollectionUtil;
@@ -518,6 +520,16 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		} else {
 			yarnApplication = yarnClient.createApplication();
 		}
+
+		// set the real dc to the configuration
+		String yarnRealDc = yarnApplication.getNewApplicationResponse().getDc();
+		flinkConfiguration.setString(ConfigConstants.YARN_DC_KEY, yarnRealDc);
+
+		if (flinkConfiguration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_SUPPORT) &&
+			flinkConfiguration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_NEED_FRESHEN_REAL_DC)) {
+			CloudShuffleConfiguration.reconfigureConfig(jobGraph, clusterSpecification, flinkConfiguration);
+		}
+
 		final ClusterEntrypoint.ExecutionMode executionMode = detached ?
 				ClusterEntrypoint.ExecutionMode.DETACHED
 				: ClusterEntrypoint.ExecutionMode.NORMAL;
