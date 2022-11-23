@@ -96,7 +96,8 @@ global:
       # Single failover
         numRecordsDroppedInRecoverableFailover,
         numBuffersInDroppedInRecoverableFailover,
-        downStreamConnectTimeout
+        downStreamConnectTimeout,
+        numberOfRestoredStateless
     ]
 
 non-global:

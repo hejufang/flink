@@ -253,6 +253,15 @@ public class CheckpointStatsTracker {
 		}
 	}
 
+	public void reportRestoredStateless() {
+		statsReadWriteLock.lock();
+		try {
+			counts.incrementRestoredStateless();
+		} finally {
+			statsReadWriteLock.unlock();
+		}
+	}
+
 	/**
 	 * Callback when a checkpoint completes.
 	 *
@@ -441,6 +450,9 @@ public class CheckpointStatsTracker {
 
 	static final MessageSet<WarehouseCheckpointPlaceholderMessage> CHECKPOINT_PLACEHOLDER_MESSAGE_SET = new MessageSet<>(MessageType.CHECKPOINT_PLACEHOLDER);
 
+	static final String NUMBER_OF_RESTORED_STATELESS = "numberOfRestoredStateless";
+
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -465,6 +477,8 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_FS_FAILED_DISCARD_EXPIRED_CHECKPOINT_FOLDER, new FailedDiscardedHistoricalCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_CHECKPOINT_PLACEHOLDER_TRANSFORMED, checkpointPlaceholderTagGauge);
 		metricGroup.gauge(WAREHOUSE_CHECKPOINT_PLACEHOLDER, CHECKPOINT_PLACEHOLDER_MESSAGE_SET);
+		metricGroup.gauge(NUMBER_OF_RESTORED_STATELESS, new RestoredStatelessCounter());
+
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
@@ -590,6 +604,13 @@ public class CheckpointStatsTracker {
 		@Override
 		public Long getValue() {
 			return counts.getNumberOfFailedDiscardedHistoricalCheckpoints();
+		}
+	}
+
+	private class RestoredStatelessCounter implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			return counts.getNumberOfRestoredStateless();
 		}
 	}
 }

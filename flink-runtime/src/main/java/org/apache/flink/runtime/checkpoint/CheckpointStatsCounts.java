@@ -54,11 +54,14 @@ public class CheckpointStatsCounts implements Serializable {
 	/** Number of failed discarded historical checkpoints. */
 	private long numFailedDiscardedHistoricalCheckpoints;
 
+	/** Number of restored stateless. */
+	private long numRestoredStateless;
+
 	/**
 	 * Creates the initial zero checkpoint counts.
 	 */
 	CheckpointStatsCounts() {
-		this(0, 0, 0, 0, 0, 0, 0);
+		this(0, 0, 0, 0, 0, 0, 0, 0);
 	}
 
 	/**
@@ -71,6 +74,7 @@ public class CheckpointStatsCounts implements Serializable {
 	 * @param numFailedCheckpoints Number of failed checkpoints.
 	 * @param numDiscardedHistoricalCheckpoints Number of discarded historical checkpoints.
 	 * @param numFailedDiscardedHistoricalCheckpoints Number of failed discarded historical checkpoints.
+	 * @param numRestoredStateless Number of restored stateless.
 	 */
 	private CheckpointStatsCounts(
 			long numRestoredCheckpoints,
@@ -79,7 +83,8 @@ public class CheckpointStatsCounts implements Serializable {
 			long numCompletedCheckpoints,
 			long numFailedCheckpoints,
 			long numDiscardedHistoricalCheckpoints,
-			long numFailedDiscardedHistoricalCheckpoints) {
+			long numFailedDiscardedHistoricalCheckpoints,
+			long numRestoredStateless) {
 
 		checkArgument(numRestoredCheckpoints >= 0, "Negative number of restored checkpoints");
 		checkArgument(numTotalCheckpoints >= 0, "Negative total number of checkpoints");
@@ -88,6 +93,7 @@ public class CheckpointStatsCounts implements Serializable {
 		checkArgument(numFailedCheckpoints >= 0, "Negative number of failed checkpoints");
 		checkArgument(numDiscardedHistoricalCheckpoints >= 0, "Negative number of discarded historical checkpoints");
 		checkArgument(numFailedDiscardedHistoricalCheckpoints >= 0, "Negative number of failed discarded historical checkpoints");
+		checkArgument(numRestoredStateless >= 0, "Negative number of restored stateless");
 
 		this.numRestoredCheckpoints = numRestoredCheckpoints;
 		this.numTotalCheckpoints = numTotalCheckpoints;
@@ -96,6 +102,7 @@ public class CheckpointStatsCounts implements Serializable {
 		this.numFailedCheckpoints = numFailedCheckpoints;
 		this.numDiscardedHistoricalCheckpoints = numDiscardedHistoricalCheckpoints;
 		this.numFailedDiscardedHistoricalCheckpoints = numFailedDiscardedHistoricalCheckpoints;
+		this.numRestoredStateless = numRestoredStateless;
 	}
 
 	/**
@@ -162,6 +169,15 @@ public class CheckpointStatsCounts implements Serializable {
 	}
 
 	/**
+	 * Returns the number of restored stateless.
+	 *
+	 * @return Number of restored stateless.
+	 */
+	public long getNumberOfRestoredStateless() {
+		return numRestoredStateless;
+	}
+
+	/**
 	 * Increments the number of restored checkpoints.
 	 */
 	void incrementRestoredCheckpoints() {
@@ -217,6 +233,13 @@ public class CheckpointStatsCounts implements Serializable {
 	}
 
 	/**
+	 * Increments the number of restored stateless.
+	 */
+	void incrementRestoredStateless() {
+		numRestoredStateless++;
+	}
+
+	/**
 	 * Creates a snapshot of the current state.
 	 *
 	 * @return Snapshot of the current state.
@@ -229,7 +252,8 @@ public class CheckpointStatsCounts implements Serializable {
 			numCompletedCheckpoints,
 			numFailedCheckpoints,
 			numDiscardedHistoricalCheckpoints,
-			numFailedDiscardedHistoricalCheckpoints);
+			numFailedDiscardedHistoricalCheckpoints,
+			numRestoredStateless);
 	}
 
 	private boolean canDecrementOfInProgressCheckpointsNumber() {

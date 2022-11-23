@@ -1741,6 +1741,9 @@ public class CheckpointCoordinator {
 				if (errorIfNoCheckpoint) {
 					throw new IllegalStateException("No completed checkpoint available");
 				} else {
+					if (statsTracker != null) {
+						statsTracker.reportRestoredStateless();
+					}
 					LOG.debug("Resetting the master hooks.");
 					MasterHooks.reset(masterHooks.values(), LOG);
 
