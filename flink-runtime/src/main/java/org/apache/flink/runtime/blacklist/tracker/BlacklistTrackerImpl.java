@@ -201,7 +201,8 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				maxHostPerExceptionMinNumber,
 				clock,
 				BlacklistUtil.FailureActionType.RELEASE_BLACKED_RESOURCE,
-				BlacklistUtil.FailureType.TASK);
+				BlacklistUtil.FailureType.TASK,
+				false);
 		failureHandlers.add(taskFailoverHandler);
 
 		// mark normal task failover handler as default.
@@ -217,7 +218,8 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				maxHostPerExceptionMinNumber,
 				clock,
 				BlacklistUtil.FailureActionType.NO_SCHEDULE,
-				BlacklistUtil.FailureType.TASK_MANAGER);
+				BlacklistUtil.FailureType.TASK_MANAGER,
+				false);
 		failureHandlers.add(taskManagerFailoverHandler);
 		router.registerFailureHandler(BlacklistUtil.FailureType.TASK_MANAGER, taskManagerFailoverHandler);
 
@@ -247,6 +249,16 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				clock);
 		failureHandlers.add(networkFailureHandler);
 		router.registerFailureHandler(BlacklistUtil.FailureType.NETWORK, networkFailureHandler);
+
+		FailureHandler startSlowTaskManagerHandler = CountBasedFailureHandler.createAlwaysBlackedHandler(
+				failureTimeout,
+				taskBlacklistMaxLength,
+				maxFailureNum,
+				clock,
+				BlacklistUtil.FailureActionType.NO_SCHEDULE,
+				BlacklistUtil.FailureType.START_SLOW_TASK_MANAGER);
+		failureHandlers.add(startSlowTaskManagerHandler);
+		router.registerFailureHandler(BlacklistUtil.FailureType.START_SLOW_TASK_MANAGER, startSlowTaskManagerHandler);
 
 		registerMetrics();
 	}
@@ -350,17 +362,24 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		}
 
 		HostFailure hostFailure = new HostFailure(failureType, hostname, resourceID, cause, timestamp);
-		router.routeFailure(hostFailure);
+		FailureHandler failureHandler = router.getFailureHandler(hostFailure);
+		failureHandler.addFailure(hostFailure);
+
 		blacklistFailureMessageSet.addMessage(
 				new Message<>(WarehouseBlacklistFailureMessage.fromHostFailure(hostFailure)));
-		if (scheduleToUpdateBlacklist.compareAndSet(false, true)) {
-			this.mainThreadExecutor.schedule(
-					() -> {
-						tryUpdateBlacklist();
-						scheduleToUpdateBlacklist.set(false);
-					},
-					scheduleToUpdateBlacklistTime.toMilliseconds(),
-					TimeUnit.MILLISECONDS);
+
+		if (failureHandler.updateBlacklistImmediately()) {
+			tryUpdateBlacklist();
+		} else {
+			if (scheduleToUpdateBlacklist.compareAndSet(false, true)) {
+				this.mainThreadExecutor.schedule(
+						() -> {
+							tryUpdateBlacklist();
+							scheduleToUpdateBlacklist.set(false);
+						},
+						scheduleToUpdateBlacklistTime.toMilliseconds(),
+						TimeUnit.MILLISECONDS);
+			}
 		}
 	}
 

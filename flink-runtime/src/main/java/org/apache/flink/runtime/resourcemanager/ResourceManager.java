@@ -1050,7 +1050,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		if (jobManagerRegistration != null) {
 			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
 				final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
-				String nodeName = taskExecutor == null ? null : getTaskManagerNodeName(taskExecutor);
+				String nodeName = taskExecutor == null ? null : getTaskManagerNodeName(taskExecutor.getResourceID()).orElse(null);
 				if (taskExecutor == null || StringUtils.isNullOrWhitespaceOnly(nodeName)) {
 					log.debug("Blacklist will not update, because taskExecutor {} not exists.", taskManagerId);
 				} else {
@@ -1073,14 +1073,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	/**
 	 * get the node name of this task manager. This method may return null if the worker
 	 * has been deleted for some reason.
-	 *
-	 * @param taskExecutor task executor registration
-	 * @return
 	 */
-	@Nullable
-	protected String getTaskManagerNodeName(WorkerRegistration<?> taskExecutor) {
-		// by default, the node name is the same as host name of task executor such as yarn job
-		return taskExecutor.getTaskExecutorGateway().getHostname();
+	protected Optional<String> getTaskManagerNodeName(ResourceID resourceID) {
+		// not supported by default.
+		return Optional.empty();
 	}
 
 	@Override
@@ -1222,7 +1218,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			WorkerInfosInSameHost workerInfoInThisHost = historyHostNameToWorkers.computeIfAbsent(
 					registration.getHostName(), WorkerInfosInSameHost::new);
 			workerInfoInThisHost.addNewTaskManager(registration.getDataPort(), registration.getResourceID());
-			workerInfoInThisHost.setNodeName(getTaskManagerNodeName(registration));
+			workerInfoInThisHost.setNodeName(getTaskManagerNodeName(registration.getResourceID()).orElse(null));
 
 			taskManagerHeartbeatManager.monitorTarget(taskExecutorResourceId, new HeartbeatTarget<Void>() {
 				@Override

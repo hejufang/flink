@@ -75,7 +75,6 @@ import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
-import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -533,7 +532,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			completedContainerGauge.addMetric(
 					1,
 					new TagGaugeStoreImpl.TagValuesBuilder()
-							.addTagValue("pod_host", getPodHost(resourceId))
+							.addTagValue("pod_host", getPodNodeName(resourceId))
 							.addTagValue("pod_name", prunePodName(resourceId.getResourceIdString()))
 							.addTagValue("exit_code", String.valueOf(exitCode))
 							.build());
@@ -550,9 +549,11 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		Set<String> newBlackedHosts = blackedRecords.stream()
 				.flatMap(r -> r.getBlackedHosts().stream())
 				.collect(Collectors.toSet());
-		log.info("update new blacked hosts {}, before is {}", newBlackedHosts, blackedHosts);
-		this.blackedHosts.clear();
-		this.blackedHosts.addAll(newBlackedHosts);
+		if (!blackedHosts.equals(newBlackedHosts)) {
+			log.info("update new blacked hosts {}, before is {}", newBlackedHosts, blackedHosts);
+			this.blackedHosts.clear();
+			this.blackedHosts.addAll(newBlackedHosts);
+		}
 		for (BlacklistRecord record : blackedRecords) {
 			switch (record.getActionType()) {
 				case RELEASE_BLACKED_RESOURCE:
@@ -567,7 +568,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 					Set<String> blackedHosts = record.getBlackedHosts();
 					for (ResourceID taskManagerID : workerNodes.keySet()) {
 						// blackedHosts contains node name instead of host name for Kubernetes.
-						String nodeName = getPodHost(taskManagerID);
+						String nodeName = getPodNodeName(taskManagerID);
 						if (blackedHosts.contains(nodeName)) {
 							log.info("release resource {} ,node {}, because of critical error", taskManagerID, nodeName);
 							releaseBlackedResource(taskManagerID, WorkerExitCode.IN_BLACKLIST_BECAUSE_CRITICAL_ERROR);
@@ -582,9 +583,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
-	protected String getTaskManagerNodeName(WorkerRegistration<?> taskExecutor){
+	protected Optional<String> getTaskManagerNodeName(ResourceID resourceID) {
 		// kubernetes uses a different node name which can be found in spec.nodeName
-		return podNameToNodeNameMap.get(taskExecutor.getResourceID().getResourceIdString());
+		return Optional.ofNullable(podNameToNodeNameMap.get(resourceID.getResourceIdString()));
 	}
 
 	@Override
@@ -733,11 +734,11 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		return podName;
 	}
 
-	private String getPodHost(ResourceID resourceID) {
-		return getPodHost(resourceID.getResourceIdString());
+	private String getPodNodeName(ResourceID resourceID) {
+		return getPodNodeName(resourceID.getResourceIdString());
 	}
 
-	private String getPodHost(String podName) {
+	private String getPodNodeName(String podName) {
 		return podNameToNodeNameMap.getOrDefault(podName, "unKnown");
 	}
 
@@ -785,7 +786,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							ts - resourceIDLongEntry.getValue(),
 							new TagGaugeStore.TagValuesBuilder()
 									.addTagValue("pod_name", prunePodName(resourceIDLongEntry.getKey().getResourceIdString()))
-									.addTagValue("pod_host", getPodHost(resourceIDLongEntry.getKey()))
+									.addTagValue("pod_host", getPodNodeName(resourceIDLongEntry.getKey()))
 									.build()))
 					.collect(Collectors.toList()); });
 
@@ -811,7 +812,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							ts - podNameWithInitTs.getValue(),
 							new TagGaugeStore.TagValuesBuilder()
 									.addTagValue("pod_name", prunePodName(podNameWithInitTs.getKey()))
-									.addTagValue("pod_host", getPodHost(podNameWithInitTs.getKey()))
+									.addTagValue("pod_host", getPodNodeName(podNameWithInitTs.getKey()))
 									.build()))
 					.collect(Collectors.toList()); });
 
@@ -1031,7 +1032,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							completedContainerGauge.addMetric(
 									1,
 									new TagGaugeStoreImpl.TagValuesBuilder()
-											.addTagValue("pod_host", getPodHost(parameters.getPodName()))
+											.addTagValue("pod_host", getPodNodeName(parameters.getPodName()))
 											.addTagValue("pod_name", prunePodName(parameters.getPodName()))
 											.addTagValue("exit_code", String.valueOf(WorkerExitCode.START_CONTAINER_ERROR))
 											.build());
@@ -1181,7 +1182,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			completedContainerGauge.addMetric(
 					1,
 					new TagGaugeStoreImpl.TagValuesBuilder()
-							.addTagValue("pod_host", getPodHost(podName))
+							.addTagValue("pod_host", getPodNodeName(podName))
 							.addTagValue("pod_name", prunePodName(podName))
 							.addTagValue("exit_code", String.valueOf(containerExitCode))
 							.build());

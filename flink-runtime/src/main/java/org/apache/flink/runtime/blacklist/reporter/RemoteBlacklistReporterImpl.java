@@ -160,12 +160,16 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 
 	@Override
 	public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
+		onFailure(failureType, hostname, resourceID, t, timestamp);
+	}
+
+	@Override
+	public void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable t, long timestamp) {
 		if (resourceManagerGateway != null && jobMasterId != null) {
 			if (t instanceof NoResourceAvailableException) {
 				LOG.info("Task failed due to NoResourceAvailableException, clear blacklist now.");
 				resourceManagerGateway.clearBlacklist(jobID, jobMasterId, rpcTimeout);
 			} else {
-				BlacklistUtil.FailureType failureType = this.failureType;
 				if (t instanceof NetworkTraceable) {
 					failureType = BlacklistUtil.FailureType.NETWORK;
 				}

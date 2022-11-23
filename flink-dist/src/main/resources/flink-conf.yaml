@@ -295,6 +295,7 @@ common:
   resourcemanager.slow-container.redundant-min-number: 5
   resourcemanager.slow-container.release-timeout-enabled: false
   resourcemanager.slow-container.release-timeout-ms: 300000
+  resourcemanager.slow-container.blacklist-enabled: false
 
   # Miscellaneous Options
   stream-partitioner.default: rescale
@@ -903,6 +904,7 @@ quoka:
   taskmanager.network.partition.downStreamTaskConnectTimeoutMs: 600000
   taskmanager.network.netty.client.latency-check-interval-ms: 5000
   execution.checkpointing.default.interval: 300000
+  resourcemanager.slow-container.blacklist-enabled: true
 
 quaga:
   dc: cn
@@ -2017,6 +2019,7 @@ Gaura-LQ:
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  resourcemanager.slow-container.blacklist-enabled: true
 
 Echo-LQ:
   dc: cn
@@ -2121,6 +2124,7 @@ Feins-LQ:
   ipv6.supported.cluster: Feins-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  resourcemanager.slow-container.blacklist-enabled: true
 
 Feins-HL:
   dc: cn

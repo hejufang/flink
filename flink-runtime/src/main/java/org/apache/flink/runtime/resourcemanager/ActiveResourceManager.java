@@ -22,6 +22,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -38,6 +39,7 @@ import org.apache.flink.runtime.resourcemanager.slowcontainer.NoOpSlowContainerM
 import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerActions;
 import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerManager;
 import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerManagerImpl;
+import org.apache.flink.runtime.resourcemanager.slowcontainer.TaskManagerStartTooSlowException;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.FlinkException;
@@ -142,6 +144,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			double slowContainerRedundantMaxFactor = flinkConfig.getDouble(ResourceManagerOptions.SLOW_CONTAINER_REDUNDANT_MAX_FACTOR);
 			int slowContainerRedundantMinNumber = flinkConfig.getInteger(ResourceManagerOptions.SLOW_CONTAINER_REDUNDANT_MIN_NUMBER);
 			boolean slowContainerReleaseTimeoutEnabled = flinkConfig.getBoolean(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_ENABLED);
+			boolean slowContainerBlacklistEnabled = flinkConfig.getBoolean(ResourceManagerOptions.SLOW_CONTAINER_BLACKLIST_ENABLED);
 			long slowContainerReleaseTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_MS);
 			this.slowContainerManager = new SlowContainerManagerImpl(
 					slowContainerTimeoutMs,
@@ -151,6 +154,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 					slowContainerRedundantMinNumber,
 					slowContainerReleaseTimeoutEnabled,
 					slowContainerReleaseTimeoutMs,
+					slowContainerBlacklistEnabled,
 					clock);
 		} else {
 			this.slowContainerManager = new NoOpSlowContainerManager();
@@ -362,6 +366,16 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 		}
 	}
 
+	private void notifySlowContainerToBlacklist(ResourceID resourceID) {
+		getTaskManagerNodeName(resourceID).ifPresent(
+				hostname -> blacklistReporter.onFailure(
+						BlacklistUtil.FailureType.START_SLOW_TASK_MANAGER,
+						hostname,
+						resourceID,
+						TaskManagerStartTooSlowException.INSTANCE,
+						System.currentTimeMillis()));
+	}
+
 	private void registerMetrics() {
 		resourceManagerMetricGroup.gauge("slowContainerNum", slowContainerManager::getSlowContainerTotalNum);
 		resourceManagerMetricGroup.gauge("totalRedundantContainerNum", slowContainerManager::getRedundantContainerTotalNum);
@@ -404,6 +418,12 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 		public int getNumRequestedNotAllocatedWorkersFor(WorkerResourceSpec workerResourceSpec) {
 			validateRunsInMainThread();
 			return ActiveResourceManager.this.getNumRequestedNotAllocatedWorkersFor(workerResourceSpec);
+		}
+
+		@Override
+		public void notifySlowContainerToBlacklist(ResourceID resourceID) {
+			validateRunsInMainThread();
+			ActiveResourceManager.this.notifySlowContainerToBlacklist(resourceID);
 		}
 	}
 

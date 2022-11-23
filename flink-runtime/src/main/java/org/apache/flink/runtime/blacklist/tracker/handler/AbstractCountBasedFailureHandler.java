@@ -57,6 +57,8 @@ public abstract class AbstractCountBasedFailureHandler implements FailureHandler
 	private final BlacklistUtil.FailureActionType failureActionType;
 	private final BlacklistUtil.FailureType failureType;
 
+	private final boolean shouldUpdateBlacklistImmediately;
+
 	public AbstractCountBasedFailureHandler(
 			int maxFailureNumPerHost,
 			Time failureTimeout,
@@ -66,7 +68,8 @@ public abstract class AbstractCountBasedFailureHandler implements FailureHandler
 			int maxHostPerExceptionMinNumber,
 			Clock clock,
 			BlacklistUtil.FailureActionType failureActionType,
-			BlacklistUtil.FailureType failureType) {
+			BlacklistUtil.FailureType failureType,
+			boolean shouldUpdateBlacklistImmediately) {
 		this.hostFailureQueue = new LinkedList<>();
 		this.filteredExceptions = new HashMap<>();
 		this.maxFailureNumPerHost = maxFailureNumPerHost;
@@ -79,6 +82,7 @@ public abstract class AbstractCountBasedFailureHandler implements FailureHandler
 		this.clock = clock;
 		this.failureActionType = failureActionType;
 		this.failureType = failureType;
+		this.shouldUpdateBlacklistImmediately = shouldUpdateBlacklistImmediately;
 	}
 
 	/*
@@ -178,6 +182,11 @@ public abstract class AbstractCountBasedFailureHandler implements FailureHandler
 			LOG.info("Update maxHostPerException from {} to {}.", maxHostPerException, newMaxHostPerException);
 			maxHostPerException = newMaxHostPerException;
 		}
+	}
+
+	@Override
+	public boolean updateBlacklistImmediately() {
+		return shouldUpdateBlacklistImmediately;
 	}
 
 	@Override

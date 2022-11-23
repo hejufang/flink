@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.blacklist.reporter;
 
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -62,6 +63,9 @@ public class NoOpBlacklistReporterImpl implements RemoteBlacklistReporter {
 
 	@Override
 	public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) { }
+
+	@Override
+	public void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable t, long timestamp) { }
 
 	@Override
 	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) { }

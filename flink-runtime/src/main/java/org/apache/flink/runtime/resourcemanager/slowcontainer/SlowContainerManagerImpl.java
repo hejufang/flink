@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,9 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 
 	public static final long CONTAINER_NOT_START_TIME_MS = -1;
 
+	private final int notifyBlacklistMaxContainerNumber = 10;
+	private final double notifyBlacklistMaxContainerFraction = 0.3;
+
 	private final Clock clock;
 
 	private final double slowContainersQuantile;
@@ -57,6 +61,8 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private final double slowContainerRedundantMinNumber;
 	private final double slowContainerRedundantMaxFactor;
 	private final Counter releaseTimeoutContainerNumber;
+
+	private final boolean slowContainerBlacklistEnabled;
 
 	private long speculativeSlowContainerTimeoutMs;
 
@@ -83,6 +89,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 			int slowContainerRedundantMinNumber,
 			boolean slowContainerReleaseTimeoutEnabled,
 			long slowContainerReleaseTimeoutMs,
+			boolean slowContainerBlacklistEnabled,
 			Clock clock) {
 		containers = new ConcurrentHashMap<>();
 		pendingRedundantContainers = new WorkerResourceSpecCounter();
@@ -100,6 +107,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		this.slowContainersQuantile = slowContainersQuantile;
 		this.slowContainerThresholdFactor = slowContainerThresholdFactor;
 		this.speculativeSlowContainerTimeoutMs = slowContainerTimeoutMs;
+		this.slowContainerBlacklistEnabled = slowContainerBlacklistEnabled;
 		log.info("start checkSlowContainers with slowContainerTimeoutMs: {}, slowContainerThresholdQuantile: {}, " +
 						"slowContainerThresholdQuantileTimes: {}, slowContainerRedundantMinNumber: {}, " +
 						"slowContainerRedundantMaxFactor: {}, slowContainerReleaseTimeoutEnabled: {}, " +
@@ -267,6 +275,8 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		// and we will not be able to request redundant containers for other slow containers.
 		Map<WorkerResourceSpec, Boolean> hasPendingWorkerForSpec = new HashMap<>();
 
+		Set<ResourceID> newSlowContainer = new HashSet<>();
+		WorkerResourceSpecCounter waitStartRedundantContainers = new WorkerResourceSpecCounter();
 		for (StartingResource startingContainer : startingResources) {
 			ResourceID resourceID = startingContainer.getResourceID();
 			WorkerResourceSpec workerResourceSpec = startingContainer.getWorkerResourceSpec();
@@ -276,14 +286,15 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 				// check slow container.
 				if (!slowContainers.contains(workerResourceSpec, resourceID)) {
 					slowContainers.add(workerResourceSpec, resourceID);
+					newSlowContainer.add(resourceID);
 				}
 
 				// always try to start redundant for slow container.
 				boolean hasPendingWorker = hasPendingWorkerForSpec.computeIfAbsent(workerResourceSpec, w -> slowContainerActions.getNumRequestedNotAllocatedWorkersFor(w) > 0);
 				if (!hasPendingWorker && // YARN/Kubernetes no resource to fulfill container requests.
-						slowContainers.getNum(workerResourceSpec) > allRedundantContainers.getNum(workerResourceSpec) && // some slow container has no redundant container.
-						canStartRedundantContainer(workerResourceSpec)) {
-					startNewContainer(workerResourceSpec);
+						slowContainers.getNum(workerResourceSpec) > allRedundantContainers.getNum(workerResourceSpec) + waitStartRedundantContainers.getNum(workerResourceSpec) && // some slow container has no redundant container.
+						canStartRedundantContainer(workerResourceSpec, waitStartRedundantContainers.getNum(workerResourceSpec))) {
+					waitStartRedundantContainers.increaseAndGet(workerResourceSpec);
 				}
 			}
 
@@ -291,6 +302,17 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 				releaseTimeoutContainer(resourceID);
 			}
 		}
+
+		if (!newSlowContainer.isEmpty()) {
+			tryNotifySlowContainer(newSlowContainer);
+		}
+
+		waitStartRedundantContainers.getWorkerNums().forEach(
+				(w, c) -> {
+					for (int i = 0; i < c; i++) {
+						startNewContainer(w);
+					}
+				});
 		log.debug("current slow containers: {}", slowContainers);
 		log.debug("current redundant containers: {}", startingRedundantContainers);
 	}
@@ -357,17 +379,17 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	 * Check whether we can start a redundant container.
 	 * The max number of redundant is Max(slowContainerRedundantMinNumber, (allContainersExceptRedundant * slowContainerRedundantMaxFactor))
 	 */
-	private boolean canStartRedundantContainer(WorkerResourceSpec workerResourceSpec) {
+	private boolean canStartRedundantContainer(WorkerResourceSpec workerResourceSpec, int waitStartContainerSize) {
 		int currentRedundantContainerNumber = getRedundantContainerNum(workerResourceSpec);
-		if (currentRedundantContainerNumber < slowContainerRedundantMinNumber) {
+		if (currentRedundantContainerNumber + waitStartContainerSize < slowContainerRedundantMinNumber) {
 			return true;
 		}
 
 		long allContainersNumber = containers.values().stream()
 				.filter(s -> s.workerResourceSpec.equals(workerResourceSpec))
 				.count();
-		long allContainersExceptRedundant = allContainersNumber - getRedundantContainerNum(workerResourceSpec);
-		if (currentRedundantContainerNumber >= allContainersExceptRedundant * slowContainerRedundantMaxFactor) {
+		long allContainersExceptRedundant = allContainersNumber - currentRedundantContainerNumber;
+		if (currentRedundantContainerNumber + waitStartContainerSize >= allContainersExceptRedundant * slowContainerRedundantMaxFactor) {
 			log.info("can not start new redundant container, current redundant number {} already exceed the maximum(({} - {})*{}).",
 					currentRedundantContainerNumber, allContainersNumber, currentRedundantContainerNumber, slowContainerRedundantMaxFactor);
 			return false;
@@ -398,6 +420,18 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 			log.info("try to release container {} because of timed out.", resourceID);
 			releaseTimeoutContainerNumber.inc();
 			slowContainerActions.stopWorkerAndStartNewIfRequired(resourceID, WorkerExitCode.SLOW_CONTAINER_TIMEOUT);
+		}
+	}
+
+	private void tryNotifySlowContainer(Set<ResourceID> newSlowContainers) {
+		if (slowContainerBlacklistEnabled) {
+			// to avoid block too many hosts, we only notify to blacklist tracker when most of the containers are started.
+			if (slowContainers.getTotalNum() < notifyBlacklistMaxContainerNumber ||
+					((double) slowContainers.getTotalNum() / containers.size()) < notifyBlacklistMaxContainerFraction) {
+				for (ResourceID resourceID : newSlowContainers) {
+					slowContainerActions.notifySlowContainerToBlacklist(resourceID);
+				}
+			}
 		}
 	}
 

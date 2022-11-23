@@ -263,6 +263,12 @@ public class ResourceManagerOptions {
 			.defaultValue(5 * 60 * 1000L)
 			.withDescription("Timeout for releasing slow workers.");
 
+	public static final ConfigOption<Boolean> SLOW_CONTAINER_BLACKLIST_ENABLED = ConfigOptions
+			.key("resourcemanager.slow-container.blacklist-enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enable block the hosts when detected taskmanagers on them are start too slow.");
+
 	/**
 	 * Prefix for passing custom environment variables to Flink's master process.
 	 * For example for passing LD_LIBRARY_PATH as an env variable to the AppMaster, set:

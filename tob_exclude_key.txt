@@ -129,6 +129,7 @@ resourcemanager.slow-container.redundant-max-factor
 resourcemanager.slow-container.redundant-min-number
 resourcemanager.slow-container.release-timeout-enabled
 resourcemanager.slow-container.release-timeout-ms
+resourcemanager.slow-container.blacklist-enabled
 
 # Miscellaneous Options
 job.work.dir

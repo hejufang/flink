@@ -23,6 +23,7 @@ import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.blacklist.tracker.handler.FailureHandler;
 import org.apache.flink.runtime.throwable.ThrowableAnnotation;
 import org.apache.flink.runtime.throwable.ThrowableType;
+import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,15 +44,11 @@ public class FailureHandlerRouter {
 	Map<BlacklistUtil.FailureType, FailureHandler> failureTypeToHandler;
 	FailureHandler defaultFailureHandler;
 
-	public FailureHandlerRouter() {
-		this(null);
-	}
-
 	public FailureHandlerRouter(FailureHandler defaultFailureHandler) {
 		this.exceptionClassToHandler = new HashMap<>();
 		this.throwableTypeToHandler = new HashMap<>();
 		this.failureTypeToHandler = new HashMap<>();
-		this.defaultFailureHandler = defaultFailureHandler;
+		this.defaultFailureHandler = Preconditions.checkNotNull(defaultFailureHandler);
 	}
 
 	public void registerFailureHandler(
@@ -117,25 +114,22 @@ public class FailureHandlerRouter {
 		}
 	}
 
-	public boolean routeFailure(HostFailure hostFailure) {
+	public FailureHandler getFailureHandler(HostFailure hostFailure) {
 		Class<? extends Throwable> exceptionClass = hostFailure.getException().getClass();
 		if (exceptionClassToHandler.containsKey(exceptionClass)) {
-			return exceptionClassToHandler.get(exceptionClass).addFailure(hostFailure);
+			return exceptionClassToHandler.get(exceptionClass);
 		}
 
 		ThrowableAnnotation throwableAnnotation = hostFailure.getException().getClass().getAnnotation(ThrowableAnnotation.class);
 		ThrowableType throwableType = throwableAnnotation == null ? null : throwableAnnotation.value();
 		if (throwableType != null && throwableTypeToHandler.containsKey(throwableType)) {
-			return throwableTypeToHandler.get(throwableType).addFailure(hostFailure);
+			return throwableTypeToHandler.get(throwableType);
 		}
 
 		if (failureTypeToHandler.containsKey(hostFailure.getFailureType())) {
-			return failureTypeToHandler.get(hostFailure.getFailureType()).addFailure(hostFailure);
+			return failureTypeToHandler.get(hostFailure.getFailureType());
 		}
 
-		if (defaultFailureHandler != null) {
-			return defaultFailureHandler.addFailure(hostFailure);
-		}
-		return false;
+		return defaultFailureHandler;
 	}
 }

@@ -181,8 +181,6 @@ public class BlacklistTrackerImplTest {
 		BlacklistReporter blacklistReporter = createBlacklistReporter(blacklistTracker, BlacklistUtil.FailureType.UNKNOWN);
 
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new CriticalExceptionTest("exception1"), clock.absoluteTimeMillis());
-		// trigger calculating blacklist
-		executor.triggerNonPeriodicScheduledTask();
 		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.CRITICAL_EXCEPTION, blacklistTracker);
 		Assert.assertEquals(BlacklistUtil.FailureActionType.RELEASE_BLACKED_HOST, taskBlacklistRecord.getActionType());
 		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
@@ -392,6 +390,11 @@ public class BlacklistTrackerImplTest {
 		return new BlacklistReporter() {
 			@Override
 			public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
+				onFailure(failureType, hostname, resourceID, t, timestamp);
+			}
+
+			@Override
+			public void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable t, long timestamp) {
 				blacklistTracker.onFailure(failureType, hostname, resourceID, t, timestamp);
 			}
 

@@ -27,7 +27,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
  */
 public class LocalBlacklistReporterImpl implements BlacklistReporter {
 	private final BlacklistTracker blacklistTracker;
-	private final BlacklistUtil.FailureType failureType = BlacklistUtil.FailureType.TASK_MANAGER;
+	private final BlacklistUtil.FailureType defaultFailureType = BlacklistUtil.FailureType.TASK_MANAGER;
 
 	public LocalBlacklistReporterImpl(BlacklistTracker blacklistTracker) {
 		this.blacklistTracker = blacklistTracker;
@@ -35,6 +35,11 @@ public class LocalBlacklistReporterImpl implements BlacklistReporter {
 
 	@Override
 	public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
+		onFailure(defaultFailureType, hostname, resourceID, t, timestamp);
+	}
+
+	@Override
+	public void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable t, long timestamp) {
 		blacklistTracker.onFailure(failureType, hostname, resourceID, t, timestamp);
 	}
 

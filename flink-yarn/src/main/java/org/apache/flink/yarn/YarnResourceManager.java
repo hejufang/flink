@@ -517,6 +517,12 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	@Override
+	protected Optional<String> getTaskManagerNodeName(ResourceID resourceID) {
+		return Optional.ofNullable(workerNodeMap.get(resourceID))
+				.map(w -> w.getContainer().getNodeId().getHost());
+	}
+
+	@Override
 	public CompletableFuture<Void> onStop() {
 		// shut down all components
 		Throwable firstException = null;
@@ -641,6 +647,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	public void onBlacklistUpdated() {
 		Set<BlacklistRecord> blackedRecords = blacklistTracker.getBlackedRecords();
 
+		Set<String> oldBlackedHosts = new HashSet<>(yarnBlackedHosts);
+
 		Set<String> newBlackedHosts = blackedRecords.stream().flatMap(r -> r.getBlackedHosts().stream()).collect(Collectors.toSet());
 		Set<String> blacklistRemoval = new HashSet<>(yarnBlackedHosts);
 		blacklistRemoval.removeAll(newBlackedHosts);
@@ -650,9 +658,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		yarnBlackedHosts.clear();
 		yarnBlackedHosts.addAll(newBlackedHosts);
-		resourceManagerClient.updateBlacklist(new ArrayList<>(blacklistAddition), new ArrayList<>(blacklistRemoval));
-		log.info("BlacklistUpdated, yarnBlackedHosts: {}, blacklistAddition: {}, blacklistRemoval: {}",
-				yarnBlackedHosts, blacklistAddition, blacklistRemoval);
+		if (yarnBlackedHosts.equals(oldBlackedHosts)) {
+			log.debug("Blacklist has no change.");
+			return;
+		} else {
+			resourceManagerClient.updateBlacklist(new ArrayList<>(blacklistAddition), new ArrayList<>(blacklistRemoval));
+			log.info("BlacklistUpdated, yarnBlackedHosts: {}, blacklistAddition: {}, blacklistRemoval: {}",
+					yarnBlackedHosts, blacklistAddition, blacklistRemoval);
+		}
+
 		for (BlacklistRecord record : blackedRecords) {
 			switch (record.getActionType()) {
 				case RELEASE_BLACKED_RESOURCE:

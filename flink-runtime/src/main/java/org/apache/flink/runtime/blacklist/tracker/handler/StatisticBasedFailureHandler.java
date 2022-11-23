@@ -86,6 +86,11 @@ public abstract class StatisticBasedFailureHandler implements FailureHandler {
 	}
 
 	@Override
+	public boolean updateBlacklistImmediately() {
+		return false;
+	}
+
+	@Override
 	public int getFilteredExceptionNumber() {
 		// not needed in this handler
 		return 0;

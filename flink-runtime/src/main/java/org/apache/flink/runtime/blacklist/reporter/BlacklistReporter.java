@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.blacklist.reporter;
 
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 
 /**
@@ -26,6 +27,8 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 public interface BlacklistReporter {
 
 	void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp);
+
+	void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable t, long timestamp);
 
 	void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass);
 }

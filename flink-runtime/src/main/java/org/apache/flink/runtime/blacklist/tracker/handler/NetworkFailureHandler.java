@@ -24,6 +24,7 @@ import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.NetworkAddress;
 import org.apache.flink.runtime.io.network.NetworkTraceable;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
@@ -125,6 +126,10 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 		clearExpiredTimestampRecord(2 * timestampRecordExpireTime.toMilliseconds());
 		// should not add host if either the src and dest host has been in the blacklist.
 		String remoteNodeName = blacklistActions.queryNodeName(remoteAddress);
+		if (StringUtils.isNullOrWhitespaceOnly(remoteNodeName)) {
+			LOG.debug("dest host is unknown: {}", hostFailure);
+			return false;
+		}
 		if (checkHostInBlacklist(hostFailure.getHostname()) || checkHostInBlacklist(remoteNodeName)) {
 			LOG.debug("src and dest host is already in blacklist: {}", hostFailure);
 			return false;

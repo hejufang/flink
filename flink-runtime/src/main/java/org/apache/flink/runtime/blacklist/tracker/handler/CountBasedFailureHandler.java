@@ -52,8 +52,9 @@ public class CountBasedFailureHandler extends AbstractCountBasedFailureHandler {
 			int maxHostPerExceptionMinNumber,
 			Clock clock,
 			BlacklistUtil.FailureActionType failureActionType,
-			BlacklistUtil.FailureType failureType) {
-		super(maxFailureNumPerHost, failureTimeout, blacklistMaxLength, maxFailureNum, maxHostPerExceptionRatio, maxHostPerExceptionMinNumber, clock, failureActionType, failureType);
+			BlacklistUtil.FailureType failureType,
+			boolean shouldUpdateBlacklistImmediately) {
+		super(maxFailureNumPerHost, failureTimeout, blacklistMaxLength, maxFailureNum, maxHostPerExceptionRatio, maxHostPerExceptionMinNumber, clock, failureActionType, failureType, shouldUpdateBlacklistImmediately);
 		blackedHosts = new HashMap<>();
 	}
 
@@ -119,7 +120,7 @@ public class CountBasedFailureHandler extends AbstractCountBasedFailureHandler {
 			Clock clock,
 			BlacklistUtil.FailureActionType failureActionType,
 			BlacklistUtil.FailureType failureType) {
-		return new CountBasedFailureHandler(1, failureTimeout, blacklistMaxLength, maxFailureNum, 0, 0, clock, failureActionType, failureType);
+		return new CountBasedFailureHandler(1, failureTimeout, blacklistMaxLength, maxFailureNum, 0, 0, clock, failureActionType, failureType, true);
 	}
 
 }

@@ -56,4 +56,6 @@ public interface FailureHandler {
 	void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions);
 
 	void updateTotalNumberOfHosts(int currentTotalNumHosts);
+
+	boolean updateBlacklistImmediately();
 }

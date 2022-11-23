@@ -18,23 +18,14 @@
 
 package org.apache.flink.runtime.resourcemanager.slowcontainer;
 
-import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
-
 /**
- *
+ * task manager start too slow.
  */
-public interface SlowContainerActions {
+public class TaskManagerStartTooSlowException extends Exception{
+	public static final TaskManagerStartTooSlowException INSTANCE = new TaskManagerStartTooSlowException(
+			"TaskManager start too slow.");
 
-	boolean startNewWorker(WorkerResourceSpec workerResourceSpec);
-
-	boolean stopWorker(ResourceID resourceID, int exitCode);
-
-	boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode);
-
-	void releasePendingRequests(WorkerResourceSpec workerResourceSpec, int num);
-
-	int getNumRequestedNotAllocatedWorkersFor(WorkerResourceSpec workerResourceSpec);
-
-	void notifySlowContainerToBlacklist(ResourceID resourceID);
+	public TaskManagerStartTooSlowException(String message) {
+		super(message);
+	}
 }

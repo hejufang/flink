@@ -97,6 +97,7 @@ public class BlacklistUtil {
 		TASK,
 		NETWORK,
 		CRITICAL_EXCEPTION,
+		START_SLOW_TASK_MANAGER,
 		UNKNOWN
 	}
 
