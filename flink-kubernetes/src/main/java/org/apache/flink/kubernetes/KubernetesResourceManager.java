@@ -27,7 +27,10 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
@@ -428,6 +431,20 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			diagnostics == null ? "" : diagnostics);
 		// TODO: 2021/9/15 here change the behavior of register application in k8s, but not changed in yarn, we need to look with the community at how to fix it better
 		//kubeClient.stopAndCleanupCluster(clusterId);
+		String uploadPath = flinkConfig.getString(PipelineOptions.UPLOAD_REMOTE_DIR);
+		if (!StringUtils.isNullOrWhitespaceOnly(uploadPath)) {
+			String stagingDir = KubernetesUtils.getStagingDirectory(uploadPath, clusterId);
+			Path path = new Path(stagingDir);
+			LOG.info("Start to delete file {}", stagingDir);
+			try {
+				final FileSystem fs = path.getFileSystem();
+				if (!fs.delete(path, true)) {
+					LOG.error("Deleting directory {} was unsuccessful", stagingDir);
+				}
+			} catch (Exception e) {
+				LOG.error("Failed to delete staging directory {}", stagingDir, e);
+			}
+		}
 		kubeClient.reportApplicationStatus(clusterId, finalStatus, diagnostics);
 	}
 

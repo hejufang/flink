@@ -207,13 +207,13 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 		if (StringUtils.isNullOrWhitespaceOnly(uploadPath)) {
 			String jobWorkDir = flinkConfig.getString(ConfigConstants.JOB_WORK_DIR_KEY,
 				ConfigConstants.PATH_JOB_WORK_FILE);
-			uploadPath = new Path(new Path(jobWorkDir),
-				String.format(".flink/%s/%d/", clusterId, System.currentTimeMillis())).toString();
+			uploadPath = new Path(new Path(jobWorkDir), ".flink").toString();
 			flinkConfig.set(PipelineOptions.UPLOAD_REMOTE_DIR, uploadPath);
 		}
+		String stagingDir = KubernetesUtils.getStagingDirectory(uploadPath, clusterId);
 
 		recordAbstractEvent(warehouseJobStartEventMessageRecorder, AbstractEventRecorder::uploadLocalFilesStart);
-		KubernetesUtils.uploadLocalDiskFilesToRemote(flinkConfig, new Path(uploadPath));
+		KubernetesUtils.uploadLocalDiskFilesToRemote(flinkConfig, new Path(stagingDir));
 		recordAbstractEvent(warehouseJobStartEventMessageRecorder, AbstractEventRecorder::uploadLocalFilesFinish);
 
 		final List<File> pipelineJars = KubernetesUtils.checkJarFileForApplicationMode(flinkConfig);
