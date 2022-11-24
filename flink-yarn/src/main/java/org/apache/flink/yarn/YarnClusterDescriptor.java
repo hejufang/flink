@@ -521,13 +521,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			yarnApplication = yarnClient.createApplication();
 		}
 
-		// set the real dc to the configuration
-		String yarnRealDc = yarnApplication.getNewApplicationResponse().getDc();
-		flinkConfiguration.setString(ConfigConstants.YARN_DC_KEY, yarnRealDc);
-
+		// if the css need use real dc info for flink batch job in reslake mode.
 		if (flinkConfiguration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_SUPPORT) &&
 			flinkConfiguration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_NEED_FRESHEN_REAL_DC)) {
-			CloudShuffleConfiguration.reconfigureConfig(jobGraph, clusterSpecification, flinkConfiguration);
+			// get the real dc from yarn and set the real dc to the configuration
+			String yarnRealDc = yarnApplication.getNewApplicationResponse().getDc();
+			if (StringUtils.isNullOrWhitespaceOnly(yarnRealDc)) {
+				LOG.warn("Could not get the real dc from yarn, will disable css.");
+			} else {
+				flinkConfiguration.setString(ConfigConstants.YARN_DC_KEY, yarnRealDc);
+				CloudShuffleConfiguration.reconfigureConfig(jobGraph, clusterSpecification, flinkConfiguration);
+			}
 		}
 
 		final ClusterEntrypoint.ExecutionMode executionMode = detached ?
