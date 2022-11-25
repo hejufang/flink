@@ -900,6 +900,7 @@ quoka:
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   taskmanager.network.partition.downStreamTaskConnectTimeoutMs: 600000
   taskmanager.network.netty.client.latency-check-interval-ms: 5000
+  execution.checkpointing.default.interval: 300000
 
 quaga:
   dc: cn

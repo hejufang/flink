@@ -130,6 +130,17 @@ public class ExecutionCheckpointingOptions {
 					TextElement.code(MIN_PAUSE_BETWEEN_CHECKPOINTS.key()))
 				.build());
 
+	public static final ConfigOption<Duration> DEFAULT_CHECKPOINTING_INTERVAL =
+		ConfigOptions.key("execution.checkpointing.default.interval")
+			.durationType()
+			.defaultValue(Duration.ofSeconds(30))
+			.withDescription(Description.builder()
+				.text("Default interval in which checkpoints are periodically scheduled and interval is not set.")
+				.linebreak()
+				.linebreak()
+				.text("This setting defines the default interval.")
+				.build());
+
 	public static final ConfigOption<Boolean> ENABLE_UNALIGNED =
 		ConfigOptions.key("execution.checkpointing.unaligned")
 			.booleanType()

@@ -612,7 +612,7 @@ public class CheckpointConfig implements java.io.Serializable {
 			configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_ENABLE);
 		if (optionalCheckpointingEnabled.isPresent()) {
 			if (optionalCheckpointingEnabled.get()) {
-				setCheckpointInterval(DEFAULT_INTERVAL_CHECKPOINT_ENABLED);
+				setCheckpointInterval(configuration.get(ExecutionCheckpointingOptions.DEFAULT_CHECKPOINTING_INTERVAL).toMillis());
 				setCheckpointingMode(DEFAULT_MODE);
 				setCheckpointTimeout(DEFAULT_TIMEOUT);
 				setMinPauseBetweenCheckpoints(DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS);
