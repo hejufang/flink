@@ -29,11 +29,6 @@ bin=`cd "$bin"; pwd`
 mkdir -p $FLINK_LOG_DIR
 FLINK_CLASSPATH=`manglePathList $(constructFlinkClassPath):$INTERNAL_HADOOP_CLASSPATHS`
 
-DYNAMIC_FILES=`getDynamicFilesFromFlinkConf`
-if [ "$DYNAMIC_FILES" != "" ]; then
-        DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
-        FLINK_CLASSPATH=$DYNAMIC_FILES:$FLINK_CLASSPATH
-fi
 echo "FLINK_CLASSPATH = $FLINK_CLASSPATH"
 
 # FLINK_CLASSPATH will be used by KubernetesUtils.java to generate jobmanager and taskmanager start command.

@@ -139,10 +139,13 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 		assertEquals(CONTAINER_IMAGE, resultedMainContainer.getImage());
 		assertEquals(CONTAINER_IMAGE_PULL_POLICY.name(), resultedMainContainer.getImagePullPolicy());
 
-		assertEquals(10, resultedMainContainer.getEnv().size());
+		assertEquals(11, resultedMainContainer.getEnv().size());
 		assertTrue(resultedMainContainer.getEnv()
 				.stream()
 				.anyMatch(envVar -> envVar.getName().equals("key1")));
+		assertTrue(resultedMainContainer.getEnv()
+			.stream()
+			.anyMatch(envVar -> envVar.getName().equals(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES_ENV_KEY)));
 
 		assertEquals(4, resultedMainContainer.getPorts().size());
 

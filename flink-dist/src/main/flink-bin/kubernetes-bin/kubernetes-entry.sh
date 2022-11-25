@@ -26,13 +26,8 @@ bin=`cd "$bin"; pwd`
 # get Flink config
 . "$bin"/config.sh
 
-FLINK_CLASSPATH=`manglePathList $(constructFlinkClassPath):$INTERNAL_HADOOP_CLASSPATHS`
 
-DYNAMIC_FILES=`getDynamicFilesFromFlinkConf`
-if [ "$DYNAMIC_FILES" != "" ]; then
-        DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
-        FLINK_CLASSPATH=$DYNAMIC_FILES:$FLINK_CLASSPATH
-fi
+FLINK_CLASSPATH=`manglePathList $(constructFlinkClassPath):$INTERNAL_HADOOP_CLASSPATHS`
 
 # add user classpath to the beginning of flink classpath, the environment variable: FLINK_USER_CLASSPATH should be
 # set in somewhere

@@ -260,11 +260,13 @@ getJarDependencies() {
     local jar_dependencies_from_generic_dynamics_parameters
     jar_dependencies_from_generic_dynamics_parameters=$(getDynamicsExternalJarDependenciesForGeneric "$*")
     # get jarDependencies from config file
-    local jar_dependencies_from_flink_config_output
-    jar_dependencies_from_flink_config_output=$(get_value_from_config_yaml "${YAML_CONF}" "${clusterName}" "flink.external.jar.dependencies")
-    # extract result
     local jar_dependencies_from_flink_config
-    jar_dependencies_from_flink_config=$(extractExecutionResults "${jar_dependencies_from_flink_config_output}" 1)
+    # checks if _FLINK_EXTERNAL_JAR_DEPENDENCIES environment variable is set.
+    if [[ -v _FLINK_EXTERNAL_JAR_DEPENDENCIES ]]; then
+        jar_dependencies_from_flink_config="$_FLINK_EXTERNAL_JAR_DEPENDENCIES"
+    else
+        jar_dependencies_from_flink_config=$(get_value_from_config_yaml "${YAML_CONF}" "${clusterName}" "flink.external.jar.dependencies")
+    fi
 
     # if all exist, use jar_dependencies_from_dynamics_parameters
     local jar_dependencies="";

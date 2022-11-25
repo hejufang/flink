@@ -36,7 +36,9 @@ import java.util.Map;
 import java.util.Random;
 
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
+import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.FLINK_EXTERNAL_JAR_DEPENDENCIES;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -185,6 +187,13 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 		final String defaultResourceRequirementKey = "bytedance.com/local-disk";
 		assertTrue(resourceRequirement.size() == 1 && resourceRequirement.containsKey(defaultResourceRequirementKey));
 		assertThat(resourceRequirement.get(defaultResourceRequirementKey), is(Quantity.parse("1")));
+	}
+
+	@Test
+	public void testGetFlinkExternalJarDependencies() {
+		String dummyExternalJar = "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar";
+		flinkConfig.set(FLINK_EXTERNAL_JAR_DEPENDENCIES, dummyExternalJar);
+		assertEquals(dummyExternalJar, this.testingKubernetesParameters.getExternalJarDependencies());
 	}
 
 	private class TestingKubernetesParameters extends AbstractKubernetesParameters {

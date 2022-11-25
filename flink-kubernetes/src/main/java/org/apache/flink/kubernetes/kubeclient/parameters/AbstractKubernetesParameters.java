@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.CONTAINER_IMAGE_PULL_SECRETS;
+import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.FLINK_EXTERNAL_JAR_DEPENDENCIES;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
@@ -379,5 +380,9 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 
 	public boolean keepUserClasspathCompatible() {
 		return flinkConfig.getBoolean(PipelineOptions.USER_CLASSPATH_COMPATIBLE);
+	}
+
+	public String getExternalJarDependencies() {
+		return flinkConfig.get(FLINK_EXTERNAL_JAR_DEPENDENCIES);
 	}
 }

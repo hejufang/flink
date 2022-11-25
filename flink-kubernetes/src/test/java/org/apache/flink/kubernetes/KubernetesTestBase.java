@@ -59,6 +59,8 @@ public class KubernetesTestBase extends TestLogger {
 		KubernetesConfigOptions.ImagePullPolicy.IfNotPresent;
 	protected static final int JOB_MANAGER_MEMORY = 768;
 
+	protected static final String DUMMY_EXTERNAL_JAR_DEPENDENCIES = "dummy/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,dummy/flink-connector-databus-1.11-byted-SNAPSHOT.jar";
+
 	@Rule
 	public MixedKubernetesServer server = new MixedKubernetesServer(true, true);
 
@@ -82,6 +84,7 @@ public class KubernetesTestBase extends TestLogger {
 		flinkConfig.set(KubernetesConfigOptions.CONTAINER_IMAGE_PULL_POLICY, CONTAINER_IMAGE_PULL_POLICY);
 		flinkConfig.set(JobManagerOptions.TOTAL_PROCESS_MEMORY, MemorySize.ofMebiBytes(JOB_MANAGER_MEMORY));
 		flinkConfig.set(DeploymentOptionsInternal.CONF_DIR, flinkConfDir.toString());
+		flinkConfig.set(KubernetesConfigOptions.FLINK_EXTERNAL_JAR_DEPENDENCIES, DUMMY_EXTERNAL_JAR_DEPENDENCIES);
 	}
 
 	protected void onSetup() throws Exception {

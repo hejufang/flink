@@ -290,7 +290,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 					new EnvVarBuilder().withName(ConfigConstants.FLINK_JOB_OWNER_KEY).withValue(flinkConfig.getString(PipelineOptions.FLINK_JOB_OWNER)).build(),
 					new EnvVarBuilder().withName(ConfigConstants.FLINK_APPLICATION_ID_KEY).withValue(flinkConfig.getString(KubernetesConfigOptions.CLUSTER_ID)).build(),
 					new EnvVarBuilder().withName(ConfigConstants.FLINK_QUEUE_KEY).withValue(kubernetesAnnotations.getOrDefault(Constants.KUBERNETES_ANNOTATION_QUEUE_KEY, ConfigConstants.FLINK_QUEUE_DEFAULT)).build(),
-					new EnvVarBuilder().withName(ConfigConstants.FLINK_ENV_TYPE_KEY).withValue(ConfigConstants.FLINK_ENV_TYPE_KUBERNETES).build()
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_ENV_TYPE_KEY).withValue(ConfigConstants.FLINK_ENV_TYPE_KUBERNETES).build(),
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES_ENV_KEY).withValue(flinkConfig.get(KubernetesConfigOptions.FLINK_EXTERNAL_JAR_DEPENDENCIES)).build()
 				));
 
 				// Check task manager main class args.

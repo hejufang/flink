@@ -224,6 +224,7 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 		expectedEnvVars.put(Constants.ENV_FLINK_POD_NAME, POD_NAME);
 		expectedEnvVars.put(ConfigConstants.FLINK_ENV_TYPE_KEY, ConfigConstants.FLINK_ENV_TYPE_KUBERNETES);
 		expectedEnvVars.put(ConfigConstants.FLINK_QUEUE_KEY, "unknown");
+		expectedEnvVars.put(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES_ENV_KEY, DUMMY_EXTERNAL_JAR_DEPENDENCIES);
 
 		final List<EnvVar> envVars = this.resultMainContainer.getEnv();
 

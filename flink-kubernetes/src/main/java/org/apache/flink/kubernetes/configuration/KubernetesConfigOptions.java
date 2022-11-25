@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.configuration;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ExternalResourceOptions;
 import org.apache.flink.configuration.MemorySize;
@@ -43,6 +44,12 @@ import static org.apache.flink.configuration.ConfigOptions.key;
 public class KubernetesConfigOptions {
 
 	private static final String KUBERNETES_SERVICE_ACCOUNT_KEY = "kubernetes.service-account";
+
+	public static final ConfigOption<String> FLINK_EXTERNAL_JAR_DEPENDENCIES =
+		key(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES)
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Contains the jar dependencies for either JobManager or TaskManager to start.");
 
 	public static final ConfigOption<String> CONTEXT =
 		key("kubernetes.context")

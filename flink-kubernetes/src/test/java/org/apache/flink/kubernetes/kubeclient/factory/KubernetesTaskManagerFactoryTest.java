@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.factory;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
@@ -96,10 +97,13 @@ public class KubernetesTaskManagerFactoryTest extends KubernetesTaskManagerTestB
 		assertEquals(CONTAINER_IMAGE, resultMainContainer.getImage());
 		assertEquals(CONTAINER_IMAGE_PULL_POLICY.name(), resultMainContainer.getImagePullPolicy());
 
-		assertEquals(11, resultMainContainer.getEnv().size());
+		assertEquals(12, resultMainContainer.getEnv().size());
 		assertTrue(resultMainContainer.getEnv()
 			.stream()
 			.anyMatch(envVar -> envVar.getName().equals("key1")));
+		assertTrue(resultMainContainer.getEnv()
+			.stream()
+			.anyMatch(envVar -> envVar.getName().equals(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES_ENV_KEY)));
 
 		assertEquals(1, resultMainContainer.getPorts().size());
 		assertEquals(1, resultMainContainer.getCommand().size());
