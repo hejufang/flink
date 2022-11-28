@@ -63,6 +63,7 @@ common:
   state.backend.rocksdb.restore-with-sstWriter: false
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
   state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
+  state.backend.rocksdb.optimize-seek: true
 
   savepoint.scheduler.default.interval: 21600000
   state.backend.rocksdb.memory.managed: false

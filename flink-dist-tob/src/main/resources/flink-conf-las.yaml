@@ -60,6 +60,7 @@ common:
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
   state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
   state.backend.rocksdb.memory.managed: false
+  state.backend.rocksdb.optimize-seek: true
 
   ## Heartbeat Services
   heartbeat.interval: 40000 # default 10000 ms
