@@ -247,7 +247,8 @@ public class HsapSinkFunction
 						put.addColumn(fieldName, HSAPValue.NULL_VALUE);
 					} else if (hsapOptions.isRawHllColumn(fieldName)) {
 						byte[] bytes = row.getBinary(fieldIndex);
-						put.addColumn(fieldName, HSAPValue.toHSAPRawHyperLogLogValue(bytes));
+						HSAPValue v = HSAPValue.fromBinary(bytes);
+						put.addColumn(fieldName, HSAPValue.toHSAPRawHyperLogLogValue(v));
 					} else {
 						throw new RuntimeException("Not Supported for Varbinary except HLL");
 					}
