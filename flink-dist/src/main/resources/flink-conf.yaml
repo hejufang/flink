@@ -1745,6 +1745,28 @@ spider:
   ipv6.enabled: true
   ipv6.supported.cluster: spider
 
+blink:
+  dc: sg
+  clusterName: blink
+  high-availability.zookeeper.quorum: fdbd:dc53:0:103::132:2183,fdbd:dc53:0:103::136:2183,fdbd:dc53:0:103::137:2183,fdbd:dc53:0:103::140:2183,fdbd:dc53:0:103::145:2183
+  hdfs.prefix: hdfs://harunasg/flink_sg_sg1
+  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
+  dashboard.data_source: Bytetsd-Singapore-Central
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.sg1
+  kafka_server_url: http://kafka-config-sg.byted.org
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  yarn.provided.lib.dirs.enabled: false
+  bytedance.streaming.yarn.check.application.name.unique.region: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: blink
+
 saola:
   dc: sg
   clusterName: saola
