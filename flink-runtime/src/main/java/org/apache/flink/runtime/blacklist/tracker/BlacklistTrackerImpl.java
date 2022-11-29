@@ -411,8 +411,8 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			blacklistGauge.reset();
 			for (BlacklistRecord blacklistRecord : blackedRecords) {
 				BlacklistUtil.FailureType failureType = blacklistRecord.getFailureType();
-				for (HostFailure hostFailure : blacklistRecord.getLatestBlackedFailure()) {
-					String host = hostFailure.getHostname();
+				for (String blackedHostName : blacklistRecord.getBlackedHosts()) {
+					HostFailure hostFailure = blacklistRecord.getLatestBlackedFailureInHost(blackedHostName);
 					Throwable exception = hostFailure.getException();
 					String reason = exception.getMessage();
 					if (reason != null) {
@@ -421,7 +421,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 					blacklistGauge.addMetric(
 							1,
 							new TagGaugeStoreImpl.TagValuesBuilder()
-									.addTagValue("blackedHost", host)
+									.addTagValue("blackedHost", blackedHostName)
 									.addTagValue("exception", exception.getClass().getName())
 									.addTagValue("reason", reason)
 									.addTagValue("type", failureType.name())
@@ -430,7 +430,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 					blacklistRecordMessageSet.addMessage(
 							new Message<>(new WarehouseBlacklistRecordMessage(
-									host,
+									blackedHostName,
 									failureType,
 									ts)));
 				}

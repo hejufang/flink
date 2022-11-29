@@ -63,6 +63,10 @@ public class BlacklistRecord {
 		return blackedHosts.values().stream().map(LinkedList::getLast).collect(Collectors.toList());
 	}
 
+	public HostFailure getLatestBlackedFailureInHost(String hostName) {
+		return blackedHosts.get(hostName).getLast();
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
