@@ -39,6 +39,10 @@ public class KafkaCatalog extends BytedSchemaCatalog {
 		super(name, defaultDatabase, ClusterType.kafka_bmq);
 	}
 
+	public KafkaCatalog(String name, String defaultDatabase, String region) {
+		super(name, defaultDatabase, ClusterType.kafka_bmq, false, region);
+	}
+
 	@Override
 	protected Map<String, String> getDefaultProperties(QuerySchemaResponse response) {
 		Map<String, String> defaultProperties = new HashMap<>();

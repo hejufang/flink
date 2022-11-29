@@ -57,13 +57,20 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	private static final String FLINK_PSM = "inf.compute.flink";
 	private static final String NO_COMMENT = "";
 	private static final String SUCCESSFUL_STATUS = "ok";
+	private static final String DEFAULT_REGION = "cn";
 
 	private final String storageType;
+	private final String region;
 	private SimpleSchemaClient schemaClient;
 
 	public GeneralSchemaCatalog(String storageType, String defaultDatabase) {
+		this(storageType, defaultDatabase, DEFAULT_REGION);
+	}
+
+	public GeneralSchemaCatalog(String storageType, String defaultDatabase, String region) {
 		super(storageType, defaultDatabase);
 		this.storageType = storageType;
+		this.region = region;
 	}
 
 	/**
@@ -73,7 +80,7 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public void open() throws CatalogException {
-		SchemaClientConfig schemaClientConfig = SchemaClientConfig.of().setPsm(FLINK_PSM);
+		SchemaClientConfig schemaClientConfig = SchemaClientConfig.of(region).setPsm(FLINK_PSM);
 		schemaClient = SchemaClients.simpleCachedSchemaClient(schemaClientConfig);
 	}
 

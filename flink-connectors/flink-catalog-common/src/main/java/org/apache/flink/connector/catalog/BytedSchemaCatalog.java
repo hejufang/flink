@@ -58,13 +58,15 @@ import java.util.stream.Collectors;
 public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 	private static final String FLINK_PSM = "inf.compute.flink";
 	private static final String NO_COMMENT = "";
+	private static final String DEFAULT_REGION = "cn";
 
 	private SimpleSchemaClient schemaClient;
+	private final String region;
 	private final ClusterType clusterType;
 	private final boolean supportChildSchema;
 
 	public BytedSchemaCatalog(String name, String defaultDatabase, ClusterType clusterType) {
-		this(name, defaultDatabase, clusterType, false);
+		this(name, defaultDatabase, clusterType, false, DEFAULT_REGION);
 	}
 
 	public BytedSchemaCatalog(
@@ -72,14 +74,25 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 			String defaultDatabase,
 			ClusterType clusterType,
 			boolean supportChildSchema) {
+		this(name, defaultDatabase, clusterType, supportChildSchema, DEFAULT_REGION);
+	}
+
+	public BytedSchemaCatalog(
+			String name,
+			String defaultDatabase,
+			ClusterType clusterType,
+			boolean supportChildSchema,
+			String region) {
 		super(name, defaultDatabase);
 		this.clusterType = clusterType;
 		this.supportChildSchema = supportChildSchema;
+		this.region = region;
 	}
 
 	@Override
 	public void open() throws CatalogException {
-		SchemaClientConfig schemaClientConfig = SchemaClientConfig.of().setPsm(FLINK_PSM);
+		SchemaClientConfig schemaClientConfig = SchemaClientConfig.of(region)
+			.setPsm(FLINK_PSM);
 		schemaClient = SchemaClients.simpleCachedSchemaClient(schemaClientConfig);
 	}
 

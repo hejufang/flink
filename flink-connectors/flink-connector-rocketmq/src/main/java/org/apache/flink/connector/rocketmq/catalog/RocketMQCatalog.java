@@ -49,6 +49,10 @@ public class RocketMQCatalog extends BytedSchemaCatalog {
 		super(name, defaultDatabase, ClusterType.rocketmq, true);
 	}
 
+	public RocketMQCatalog(String name, String defaultDatabase, String region) {
+		super(name, defaultDatabase, ClusterType.rocketmq, true, region);
+	}
+
 	@Override
 	public CatalogBaseTable getTable(ObjectPath tablePath) throws TableNotExistException, CatalogException {
 		String[] regionAndDatabase = parseRegionDatabase(tablePath.getDatabaseName());
