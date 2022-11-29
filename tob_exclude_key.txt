@@ -71,7 +71,6 @@ metrics.reporter.databus_reporter.interval
 metrics.latency.interval
 
 # Grafana
-save-meta.enabled
 register-dashboard.enabled
 grafana.domain_url
 register-dashboard.token

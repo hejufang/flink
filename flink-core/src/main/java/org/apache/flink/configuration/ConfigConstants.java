@@ -2146,8 +2146,6 @@ public final class ConfigConstants {
 
 	public static final String DASHBOARD_DATA_SOURCE_KEY = "dashboard.data_source";
 	public static final String DASHBOARD_DATA_SOURCE_DEFAULT = "bytetsd";
-	public static final String JOB_META_DB_NAME_KEY = "jobmeta.db.name";
-	public static final String JOB_META_DB_NAME_VALUE = "dayu";
 
 	// ---------------------------- Hdfs Btrace ------------------------------
 	public static final String HDFS_BTRACE_TAGS_KEY = "YARN_APP_TAGS";
@@ -2155,8 +2153,6 @@ public final class ConfigConstants {
 	public static final String HDFS_BTRACE_PLATFORM = "hdfs.btrace.platform";
 	public static final String HDFS_BTRACE_PLATFORM_DEFAULT = "flink";
 
-	public static final String SAVE_META_ENABLED = "save-meta.enabled";
-	public static final String SAVE_META_ENABLED_DEFAULT = "false";
 	public static final String REGISTER_DASHBOARD_ENABLED = "register-dashboard.enabled";
 	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "false";
 
