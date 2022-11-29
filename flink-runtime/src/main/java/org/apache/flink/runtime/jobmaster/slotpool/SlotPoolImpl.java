@@ -294,7 +294,7 @@ public class SlotPoolImpl implements SlotPool {
 			Set<AllocationID> allocationIds = pendingRequests.keySetB();
 
 			for (AllocationID allocationId : allocationIds) {
-				cancelSlotRequestFromResourceManager(allocationId, pendingRequests.getValueByKeyB(allocationId));
+				resourceManagerGateway.cancelSlotRequest(allocationId);
 			}
 		}
 	}
@@ -365,18 +365,6 @@ public class SlotPoolImpl implements SlotPool {
 		return pendingRequest.getAllocatedSlotFuture();
 	}
 
-	private void cancelSlotRequestFromResourceManager(AllocationID allocationID, PendingRequest pendingRequest) {
-		checkNotNull(resourceManagerGateway);
-		if (pendingRequest == null) {
-			resourceManagerGateway.cancelSlotRequest(allocationID);
-		} else {
-			FutureUtils.forwardAsync(
-					resourceManagerGateway.cancelSlotRequest(allocationID),
-					pendingRequest.getCancelSlotFuture(),
-					componentMainThreadExecutor);
-		}
-	}
-
 	protected void requestSlotFromResourceManager(
 			final ResourceManagerGateway resourceManagerGateway,
 			final PendingRequest pendingRequest) {
@@ -399,7 +387,7 @@ public class SlotPoolImpl implements SlotPool {
 				if (throwable != null || !allocationId.equals(allocatedSlot.getAllocationId())) {
 					// cancel the slot request if there is a failure or if the pending request has
 					// been completed with another allocated slot
-					cancelSlotRequestFromResourceManager(allocationId, pendingRequest);
+					resourceManagerGateway.cancelSlotRequest(allocationId);
 				}
 			});
 
@@ -457,7 +445,7 @@ public class SlotPoolImpl implements SlotPool {
 					if (throwable != null || !allocationId.equals(allocatedSlot.getAllocationId())) {
 						// cancel the slot request if there is a failure or if the pending request has
 						// been completed with another allocated slot
-						cancelSlotRequestFromResourceManager(allocationId, pendingRequest);
+						resourceManagerGateway.cancelSlotRequest(allocationId);
 					}
 				});
 		}
@@ -1570,9 +1558,6 @@ public class SlotPoolImpl implements SlotPool {
 
 		private final CompletableFuture<AllocatedSlot> allocatedSlotFuture;
 
-		// send cancel slot request to resource manager.
-		private final CompletableFuture<Acknowledge> cancelSlotFuture;
-
 		private final Collection<TaskManagerLocation> bannedLocations;
 
 		private long unfillableSince;
@@ -1595,7 +1580,6 @@ public class SlotPoolImpl implements SlotPool {
 			this.resourceProfile = Preconditions.checkNotNull(resourceProfile);
 			this.isBatchRequest = isBatchRequest;
 			this.allocatedSlotFuture = Preconditions.checkNotNull(allocatedSlotFuture);
-			this.cancelSlotFuture = new CompletableFuture<>();
 			this.bannedLocations = bannedLocations;
 			this.unfillableSince = Long.MAX_VALUE;
 		}
@@ -1622,10 +1606,6 @@ public class SlotPoolImpl implements SlotPool {
 			return allocatedSlotFuture;
 		}
 
-		public CompletableFuture<Acknowledge> getCancelSlotFuture() {
-			return cancelSlotFuture;
-		}
-
 		public boolean isBatchRequest() {
 			return isBatchRequest;
 		}
@@ -1644,7 +1624,6 @@ public class SlotPoolImpl implements SlotPool {
 					"slotRequestId=" + slotRequestId +
 					", resourceProfile=" + resourceProfile +
 					", allocatedSlotFuture=" + allocatedSlotFuture +
-					", cancelSlotFuture=" + cancelSlotFuture +
 					", bannedLocations=" + bannedLocations +
 					'}';
 		}

@@ -320,13 +320,12 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	}
 
 	@Override
-	public CompletableFuture<Acknowledge> cancelSlotRequest(AllocationID allocationID) {
+	public void cancelSlotRequest(AllocationID allocationID) {
 		Consumer<AllocationID> currentCancelSlotConsumer = cancelSlotConsumer;
 
 		if (currentCancelSlotConsumer != null) {
 			currentCancelSlotConsumer.accept(allocationID);
 		}
-		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
 	@Override
