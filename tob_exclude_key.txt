@@ -204,6 +204,7 @@ blacklist.failure-timeout
 blacklist.check-interval
 blacklist.taskmanager.critical.error.enabled
 blacklist.ignored-exception-class-names
+blacklist.network.exception-expire-time
 
 # rmq
 rmq.secret_key

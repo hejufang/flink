@@ -248,8 +248,8 @@ common:
   yarn.gang-scheduler.downgrade-timeout-ms: 1800000
 
 # blacklist
-  blacklist.taskmanager.enabled: true
-  blacklist.task.enabled: true
+  blacklist.taskmanager.enabled: false
+  blacklist.task.enabled: false
   blacklist.max-task-failure-num-per-host: 5
   blacklist.max-taskmanager-failure-num-per-host: 2
   blacklist.task-blacklist-max-length: 10
@@ -258,6 +258,7 @@ common:
   blacklist.check-interval: "1 min"
   blacklist.taskmanager.critical.error.enabled: true
   blacklist.ignored-exception-class-names: "java.lang.OutOfMemoryError;org.apache.kafka.common.errors.TopicAuthorizationException;org.apache.hadoop.hdfs.protocol.DSQuotaExceededException"
+  blacklist.network.exception-expire-time: "120 min"
 
   # am failover recovery
   yarn.previous-container.as-pending-container: true
@@ -905,6 +906,8 @@ quoka:
   taskmanager.network.netty.client.latency-check-interval-ms: 5000
   execution.checkpointing.default.interval: 300000
   resourcemanager.slow-container.blacklist-enabled: true
+  blacklist.taskmanager.enabled: true
+  blacklist.task.enabled: true
 
 quaga:
   dc: cn
@@ -2020,6 +2023,8 @@ Gaura-LQ:
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   resourcemanager.slow-container.blacklist-enabled: true
+  blacklist.taskmanager.enabled: true
+  blacklist.task.enabled: true
 
 Echo-LQ:
   dc: cn
@@ -2125,6 +2130,8 @@ Feins-LQ:
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   resourcemanager.slow-container.blacklist-enabled: true
+  blacklist.taskmanager.enabled: true
+  blacklist.task.enabled: true
 
 Feins-HL:
   dc: cn
