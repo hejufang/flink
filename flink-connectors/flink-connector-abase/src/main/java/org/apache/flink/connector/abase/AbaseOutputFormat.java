@@ -305,6 +305,11 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 					// Different JedisExecptions are formatted in SDK and will be thrown out in pipeline syncAndReturnAll().
 					LOG.error("Error in Abase pipeline : ", e);
 				}
+				try {
+					Thread.sleep(retryTimes * 1000L);
+				} catch (InterruptedException ie) {
+					throw new FlinkRuntimeException("Failed to flush data, interrupted while doing another attempt", ie);
+				}
 			}
 		}
 	}
