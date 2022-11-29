@@ -25,10 +25,12 @@ import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.runtime.util.docker.DockerConfigOptions;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.TestLogger;
 
 import io.fabric8.kubernetes.api.model.Quantity;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.List;
@@ -39,6 +41,7 @@ import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.FLINK_EXTERNAL_JAR_DEPENDENCIES;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -190,10 +193,38 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 	}
 
 	@Test
+	public void testGetFlinkHome() {
+		flinkConfig.setString(KubernetesConfigOptions.KUBERNETES_ENTRY_PATH, "/opt/tiger/flink_deploy/bin/kubernetes-entry.sh");
+		String flinkHome = testingKubernetesParameters.findFlinkHomeInContainer();
+		Assert.assertEquals("/opt/tiger/flink_deploy", flinkHome);
+	}
+
+	@Test
 	public void testGetFlinkExternalJarDependencies() {
 		String dummyExternalJar = "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar";
 		flinkConfig.set(FLINK_EXTERNAL_JAR_DEPENDENCIES, dummyExternalJar);
 		assertEquals(dummyExternalJar, this.testingKubernetesParameters.getExternalJarDependencies());
+	}
+
+	@Test
+	public void testIsDockerCompatibleModeBothOptionValid() {
+		String dummyImage = "flink_image_base:ff7dc2449a16eb027598fca59d86ddc8";
+		flinkConfig.setBoolean(KubernetesConfigOptions.CUSTOM_IMAGE_COMPATIBLE, true);
+		flinkConfig.setString(DockerConfigOptions.DOCKER_IMAGE, dummyImage);
+		assertTrue(this.testingKubernetesParameters.getCustomDockerCompatibility());
+	}
+
+	@Test
+	public void testIsDockerCompatibleModeNoCompatible() {
+		String dummyImage = "flink_image_base:ff7dc2449a16eb027598fca59d86ddc8";
+		flinkConfig.setString(DockerConfigOptions.DOCKER_IMAGE, dummyImage);
+		assertFalse(this.testingKubernetesParameters.getCustomDockerCompatibility());
+	}
+
+	@Test
+	public void testIsDockerCompatibleModeNoImage() {
+		flinkConfig.setBoolean(KubernetesConfigOptions.CUSTOM_IMAGE_COMPATIBLE, true);
+		assertFalse(this.testingKubernetesParameters.getCustomDockerCompatibility());
 	}
 
 	private class TestingKubernetesParameters extends AbstractKubernetesParameters {

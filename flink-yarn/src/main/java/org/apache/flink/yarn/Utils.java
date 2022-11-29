@@ -22,13 +22,11 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
-import org.apache.flink.runtime.util.HttpUtil;
 import org.apache.flink.runtime.util.IPv6Util;
+import org.apache.flink.runtime.util.docker.DockerConfigOptions;
+import org.apache.flink.runtime.util.docker.DockerUtils;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
-
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -111,14 +109,6 @@ public final class Utils {
 
 	/** Initialize this variable at the first time containFlinkShuffleService() method been called. */
 	private static Boolean containFlinkShuffleService = null;
-
-	/** Default docker image used for docker on yarn. */
-	private static final String DEFAULT_IMAGE = "default";
-
-	/**
-	 * Url path separator.
-	 */
-	private static final String URL_SEP = "/";
 
 	public static void setupYarnClassPath(Configuration conf, Map<String, String> appMasterEnv) {
 		addToEnvironment(
@@ -753,11 +743,10 @@ public final class Utils {
 	 * @param flinkConfiguration flink configuration.
 	 * @param envMap             environment map.
 	 */
-	public static void setDockerEnv(org.apache.flink.configuration.Configuration flinkConfiguration,
-									Map<String, String> envMap) {
+	public static void setDockerEnv(org.apache.flink.configuration.Configuration flinkConfiguration, Map<String, String> envMap) {
 		try {
-			String dockerImage = flinkConfiguration.getString(YarnConfigOptions.DOCKER_IMAGE);
-			boolean dockerEnabled = flinkConfiguration.getBoolean(YarnConfigOptions.DOCKER_ENABLED);
+			String dockerImage = flinkConfiguration.getString(DockerConfigOptions.DOCKER_IMAGE);
+			boolean dockerEnabled = flinkConfiguration.getBoolean(DockerConfigOptions.DOCKER_ENABLED);
 			if (!dockerEnabled) {
 				LOG.info("Deactivate docker image, run on physical machines.");
 				return;
@@ -768,18 +757,18 @@ public final class Utils {
 
 			LOG.info("Docker image: {} has been configured, set docker environment params.",
 				dockerImage);
-			dockerImage = getDockerImage(dockerImage, flinkConfiguration);
+			dockerImage = DockerUtils.getDockerImage(dockerImage, flinkConfiguration);
 			if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
-				throw new RuntimeException("The real docker image is empty, please check config " + YarnConfigOptions.DOCKER_IMAGE.key());
+				throw new RuntimeException("The real docker image is empty, please check config " + DockerConfigOptions.DOCKER_IMAGE.key());
 			}
-			flinkConfiguration.setString(YarnConfigOptions.DOCKER_IMAGE, dockerImage);
+			flinkConfiguration.setString(DockerConfigOptions.DOCKER_IMAGE, dockerImage);
 			LOG.info("The real docker image id is: {}", dockerImage);
 			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
 			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
 				YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT);
-			boolean enableDefaultMount = flinkConfiguration.getBoolean(YarnConfigOptions.DOCKER_MOUNTS_DEFAULT_ENABLE);
+			boolean enableDefaultMount = flinkConfiguration.getBoolean(DockerConfigOptions.DOCKER_MOUNTS_DEFAULT_ENABLE);
 			List<String> dockerMountList = new ArrayList<>();
-			String otherDockerMounts = flinkConfiguration.getString(YarnConfigOptions.DOCKER_MOUNTS);
+			String otherDockerMounts = flinkConfiguration.getString(DockerConfigOptions.DOCKER_MOUNTS);
 
 			if (!StringUtils.isNullOrWhitespaceOnly(otherDockerMounts)) {
 				dockerMountList.add(otherDockerMounts);
@@ -795,7 +784,7 @@ public final class Utils {
 			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY,
 				YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT);
 			String dockerLogMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT;
-			String otherDockerLogMounts = flinkConfiguration.getString(YarnConfigOptions.DOCKER_LOG_MOUNTS);
+			String otherDockerLogMounts = flinkConfiguration.getString(DockerConfigOptions.DOCKER_LOG_MOUNTS);
 			if (otherDockerLogMounts != null && !otherDockerLogMounts.isEmpty()) {
 				dockerLogMounts = otherDockerLogMounts + ";" + dockerLogMounts;
 			}
@@ -805,61 +794,5 @@ public final class Utils {
 			LOG.error("ERROR occurred while get real docker image", e);
 			throw new RuntimeException(e);
 		}
-	}
-
-	/**
-	 * Add docker hub before image and replace 'latest' docker version with the real version.
-	 *
-	 * @param flinkConfiguration flink configuration.
-	 * @return the real docker version.
-	 */
-	public static String getDockerImage(String dockerImage,
-										org.apache.flink.configuration.Configuration flinkConfiguration) throws IOException {
-		if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
-			return null;
-		}
-
-		if (DEFAULT_IMAGE.equalsIgnoreCase(dockerImage)) {
-			dockerImage = flinkConfiguration.getString(YarnConfigOptions.DOCKER_DEFAULT_IMAGE);
-		}
-
-		String dockerHub = flinkConfiguration.getString(YarnConfigOptions.DOCKER_HUB);
-
-		String[] items = dockerImage.trim().split(":");
-		if (items.length != 2) {
-			throw new RuntimeException("docker.image must be {psm}:{version}.");
-		}
-		String dockerPsm = items[0].trim();
-		String dockerVersion = items[1].trim();
-
-		if (!YarnConfigKeys.DOCKER_VERSION_LATEST.equalsIgnoreCase(dockerVersion)) {
-			if (flinkConfiguration.containsKey(YarnConfigKeys.DOCKER_NAMESPACE_KEY)) {
-				String dockerNamespace = flinkConfiguration.getString(YarnConfigOptions.DOCKER_NAMESPACE);
-				if (!dockerImage.startsWith(dockerHub + URL_SEP + dockerNamespace)) {
-					dockerImage = dockerHub + URL_SEP + dockerNamespace + URL_SEP + dockerImage;
-				}
-			} else {
-				if (!dockerImage.startsWith(dockerHub)) {
-					dockerImage = dockerHub + URL_SEP + dockerImage;
-				}
-			}
-
-			return dockerImage;
-		}
-		LOG.info("Replace 'latest' version with real latest version id.");
-
-		String dockerServer = flinkConfiguration.getString(YarnConfigOptions.DOCKER_SERVER);
-		String dockerRegion = flinkConfiguration.getString(YarnConfigOptions.DOCKER_REGION);
-		String dockerAuthorization = flinkConfiguration.getString(YarnConfigOptions.DOCKER_AUTHORIZATION);
-		String dockerUrlTemplate = flinkConfiguration.getString(YarnConfigOptions.DOCKER_VERSION_URL_TEMPLATE);
-		String dockerUrl = String.format(dockerUrlTemplate, dockerServer, dockerPsm, dockerRegion);
-		Map<String, String> headers = new HashMap<>();
-		headers.put(YarnConfigKeys.DOCKER_HTTP_HEADER_AUTHORIZATION_KEY, dockerAuthorization);
-		HttpUtil.HttpResponsePojo response = HttpUtil.sendGet(dockerUrl, headers);
-		String content = response.getContent();
-		JsonNode respJson = new ObjectMapper().readTree(content);
-		String image = respJson.hasNonNull(dockerRegion) ? respJson.get(dockerRegion).asText() : null;
-		LOG.info("Get image from {}, image is: {}", dockerUrl, image);
-		return image;
 	}
 }

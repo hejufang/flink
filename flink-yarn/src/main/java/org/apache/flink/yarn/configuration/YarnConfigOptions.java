@@ -457,62 +457,6 @@ public class YarnConfigOptions {
 			.withDeprecatedKeys("yarn.container-launcher-number")
 			.withDescription("The number of threads to start yarn containers in yarn resource manager.");
 
-	/** Config for docker. */
-	public static final ConfigOption<Boolean> DOCKER_ENABLED =
-		key("docker.enabled")
-			.booleanType()
-			.defaultValue(true)
-			.withDescription("Whether enable docker image.");
-	public static final ConfigOption<String> DOCKER_IMAGE =
-		key("docker.image")
-			.stringType()
-			.defaultValue(null)
-			.withDescription("Image of docker on yarn.");
-	public static final ConfigOption<String> DOCKER_DEFAULT_IMAGE =
-		key("docker.default_image")
-			.stringType()
-			.defaultValue("yarn_runtime_flink:latest")
-			.withDescription("Default image of docker on yarn.");
-	public static final ConfigOption<String> DOCKER_MOUNTS =
-		key("docker.mount")
-			.stringType()
-			.defaultValue(null)
-			.withDescription("Default image of docker on yarn.");
-	public static final ConfigOption<Boolean> DOCKER_MOUNTS_DEFAULT_ENABLE =
-		key("docker.mount_default.enable")
-			.booleanType()
-			.defaultValue(true)
-			.withDescription("switch to use docker default mount.");
-	public static final ConfigOption<String> DOCKER_LOG_MOUNTS =
-		key("docker.log.mount")
-			.stringType()
-			.defaultValue(null)
-			.withDescription("Default image of docker on yarn.");
-	public static final ConfigOption<String> DOCKER_SERVER =
-		key("docker.server")
-			.stringType()
-			.defaultValue("image-manager.byted.org");
-	public static final ConfigOption<String> DOCKER_HUB =
-		key("docker.hub")
-			.stringType()
-			.defaultValue("hub.byted.org");
-	public static final ConfigOption<String> DOCKER_NAMESPACE =
-		key("docker.namespace")
-			.stringType()
-			.defaultValue("yarn");
-	public static final ConfigOption<String> DOCKER_REGION =
-		key("docker.region")
-			.stringType()
-			.defaultValue("China-North-LF");
-	public static final ConfigOption<String> DOCKER_AUTHORIZATION =
-		key("docker.authorization")
-			.stringType()
-			.defaultValue("Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q=");
-	public static final ConfigOption<String> DOCKER_VERSION_URL_TEMPLATE =
-		key("docker.version_template_url")
-			.stringType()
-			.defaultValue("http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s");
-
 	public static final ConfigOption<Boolean> SET_TASK_MANAGER_TOKEN =
 		key("yarn.taskmanager.set_token")
 			.booleanType()

@@ -21,6 +21,7 @@ package org.apache.flink.kubernetes.kubeclient.factory;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.DatabusSideCarContainerDecorator;
+import org.apache.flink.kubernetes.kubeclient.decorators.DockerImageDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.EnvSecretsDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.FlinkConfMountDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.HadoopConfMountDecorator;
@@ -56,7 +57,8 @@ public class KubernetesTaskManagerFactory {
 			new HadoopConfMountDecorator(kubernetesTaskManagerParameters),
 			new FlinkConfMountDecorator(kubernetesTaskManagerParameters),
 			AbstractFileDownloadDecorator.create(kubernetesTaskManagerParameters),
-			new UserClasspathDecorator(kubernetesTaskManagerParameters)
+			new UserClasspathDecorator(kubernetesTaskManagerParameters),
+			new DockerImageDecorator(kubernetesTaskManagerParameters)
 		};
 
 		for (KubernetesStepDecorator stepDecorator: stepDecorators) {

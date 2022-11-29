@@ -81,11 +81,6 @@ public class YarnConfigKeys {
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT =
 		"SYS_ADMIN;NET_ADMIN;SYS_PTRACE";
 
-	public static final String DOCKER_VERSION_LATEST = "latest";
-	public static final String DOCKER_NAMESPACE_KEY = "docker.namespace";
-	public static final String DOCKER_HTTP_HEADER_AUTHORIZATION_KEY = "Authorization";
-
-
 
 	/** Private constructor to prevent instantiation. */
 	private YarnConfigKeys() {}

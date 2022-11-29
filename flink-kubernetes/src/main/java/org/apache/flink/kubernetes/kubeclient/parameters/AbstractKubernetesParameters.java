@@ -31,6 +31,7 @@ import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntryp
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.runtime.util.docker.DockerConfigOptions;
 
 import io.fabric8.kubernetes.api.model.LocalObjectReference;
 import io.fabric8.kubernetes.api.model.Quantity;
@@ -382,7 +383,30 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return flinkConfig.getBoolean(PipelineOptions.USER_CLASSPATH_COMPATIBLE);
 	}
 
+	/**
+	 * Find the flink home path by analyzing the path of container entrypoint script. Noted this flink home path will not
+	 * be ended with "/".
+	 *
+	 * @return Flink Home directory
+	 */
+	public String findFlinkHomeInContainer() {
+		String kubeEntryPath = getContainerEntrypoint();
+		return new File(kubeEntryPath).getParentFile().getParent();
+	}
+
 	public String getExternalJarDependencies() {
 		return flinkConfig.get(FLINK_EXTERNAL_JAR_DEPENDENCIES);
+	}
+
+	/**
+	 * Determines if custom image compatibility mode is allowed. Requires the user to set custom-image-compatible to true
+	 * as well as input an image for docker.image.
+	 *
+	 * @return true, if custom-image-compatibility is true and docker.image is specified. false, otherwise.
+	 */
+	public boolean getCustomDockerCompatibility() {
+		boolean customImageOption = flinkConfig.getBoolean(KubernetesConfigOptions.CUSTOM_IMAGE_COMPATIBLE);
+		String customImage = flinkConfig.getString(DockerConfigOptions.DOCKER_IMAGE);
+		return customImageOption && StringUtils.isNotBlank(customImage);
 	}
 }

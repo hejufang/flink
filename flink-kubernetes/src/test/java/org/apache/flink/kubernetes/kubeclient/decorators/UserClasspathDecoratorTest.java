@@ -65,13 +65,6 @@ public class UserClasspathDecoratorTest extends KubernetesJobManagerTestBase {
 	}
 
 	@Test
-	public void testGetFlinkHome() {
-		flinkConfig.setString(KubernetesConfigOptions.KUBERNETES_ENTRY_PATH, "/opt/tiger/flink_deploy/bin/kubernetes-entry.sh");
-		String flinkHome = userClasspathDecorator.findFlinkHomeInContainer();
-		Assert.assertEquals("/opt/tiger/flink_deploy", flinkHome);
-	}
-
-	@Test
 	public void testGetFlinkUserClasspathWithoutAnyJar() {
 		Configuration configuration = new Configuration();
 		String userClasspath = userClasspathDecorator.getFlinkUserClasspath(configuration);

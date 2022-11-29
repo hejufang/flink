@@ -55,6 +55,7 @@ import org.apache.flink.runtime.jobmanager.JobManagerProcessUtils;
 import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.runtime.util.IPv6Util;
+import org.apache.flink.runtime.util.docker.DockerConfigOptions;
 import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
@@ -729,10 +730,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				PluginUtils.createPluginManagerFromRootFolder(configuration));
 
 		String dockerImage =
-			flinkConfiguration.getString(YarnConfigOptions.DOCKER_IMAGE);
+			flinkConfiguration.getString(DockerConfigOptions.DOCKER_IMAGE);
 
-		boolean dockerEnabled = !(StringUtils.isNullOrWhitespaceOnly(dockerImage)) && flinkConfiguration.getBoolean(YarnConfigOptions.DOCKER_ENABLED);
-		flinkConfiguration.setBoolean(YarnConfigOptions.DOCKER_ENABLED, dockerEnabled);
+		boolean dockerEnabled = !(StringUtils.isNullOrWhitespaceOnly(dockerImage)) && flinkConfiguration.getBoolean(DockerConfigOptions.DOCKER_ENABLED);
+		flinkConfiguration.setBoolean(DockerConfigOptions.DOCKER_ENABLED, dockerEnabled);
 
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
 		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,

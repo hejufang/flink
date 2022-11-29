@@ -62,6 +62,8 @@ import java.util.stream.Collectors;
 import static org.apache.flink.configuration.GlobalConfiguration.FLINK_CONF_FILENAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
+import static org.apache.flink.runtime.util.docker.DockerConfigOptions.DOCKER_IMAGE;
+import static org.apache.flink.runtime.util.docker.DockerConfigOptions.DOCKER_NAMESPACE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -267,6 +269,22 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 		assertTrue("should not create emptyDir volume",
 			podSpec.getVolumes().stream().allMatch(volume -> volume.getEmptyDir() == null)
 		);
+	}
+
+	@Test
+	public void testCustomImageCompatibleMode() throws IOException {
+		String customImage = "hub.byted.org/base/flink_image_base:ff7dc2449a16eb027598fca59d86ddc8";
+		String customNameSpace = "base";
+		flinkConfig.setBoolean(KubernetesConfigOptions.CUSTOM_IMAGE_COMPATIBLE, true);
+		flinkConfig.setString(DOCKER_IMAGE, customImage);
+		flinkConfig.setString(DOCKER_NAMESPACE, customNameSpace);
+		KubernetesJobManagerSpecification kubernetesJobManagerSpecification =
+				KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(kubernetesJobManagerParameters);
+		final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+		assertTrue(podSpec.getContainers().stream().anyMatch(
+				container -> container.getImage().startsWith(customImage)
+		));
+		assertFalse("should contains init container for flink lib", podSpec.getInitContainers().isEmpty());
 	}
 
 	@Test

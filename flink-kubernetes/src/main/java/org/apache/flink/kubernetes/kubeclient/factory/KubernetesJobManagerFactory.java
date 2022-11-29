@@ -22,6 +22,7 @@ import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntryp
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.KubernetesJobManagerSpecification;
 import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
+import org.apache.flink.kubernetes.kubeclient.decorators.DockerImageDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.EnvSecretsDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.FlinkConfMountDecorator;
@@ -83,7 +84,8 @@ public class KubernetesJobManagerFactory {
 			new HadoopConfMountDecorator(kubernetesJobManagerParameters),
 			new FlinkConfMountDecorator(kubernetesJobManagerParameters),
 			AbstractFileDownloadDecorator.create(kubernetesJobManagerParameters),
-			new UserClasspathDecorator(kubernetesJobManagerParameters)
+			new UserClasspathDecorator(kubernetesJobManagerParameters),
+			new DockerImageDecorator(kubernetesJobManagerParameters)
 		};
 
 		for (KubernetesStepDecorator stepDecorator: stepDecorators) {

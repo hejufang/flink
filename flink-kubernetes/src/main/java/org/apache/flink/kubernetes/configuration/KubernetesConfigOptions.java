@@ -197,6 +197,30 @@ public class KubernetesConfigOptions {
 			"The specified image must be based upon the same Apache Flink and Scala versions as used by the application. " +
 			"Visit https://hub.docker.com/_/flink?tab=tags for the images provided by the Flink project.");
 
+	public static final ConfigOption<Boolean> CUSTOM_IMAGE_COMPATIBLE =
+			key("kubernetes.container.custom-image-compatible")
+				.booleanType()
+				.defaultValue(Boolean.FALSE)
+				.withDescription("Whether to user the docker.image as the image of flink main container. This is to" +
+					"keep the compatibility of dockerized mode in yarn and kubernetes. The docker.image " +
+					"doesn't contain the flink library. So Flink will use an init container to copy flink library to" +
+					"an empty dir volume which is shared in main container");
+
+	public static final ConfigOption<String> CUSTOM_IMAGE_COMPATIBLE_FLINK_CONF_MOUNTING_PATH_DEFAULT =
+			key("kubernetes.container.custom-image-compatible.flink-conf-mounting-path-default")
+					.stringType()
+					.defaultValue("/opt/tiger/flink_conf_default")
+					.withDescription("The default mounting path of flink conf volume for custom-image-compatible mode. " +
+							"If the user specifies a conf path which is conflict with flink library path, the conf path " +
+							"will be changed to this default value.");
+
+	public static final ConfigOption<String> CUSTOM_IMAGE_COMPATIBLE_FLINK_LIB_MOUNTING_PATH_FOR_INIT_CONTAINER =
+			key("kubernetes.container.custom-image-compatible.flink-lib-mounting-path.init-container")
+					.stringType()
+					.defaultValue("/opt/tiger/flink_deploy_copy")
+					.withDescription("The mounting path of flink library volume in init container for custom-image-compatible mode. " +
+							"Flink will copy the flink_deploy files which are from image to this path.");
+
 	public static final ConfigOption<String> CONTAINER_WORK_DIR =
 		key("kubernetes.container.work.dir")
 			.stringType()

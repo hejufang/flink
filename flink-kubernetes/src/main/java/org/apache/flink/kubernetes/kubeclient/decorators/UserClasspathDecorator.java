@@ -31,7 +31,6 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.stream.Collectors;
@@ -81,7 +80,7 @@ public class UserClasspathDecorator extends AbstractKubernetesStepDecorator {
 			// that environment variable directly for task managers.
 			return System.getenv(Constants.FLINK_USER_CLASSPATH_ENV_KEY);
 		}
-		String flinkHome = findFlinkHomeInContainer();
+		String flinkHome = kubernetesParameters.findFlinkHomeInContainer();
 		try {
 			return UserClasspathConstructor
 					.getFlinkUserClasspath(KubernetesUserClasspathConstructor.INSTANCE, flinkConfiguration, null, flinkHome)
@@ -93,16 +92,4 @@ public class UserClasspathDecorator extends AbstractKubernetesStepDecorator {
 			throw new RuntimeException(e);
 		}
 	}
-
-	/**
-	 * Find the flink home path by analyzing the path of container entrypoint script. Noted this flink home path will not
-	 * be ended with "/".
-	 *
-	 * @return Flink Home directory
-	 */
-	public String findFlinkHomeInContainer() {
-		String kubeEntryPath = kubernetesParameters.getContainerEntrypoint();
-		return new File(kubeEntryPath).getParentFile().getParent();
-	}
-
 }
