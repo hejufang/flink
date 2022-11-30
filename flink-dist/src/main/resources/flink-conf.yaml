@@ -1455,7 +1455,7 @@ giraf:
 grila:
   dc: i18n_gcp
   clusterName: grila
-  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1b8b:2181,fdbd:dccd:cdc2:110d:0:1b8e:2181,fdbd:dccd:cdc2:110d:0:1b87:2181,fdbd:dccd:cdc2:110d:0:1b85:2181,fdbd:dccd:cdc2:110d:0:1b8a
+  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1b8b:::2181,fdbd:dccd:cdc2:110d:0:1b8e:::2181,fdbd:dccd:cdc2:110d:0:1b87:::2181,fdbd:dccd:cdc2:110d:0:1b85:::2181,fdbd:dccd:cdc2:110d:0:1b8a:::2181
   fs.defaultFS: hdfs://harunava
   hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
   checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
@@ -1484,7 +1484,7 @@ grila:
 gavia:
   dc: i18n_gcp
   clusterName: gavia
-  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1b8b:2181,fdbd:dccd:cdc2:110d:0:1b8e:2181,fdbd:dccd:cdc2:110d:0:1b87:2181,fdbd:dccd:cdc2:110d:0:1b85:2181,fdbd:dccd:cdc2:110d:0:1b8a
+  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1b8b:::2181,fdbd:dccd:cdc2:110d:0:1b8e:::2181,fdbd:dccd:cdc2:110d:0:1b87:::2181,fdbd:dccd:cdc2:110d:0:1b85:::2181,fdbd:dccd:cdc2:110d:0:1b8a:::2181
   fs.defaultFS: hdfs://harunava
   hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
   checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
@@ -1514,7 +1514,7 @@ gavia:
 gazel:
   dc: i18n_gcp
   clusterName: gazel
-  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1b8b:2181,fdbd:dccd:cdc2:110d:0:1b8e:2181,fdbd:dccd:cdc2:110d:0:1b87:2181,fdbd:dccd:cdc2:110d:0:1b85:2181,fdbd:dccd:cdc2:110d:0:1b8a
+  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1b8b:::2181,fdbd:dccd:cdc2:110d:0:1b8e:::2181,fdbd:dccd:cdc2:110d:0:1b87:::2181,fdbd:dccd:cdc2:110d:0:1b85:::2181,fdbd:dccd:cdc2:110d:0:1b8a:::2181
   fs.defaultFS: hdfs://harunava
   hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
   checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
@@ -1748,7 +1748,7 @@ spider:
 saola:
   dc: sg
   clusterName: saola
-  high-availability.zookeeper.quorum: fdbd:dccd:cdc1:1264:0:112:2181,fdbd:dccd:cdc1:1264:0:105:2181,fdbd:dccd:cdc1:1264:0:10b:2181,fdbd:dccd:cdc1:1264:0:122:2181,fdbd:dccd:cdc1:1264:0:123:2181
+  high-availability.zookeeper.quorum: fdbd:dccd:cdc1:1264:0:112:::2181,fdbd:dccd:cdc1:1264:0:105:::2181,fdbd:dccd:cdc1:1264:0:10b:::2181,fdbd:dccd:cdc1:1264:0:122:::2181,fdbd:dccd:cdc1:1264:0:123:::2181
   hdfs.prefix: hdfs://harunasg/home/byte_flink_sg2
   checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_sg2
   dashboard.data_source: Bytetsd-Singapore-Central
