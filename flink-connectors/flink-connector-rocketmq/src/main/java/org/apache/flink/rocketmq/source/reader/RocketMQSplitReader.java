@@ -105,6 +105,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private transient String consumerInstanceName;
 	private transient SourceReaderContext sourceReaderContext;
 	private transient Set<MessageQueue> assignedQueues;
+	private transient Map<RocketMQSplit, Long> assignedSplitStatesMap;
 	private transient Set<String> finishedSplit;
 	private transient Counter skipDirtyCounter;
 	private transient Counter emptyPollCounter;
@@ -247,6 +248,8 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	public void handleSplitsChanges(Queue<SplitsChange<RocketMQSplit>> splitsChanges) {
 		// Parse the offset and reset it.
 		List<MessageQueuePb> newMessageQueues = new ArrayList<>();
+		Map<RocketMQSplit, Long>  newRocketMQSplitStateMap = new HashMap<>();
+		HashMap<MessageQueuePb, Long> newMessageQueuesWithOffsetMap = new HashMap<>();
 		while (!splitsChanges.isEmpty()) {
 			SplitsChange<RocketMQSplit> splitsChange = splitsChanges.poll();
 			if (!(splitsChange instanceof SplitsAddition)) {
@@ -262,6 +265,9 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 						parseStartingOffsets(split);
 						// Get MessageQueuePb from split, then add it to newMessageQueues list.
 						newMessageQueues.add(createMessageQueuePbFromSplit(split));
+						synchronized (split) {
+							newRocketMQSplitStateMap.put(split, ((RocketMQSplitState) split).getCurrentOffset());
+						}
 					} catch (Exception e) {
 						throw new FlinkRuntimeException("SplitReader parses split error: ", e);
 					}
@@ -270,19 +276,27 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 
 		if (!newMessageQueues.isEmpty()) {
 			synchronized (consumer) {
-				if (assignedQueues != null) {
+				if (assignedQueues != null && assignedSplitStatesMap != null) {
 					// Add old assigned queues.
 					newMessageQueues.addAll(assignedQueues.stream().map(
 						queue -> createMessageQueuePb(queue.getTopic(), queue.getBrokerName(), queue.getQueueId())
 					).collect(Collectors.toList()));
+					newRocketMQSplitStateMap.putAll(assignedSplitStatesMap);
+					for (Map.Entry<RocketMQSplit, Long> spliteState : newRocketMQSplitStateMap.entrySet()) {
+						RocketMQSplit rocketMQSplit = spliteState.getKey();
+						Long offset = spliteState.getValue();
+						newMessageQueuesWithOffsetMap.put(createMessageQueuePb(rocketMQSplit.getTopic(),
+							rocketMQSplit.getBrokerName(), rocketMQSplit.getQueueId()), offset);
+					}
 				}
-				consumer.assign(newMessageQueues);
+				consumer.assignWithOffset(newMessageQueuesWithOffsetMap);
 				if (finishedSplit == null) {
 					finishedSplit = new HashSet<>();
 				}
 				assignedQueues = newMessageQueues.stream()
 					.map(queue -> new MessageQueue(queue.getTopic(), queue.getBrokerName(), queue.getQueueId()))
 					.collect(Collectors.toSet());
+				assignedSplitStatesMap = newRocketMQSplitStateMap;
 			}
 
 			initMetrics(newMessageQueues);
