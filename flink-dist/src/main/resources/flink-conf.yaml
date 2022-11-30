@@ -552,7 +552,7 @@ lionn:
 lynxs:
   dc: cn
   clusterName: lynxs
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:1:1:224:193:108:2181,fdbd:dc01:ff:1:1:224:193:109:2181,fdbd:dc01:ff:1:1:224:193:93:2181,fdbd:dc01:ff:1:1:224:193:95:2181,fdbd:dc01:ff:1:1:224:193:96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lynxs
   ipv6.enabled: true
