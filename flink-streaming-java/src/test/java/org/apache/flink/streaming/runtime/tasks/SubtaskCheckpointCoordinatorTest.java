@@ -298,7 +298,7 @@ public class SubtaskCheckpointCoordinatorTest {
 		MockEnvironment mockEnvironment = MockEnvironment.builder().build();
 		SubtaskCheckpointCoordinatorImpl subtaskCheckpointCoordinator = (SubtaskCheckpointCoordinatorImpl) new MockSubtaskCheckpointCoordinatorBuilder()
 			.setEnvironment(mockEnvironment)
-			.setExecutor(Executors.newSingleThreadExecutor())
+			.setExecutor(Executors.newCachedThreadPool())
 			.setUnalignedCheckpointEnabled(true)
 			.build();
 
@@ -326,6 +326,9 @@ public class SubtaskCheckpointCoordinatorTest {
 		assertFalse(rawKeyedStateHandleFuture.isCancelled());
 
 		subtaskCheckpointCoordinator.notifyCheckpointAborted(checkpointId, operatorChain, () -> true);
+		while (!rawKeyedStateHandleFuture.isDone()) {
+			Thread.sleep(10L);
+		}
 		assertTrue(rawKeyedStateHandleFuture.isCancelled());
 		assertEquals(0, subtaskCheckpointCoordinator.getAsyncCheckpointRunnableSize());
 	}

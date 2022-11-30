@@ -399,7 +399,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 		synchronized (lock) {
 			asyncCheckpointRunnable = checkpoints.remove(checkpointId);
 		}
-		IOUtils.closeQuietly(asyncCheckpointRunnable);
+		executorService.execute(() -> IOUtils.closeQuietly(asyncCheckpointRunnable));
 		return asyncCheckpointRunnable != null;
 	}
 
