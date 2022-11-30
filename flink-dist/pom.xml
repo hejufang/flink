@@ -479,7 +479,7 @@ under the License.
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-shaded-databus4j</artifactId>
-			<version>${flink.shaded.version}</version>
+			<version>${databus4j.version}-${flink.shaded.version}</version>
 		</dependency>
 
 		<dependency>

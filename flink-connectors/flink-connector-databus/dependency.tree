@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-databus:jar:1.11-byted-SNAPSHOT
-+- org.apache.flink:flink-shaded-databus4j:jar:11.0-byted-SNAPSHOT:provided
++- org.apache.flink:flink-shaded-databus4j:jar:1.2.7-11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
@@ -39,14 +39,22 @@ org.apache.flink:flink-connector-databus:jar:1.11-byted-SNAPSHOT
 |  |  +- commons-io:commons-io:jar:2.4:provided
 |  |  +- org.apache.flink:flink-shaded-netty:jar:4.1.39.Final-11.0-byted-SNAPSHOT:provided
 |  |  +- org.apache.flink:flink-shaded-jackson:jar:2.10.1-11.0-byted-SNAPSHOT:provided
-|  |  +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.4.14-11.0-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.5.9-11.0-byted-SNAPSHOT:provided
 |  |  +- org.apache.flink:flink-shaded-commons-cli:jar:1.3.1-11.0-byted-SNAPSHOT:provided
-|  |  +- org.apache.curator:curator-recipes:jar:2.12.0:provided
-|  |  |  \- org.apache.curator:curator-framework:jar:2.12.0:provided
-|  |  |     \- org.apache.curator:curator-client:jar:2.12.0:provided
-|  |  |        \- org.apache.zookeeper:zookeeper:jar:3.4.14:provided
-|  |  |           +- com.github.spotbugs:spotbugs-annotations:jar:3.1.9:provided
-|  |  |           \- org.apache.yetus:audience-annotations:jar:0.5.0:provided
+|  |  +- org.apache.curator:curator-recipes:jar:5.2.0:provided
+|  |  |  \- org.apache.curator:curator-framework:jar:5.2.0:provided
+|  |  |     \- org.apache.curator:curator-client:jar:5.2.0:provided
+|  |  |        \- org.apache.zookeeper:zookeeper:jar:3.5.9:provided
+|  |  |           +- org.apache.zookeeper:zookeeper-jute:jar:3.5.9:provided
+|  |  |           +- org.apache.yetus:audience-annotations:jar:0.5.0:provided
+|  |  |           +- io.netty:netty-handler:jar:4.1.50.Final:provided
+|  |  |           |  +- io.netty:netty-common:jar:4.1.50.Final:provided
+|  |  |           |  +- io.netty:netty-resolver:jar:4.1.50.Final:provided
+|  |  |           |  +- io.netty:netty-buffer:jar:4.1.50.Final:provided
+|  |  |           |  +- io.netty:netty-transport:jar:4.1.50.Final:provided
+|  |  |           |  \- io.netty:netty-codec:jar:4.1.50.Final:provided
+|  |  |           \- io.netty:netty-transport-native-epoll:jar:4.1.50.Final:provided
+|  |  |              \- io.netty:netty-transport-native-unix-common:jar:4.1.50.Final:provided
 |  |  +- org.javassist:javassist:jar:3.24.0-GA:provided
 |  |  +- org.scala-lang:scala-library:jar:2.11.12:provided
 |  |  +- com.typesafe.akka:akka-actor_2.11:jar:2.5.21:provided
@@ -80,7 +88,6 @@ org.apache.flink:flink-connector-databus:jar:1.11-byted-SNAPSHOT
 |        |  +- com.google.protobuf:protobuf-java:jar:3.6.1:provided
 |        |  +- org.apache.httpcomponents:httpclient:jar:4.5.3:provided
 |        |  \- org.apache.httpcomponents:httpcore:jar:4.4.6:provided
-|        +- org.apiguardian:apiguardian-api:jar:1.1.0:provided
 |        +- com.esri.geometry:esri-geometry-api:jar:2.2.0:provided
 |        +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:provided
 |        +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:provided
@@ -111,6 +118,16 @@ org.apache.flink:flink-connector-databus:jar:1.11-byted-SNAPSHOT
 +- com.google.code.findbugs:jsr305:jar:1.3.9:provided
 +- org.apache.flink:flink-test-utils-junit:jar:1.11-byted-SNAPSHOT:test
 +- org.apache.flink:force-shading:jar:1.11-byted-SNAPSHOT:compile
++- org.junit.jupiter:junit-jupiter:jar:5.8.1:test
+|  +- org.junit.jupiter:junit-jupiter-api:jar:5.8.1:test
+|  |  +- org.opentest4j:opentest4j:jar:1.2.0:test
+|  |  \- org.junit.platform:junit-platform-commons:jar:1.8.1:test
+|  +- org.junit.jupiter:junit-jupiter-params:jar:5.8.1:test
+|  \- org.junit.jupiter:junit-jupiter-engine:jar:5.8.1:test
++- org.junit.vintage:junit-vintage-engine:jar:5.8.1:test
+|  +- org.junit.platform:junit-platform-engine:jar:1.8.1:test
+|  \- org.apiguardian:apiguardian-api:jar:1.1.2:provided
++- org.assertj:assertj-core:jar:3.21.0:test
 +- junit:junit:jar:4.12:test
 |  \- org.hamcrest:hamcrest-core:jar:1.3:test
 +- org.mockito:mockito-core:jar:2.21.0:test
@@ -124,7 +141,7 @@ org.apache.flink:flink-connector-databus:jar:1.11-byted-SNAPSHOT
 +- org.powermock:powermock-api-mockito2:jar:2.0.4:test
 |  \- org.powermock:powermock-api-support:jar:2.0.4:test
 +- org.hamcrest:hamcrest-all:jar:1.3:test
-+- org.apache.logging.log4j:log4j-slf4j-impl:jar:2.15.0:test
-+- org.apache.logging.log4j:log4j-api:jar:2.15.0:test
-+- org.apache.logging.log4j:log4j-core:jar:2.15.0:test
-\- org.apache.logging.log4j:log4j-1.2-api:jar:2.15.0:test
++- org.apache.logging.log4j:log4j-slf4j-impl:jar:2.17.1:test
++- org.apache.logging.log4j:log4j-api:jar:2.17.1:test
++- org.apache.logging.log4j:log4j-core:jar:2.17.1:test
+\- org.apache.logging.log4j:log4j-1.2-api:jar:2.17.1:test
