@@ -44,8 +44,12 @@ public class DynamicTableSlaMetricsGetter implements SinkMetricsGetter<RowData>,
 	@Override
 	public long getEventTs(RowData record) {
 		int eventTsIdx = metricsOptions.getEventTsColIndex();
-		return (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
+		long timestamp = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
 			"Get null of event ts column of index " + eventTsIdx);
+		if (timestamp < 10_000_000_000L) {
+			timestamp *= 1000;
+		}
+		return timestamp;
 	}
 
 	@Override
