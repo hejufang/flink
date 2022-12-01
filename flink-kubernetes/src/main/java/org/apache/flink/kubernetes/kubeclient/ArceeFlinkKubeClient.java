@@ -79,8 +79,7 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 
 		try {
 			LOG.debug("Start to create arcee application with spec {}", application);
-			final ArceeApplication masterApplication = this.arceeClient.createArceeApplication(
-				super.namespace, application, this.uniquenessNameCheck, this.region);
+			final ArceeApplication masterApplication = this.arceeClient.createArceeApplication(super.namespace, application);
 			masterApplicationRef.set(masterApplication);
 		} catch (Exception e) {
 			LOG.error("catch exception while creating application {}",

@@ -2074,7 +2074,6 @@ public final class ConfigConstants {
 	public static final String QUEUE_DEFAULT = "unknown";
 	public static final String OWNER_KEY = "owner";
 	public static final String OWNER_DEFAULT = "unknown";
-	public static final String UNIQUENESS_NAME_CHECK_ENABLE_KEY = "uniqueness-name-check.enabled";
 
 	// yarn dc info, like: lf/hl/lq
 	public static final String YARN_DC_KEY = "yarnDc";
