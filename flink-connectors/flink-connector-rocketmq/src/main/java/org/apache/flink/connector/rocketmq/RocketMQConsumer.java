@@ -209,18 +209,16 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			Set<MessageQueue> snapshotSets = new HashSet<>(lastSnapshotQueues);
 			snapshotSets.addAll(offsetTable.keySet());
 			for (MessageQueue messageQueue: snapshotSets) {
-				synchronized (offsetTable) {
-					Long offset = offsetTable.get(messageQueue);
-					if (offset == null) {
-						// If it not exists in current offset table, get from last snapshot
-						offset = restoredOffsets.get(messageQueue);
-					}
-					if (offset != null) {
-						LOG.info("Queue {} store offset {} to state", messageQueue.toString(), offset);
-						unionOffsetStates.add(new Tuple2<>(messageQueue, offset));
-					} else {
-						LOG.warn("{} offset is null.", messageQueue.toString());
-					}
+				Long offset = offsetTable.get(messageQueue);
+				if (offset == null) {
+					// If it not exists in current offset table, get from last snapshot
+					offset = restoredOffsets.get(messageQueue);
+				}
+				if (offset != null) {
+					LOG.info("Queue {} store offset {} to state", messageQueue.toString(), offset);
+					unionOffsetStates.add(new Tuple2<>(messageQueue, offset));
+				} else {
+					LOG.warn("{} offset is null.", messageQueue.toString());
 				}
 			}
 		}
@@ -317,6 +315,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					rateLimiter.acquire(1);
 				}
 				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
+				offsetTable.put(messageQueue, messageExt.getQueueOffset() + 1);
 				T rowData = schema.deserialize(messageQueue, messageExt);
 				if (rowData == null) {
 					skipDirtyCounter.inc();
@@ -326,10 +325,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					continue;
 				}
 				lastTimestamp = System.currentTimeMillis();
-				synchronized (offsetTable) {
-					ctx.collect(rowData);
-					offsetTable.put(messageQueue, messageExt.getQueueOffset() + 1);
-				}
+				ctx.collect(rowData);
 				// need ack every msg
 				synchronized (RocketMQConsumer.this) {
 					if (consumer != null) {
@@ -388,11 +384,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				}
 				resetAllOffset();
 				if (consumer != null) {
-					HashMap<MessageQueuePb, Long> assignedMessageQueuePbsWithOffset = new HashMap<>();
-					synchronized (offsetTable) {
-						assignedMessageQueuePbs.stream().map(messageQueuePb -> assignedMessageQueuePbsWithOffset.put(messageQueuePb, offsetTable.get(messageQueuePb)));
-					}
-					RetryManager.retry(() -> consumer.assignWithOffset(assignedMessageQueuePbsWithOffset), retryStrategy);
+					RetryManager.retry(() -> consumer.assign(assignedMessageQueuePbs), retryStrategy);
 				}
 				for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
 					topicAndQueuesGauge.addTopicAndQueue(
