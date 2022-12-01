@@ -20,26 +20,26 @@ under the License.
 	xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0 http://maven.apache.org/xsd/assembly-1.1.0.xsd">
-    <id>connector</id>
-    <formats>
-        <format>dir</format>
-    </formats>
+	<id>connector</id>
+	<formats>
+		<format>dir</format>
+	</formats>
 
-    <includeBaseDirectory>true</includeBaseDirectory>
-    <baseDirectory>flink-${project.version}</baseDirectory>
+	<includeBaseDirectory>true</includeBaseDirectory>
+	<baseDirectory>flink-${project.version}</baseDirectory>
 
-    <files>
-        <file>
-            <source>../flink-connectors/flink-connector-hive/target/flink-connector-hive_${scala.binary.version}-${project.version}.jar</source>
-            <outputDirectory>connectors/</outputDirectory>
-            <destName>flink-connector-hive_${scala.binary.version}-${project.version}.jar</destName>
-            <fileMode>0644</fileMode>
-        </file>
+	<files>
 		<file>
-            <source>../flink-connectors/flink-sql-connector-kafka/target/flink-sql-connector-kafka-${project.version}.jar</source>
-            <outputDirectory>connectors/</outputDirectory>
-            <destName>flink-sql-connector-kafka-${project.version}.jar</destName>
-            <fileMode>0644</fileMode>
-        </file>
-    </files>
+			<source>../flink-connectors/flink-connector-hive/target/flink-connector-hive_${scala.binary.version}-${project.version}.jar</source>
+			<outputDirectory>connectors/</outputDirectory>
+			<destName>flink-connector-hive_${scala.binary.version}-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+		<file>
+			<source>../flink-connectors/flink-sql-connector-kafka/target/flink-sql-connector-kafka-${project.version}.jar</source>
+			<outputDirectory>connectors/</outputDirectory>
+			<destName>flink-sql-connector-kafka-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+	</files>
 </assembly>

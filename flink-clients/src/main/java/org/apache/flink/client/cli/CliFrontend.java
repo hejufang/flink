@@ -38,10 +38,12 @@ import org.apache.flink.client.program.ProgramInvocationException;
 import org.apache.flink.client.program.ProgramMissingJobException;
 import org.apache.flink.client.program.ProgramParametrizationException;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.execution.SavepointFormatType;
@@ -53,6 +55,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
 import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
@@ -239,6 +242,27 @@ public class CliFrontend {
 
         final Configuration effectiveConfiguration =
                 getEffectiveConfiguration(activeCommandLine, commandLine, programOptions, jobJars);
+
+        /*
+         * For remote:
+         * add pipeline.external-resources into pipeline.jars.
+         * pipeline.jars will be uploaded and added into remote server user class path.
+         */
+        final List<URL> externalResources =
+                ConfigUtils.decodeListFromConfig(
+                        effectiveConfiguration, PipelineOptions.EXTERNAL_RESOURCES, URL::new);
+        if (!CollectionUtil.isNullOrEmpty(externalResources)) {
+            final List<URL> jars =
+                    ConfigUtils.decodeListFromConfig(
+                            effectiveConfiguration, PipelineOptions.JARS, URL::new);
+            jars.addAll(externalResources);
+            ConfigUtils.encodeCollectionToConfig(
+                    effectiveConfiguration, PipelineOptions.JARS, jars, Object::toString);
+        }
+        LOG.info("pipeline.jars: {}", effectiveConfiguration.get(PipelineOptions.JARS));
+        LOG.info(
+                "pipeline.external-resources: {}",
+                effectiveConfiguration.get(PipelineOptions.EXTERNAL_RESOURCES));
 
         LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 

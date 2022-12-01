@@ -124,7 +124,10 @@ public class UpsertKafkaDynamicTableFactory
         Tuple2<int[], int[]> keyValueProjections =
                 createKeyValueProjections(context.getCatalogTable());
         String keyPrefix = tableOptions.getOptional(KEY_FIELDS_PREFIX).orElse(null);
-        Properties properties = getKafkaProperties(context.getCatalogTable().getOptions());
+        Properties properties =
+                getKafkaProperties(
+                        context.getCatalogTable().getOptions(),
+                        (Configuration) context.getConfiguration());
         // always use earliest to keep data integrity
         StartupMode earliest = StartupMode.EARLIEST;
 
@@ -169,7 +172,10 @@ public class UpsertKafkaDynamicTableFactory
         Tuple2<int[], int[]> keyValueProjections =
                 createKeyValueProjections(context.getCatalogTable());
         final String keyPrefix = tableOptions.getOptional(KEY_FIELDS_PREFIX).orElse(null);
-        final Properties properties = getKafkaProperties(context.getCatalogTable().getOptions());
+        final Properties properties =
+                getKafkaProperties(
+                        context.getCatalogTable().getOptions(),
+                        (Configuration) context.getConfiguration());
 
         Integer parallelism = tableOptions.get(SINK_PARALLELISM);
 

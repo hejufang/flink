@@ -187,7 +187,10 @@ public class KafkaDynamicTableFactory
 
         final StartupOptions startupOptions = getStartupOptions(tableOptions);
 
-        final Properties properties = getKafkaProperties(context.getCatalogTable().getOptions());
+        final Properties properties =
+                getKafkaProperties(
+                        context.getCatalogTable().getOptions(),
+                        (Configuration) context.getConfiguration());
 
         // add topic-partition discovery
         final Optional<Long> partitionDiscoveryInterval =
@@ -265,7 +268,9 @@ public class KafkaDynamicTableFactory
                 valueProjection,
                 keyPrefix,
                 tableOptions.get(TOPIC).get(0),
-                getKafkaProperties(context.getCatalogTable().getOptions()),
+                getKafkaProperties(
+                        context.getCatalogTable().getOptions(),
+                        (Configuration) context.getConfiguration()),
                 getFlinkKafkaPartitioner(tableOptions, context.getClassLoader()).orElse(null),
                 deliveryGuarantee,
                 parallelism,

@@ -32,6 +32,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
@@ -40,6 +41,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskmanager.Task;
@@ -264,6 +266,17 @@ public interface TaskExecutorGateway
      */
     CompletableFuture<SerializableOptional<String>> requestMetricQueryServiceAddress(
             @RpcTimeout Time timeout);
+
+    /**
+     * Request preview data of job.
+     *
+     * @param jobId on cluster need to get preview.
+     * @param jobVertexId in job.
+     * @param timeout for the asynchronous operation
+     * @return Future which is completed with the {@link PreviewDataResponse} of the preview data.
+     */
+    CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(
+            JobID jobId, JobVertexID jobVertexId, @RpcTimeout Time timeout);
 
     /**
      * Checks whether the task executor can be released. It cannot be released if there're

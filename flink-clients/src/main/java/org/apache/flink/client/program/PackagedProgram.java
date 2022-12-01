@@ -20,9 +20,13 @@ package org.apache.flink.client.program;
 
 import org.apache.flink.api.common.ProgramDescription;
 import org.apache.flink.client.ClientUtils;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.security.FlinkSecurityManager;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
+import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.JarUtils;
 
@@ -41,12 +45,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -93,6 +100,8 @@ public class PackagedProgram implements AutoCloseable {
     private final URLClassLoader userCodeClassLoader;
 
     private final SavepointRestoreSettings savepointSettings;
+
+    private final Configuration configuration;
 
     /** Flag indicating whether the job is a Python job. */
     private final boolean isPython;
@@ -141,6 +150,10 @@ public class PackagedProgram implements AutoCloseable {
                 this.jarFile == null
                         ? Collections.emptyList()
                         : extractContainedLibraries(this.jarFile);
+
+        // used by getJobJarAndDependencies()
+        this.configuration = configuration;
+
         this.userCodeClassLoader =
                 ClientUtils.buildUserCodeClassLoader(
                         getJobJarAndDependencies(),
@@ -245,7 +258,7 @@ public class PackagedProgram implements AutoCloseable {
 
     /** Returns all provided libraries needed to run the program. */
     public List<URL> getJobJarAndDependencies() {
-        List<URL> libs = new ArrayList<URL>(extractedTempLibraries.size() + 1);
+        LinkedHashSet<URL> libs = new LinkedHashSet<>();
 
         if (jarFile != null) {
             libs.add(jarFile);
@@ -262,7 +275,31 @@ public class PackagedProgram implements AutoCloseable {
             libs.add(PackagedProgramUtils.getPythonJar());
         }
 
-        return libs;
+        List<URL> pipelineJars = getPipelineJars();
+        if (!CollectionUtil.isNullOrEmpty(pipelineJars)) {
+            libs.addAll(pipelineJars);
+        }
+        return new ArrayList<>(libs);
+    }
+
+    /** filter non-file protocols. */
+    private List<URL> getPipelineJars() {
+        try {
+            final List<URI> uris =
+                    ConfigUtils.decodeListFromConfig(configuration, PipelineOptions.JARS, URI::new);
+            final List<URL> urls = new ArrayList<>(uris.size());
+            for (URI uri : uris) {
+                if (Objects.equals(uri.getScheme(), ConfigConstants.FILE_SCHEME)) {
+                    urls.add(uri.toURL());
+                } else {
+                    LOG.warn(
+                            "ignore resource in pipeline.jars: {}, protocol is not supported", uri);
+                }
+            }
+            return urls;
+        } catch (URISyntaxException | MalformedURLException e) {
+            throw new RuntimeException("URL is invalid. This should not happen.", e);
+        }
     }
 
     /** Returns all provided libraries needed to run the program. */

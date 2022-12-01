@@ -22,6 +22,8 @@ import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
@@ -148,4 +150,12 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
     OperatorMetricGroup getMetricGroup();
 
     OperatorID getOperatorID();
+
+    default PreviewDataResponse getPreviewData(PreviewDataRequest previewDataRequestBody) {
+        return new PreviewDataResponse();
+    }
+
+    default boolean supportPreview() {
+        return false;
+    }
 }

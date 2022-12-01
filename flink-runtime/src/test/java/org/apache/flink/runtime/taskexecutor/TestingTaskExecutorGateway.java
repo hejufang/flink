@@ -32,6 +32,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
@@ -41,6 +42,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.webmonitor.threadinfo.ThreadInfoSamplesRequest;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.Preconditions;
@@ -222,6 +224,12 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     @Override
     public void releasePartitions(JobID jobId, Set<ResultPartitionID> partitionIds) {
         releasePartitionsConsumer.accept(jobId, partitionIds);
+    }
+
+    @Override
+    public CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(
+            JobID jobId, JobVertexID jobVertexId, Time timeout) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

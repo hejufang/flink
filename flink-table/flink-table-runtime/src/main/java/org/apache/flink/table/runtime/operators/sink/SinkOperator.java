@@ -18,6 +18,9 @@
 
 package org.apache.flink.table.runtime.operators.sink;
 
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
+import org.apache.flink.streaming.api.functions.sink.PreviewSinkFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
@@ -63,6 +66,20 @@ public class SinkOperator extends AbstractUdfStreamOperator<Object, SinkFunction
     public void processElement(StreamRecord<RowData> element) throws Exception {
         sinkContext.element = element;
         userFunction.invoke(element.getValue(), sinkContext);
+    }
+
+    @Override
+    public PreviewDataResponse getPreviewData(PreviewDataRequest previewDataRequestBody) {
+        if (userFunction instanceof PreviewSinkFunction) {
+            PreviewSinkFunction previewSinkFunction = (PreviewSinkFunction) userFunction;
+            return previewSinkFunction.getPreviewData(previewDataRequestBody);
+        } else {
+            return new PreviewDataResponse();
+        }
+    }
+
+    public boolean supportPreview() {
+        return userFunction instanceof PreviewSinkFunction;
     }
 
     @Override

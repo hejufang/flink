@@ -26,6 +26,8 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
@@ -205,6 +207,17 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
                                 .get(gateIndex)
                                 .getPartitioner(),
                 getEnvironment().getTaskInfo());
+    }
+
+    @Override
+    public PreviewDataResponse getPreviewData(PreviewDataRequest previewDataRequestBody) {
+        return mainOperator.getPreviewData(previewDataRequestBody);
+    }
+
+    @Override
+    public boolean supportPreview() {
+        // now only sinkOperator support preview, and we will disable chain of sink task.
+        return mainOperator.supportPreview();
     }
 
     /**

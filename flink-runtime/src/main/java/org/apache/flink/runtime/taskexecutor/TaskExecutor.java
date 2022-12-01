@@ -58,6 +58,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.TaskExecutorPartitionInfo;
 import org.apache.flink.runtime.io.network.partition.TaskExecutorPartitionTracker;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
@@ -89,6 +90,8 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -1251,6 +1254,58 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             Time timeout) {
         return CompletableFuture.completedFuture(
                 SerializableOptional.ofNullable(metricQueryServiceAddress));
+    }
+
+    @Override
+    public CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(
+            JobID jobId, JobVertexID jobVertexId, Time timeout) {
+        log.info(
+                "request preview data, jobId: {}, jobVertexId: {}",
+                jobId.toHexString(),
+                jobVertexId.toHexString());
+        Task task = null;
+        Iterator<Task> taskIterator = taskSlotTable.getTasks(jobId);
+        while (taskIterator.hasNext()) {
+            Task taskTemp = taskIterator.next();
+            if (taskTemp.getJobVertexId().equals(jobVertexId)) {
+                task = taskTemp;
+                break;
+            }
+        }
+
+        if (task != null) {
+            try {
+                if (!task.supportPreview()) {
+                    String message =
+                            "task is not support preview, job: "
+                                    + jobId
+                                    + " , jobVertexId: "
+                                    + jobVertexId
+                                    + ", task: "
+                                    + task.getTaskInfo().getTaskName();
+                    log.warn(message);
+                    return FutureUtils.completedExceptionally(new TaskException(message));
+                }
+                PreviewDataResponse previewDataResponse =
+                        task.getPreviewData(new PreviewDataRequest());
+                return CompletableFuture.completedFuture(previewDataResponse);
+            } catch (Throwable t) {
+                return FutureUtils.completedExceptionally(
+                        new TaskException(
+                                "Cannot get preview data for execution "
+                                        + task.getTaskInfo().getTaskName()
+                                        + '.',
+                                t));
+            }
+        } else {
+            final String message =
+                    "Cannot find task to get preview for job "
+                            + jobId
+                            + ", jobVertexId "
+                            + jobVertexId.toHexString();
+            log.error(message);
+            return FutureUtils.completedExceptionally(new TaskException(message));
+        }
     }
 
     // ----------------------------------------------------------------------

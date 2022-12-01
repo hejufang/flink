@@ -31,6 +31,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.io.network.partition.ClusterPartitionManager;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.JobMaster;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -39,6 +40,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.slots.ResourceRequirements;
@@ -235,6 +237,21 @@ public interface ResourceManagerGateway
      */
     CompletableFuture<TransientBlobKey> requestTaskManagerFileUploadByName(
             ResourceID taskManagerId, String fileName, @RpcTimeout Time timeout);
+    /**
+     * Request preview data from task in taskManager.
+     *
+     * @param taskManagerId identifying the {@link TaskExecutor} to get preview data.
+     * @param jobId the job of this taskManager, in session mode will have multiple jobs.
+     * @param jobVertexId the jobVertexId of job, in one taskManager will have multiple preview
+     *     subTask.
+     * @param timeout for the asynchronous operation
+     * @return previewData {@link PreviewDataResponse}
+     */
+    CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(
+            ResourceID taskManagerId,
+            JobID jobId,
+            JobVertexID jobVertexId,
+            @RpcTimeout Time timeout);
 
     /**
      * Request log list from the given {@link TaskExecutor}.

@@ -21,22 +21,28 @@ package org.apache.flink.client.cli;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.util.ChildFirstClassLoader;
 import org.apache.flink.util.FlinkUserCodeClassLoaders.ParentFirstClassLoader;
 
 import org.apache.commons.cli.Options;
+import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.client.cli.CliFrontendTestUtils.TEST_JAR_MAIN_CLASS;
 import static org.apache.flink.client.cli.CliFrontendTestUtils.getTestJarPath;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 
 /** Tests for the RUN command with Dynamic Properties. */
 class CliFrontendDynamicPropertiesTest {
@@ -63,6 +69,34 @@ class CliFrontendDynamicPropertiesTest {
         cliUnderTest = new GenericCLI(configuration, tmp.toAbsolutePath().toString());
 
         cliUnderTest.addGeneralOptions(testOptions);
+    }
+
+    @Test
+    public void testExternalResources() throws Exception {
+        final String testJarPath = getTestJarPath();
+        final String externalJars = getTestJarPath() + "_test";
+        final String[] args = {
+            "-t",
+            "remote",
+            "-D" + PipelineOptions.EXTERNAL_RESOURCES.key() + "=file:" + externalJars,
+            testJarPath
+        };
+
+        final List<String> expectedJars =
+                Arrays.asList("file:" + testJarPath, "file:" + externalJars);
+        final List<String> expectedResources = Collections.singletonList("file:" + externalJars);
+
+        final Configuration configuration =
+                verifyCliFrontend(
+                        this.configuration,
+                        args,
+                        cliUnderTest,
+                        "child-first",
+                        ChildFirstClassLoader.class.getName());
+
+        Assert.assertEquals(expectedJars, configuration.get(PipelineOptions.JARS));
+        Assert.assertEquals(
+                expectedResources, configuration.get(PipelineOptions.EXTERNAL_RESOURCES));
     }
 
     @Test
@@ -168,6 +202,23 @@ class CliFrontendDynamicPropertiesTest {
     }
 
     // --------------------------------------------------------------------------------------------
+    /** @return configuration after execution. */
+    public static Configuration verifyCliFrontend(
+            Configuration configuration,
+            String[] parameters,
+            GenericCLI cliUnderTest,
+            String expectedResolveOrderOption,
+            String userCodeClassLoaderClassName)
+            throws Exception {
+        TestingCliFrontend testFrontend =
+                new TestingCliFrontend(
+                        configuration,
+                        cliUnderTest,
+                        expectedResolveOrderOption,
+                        userCodeClassLoaderClassName);
+        testFrontend.run(parameters); // verifies the expected values (see below)
+        return testFrontend.getConfigurationAfterExecution();
+    }
 
     public static void verifyCliFrontendWithDynamicProperties(
             Configuration configuration,
@@ -219,6 +270,45 @@ class CliFrontendDynamicPropertiesTest {
             if (tester != null) {
                 tester.test(configuration, program);
             }
+        }
+    }
+
+    private static final class TestingCliFrontend extends CliFrontend {
+
+        private final String expectedResolveOrder;
+
+        private final String userCodeClassLoaderClassName;
+
+        private Configuration configurationAfterExecution;
+
+        private TestingCliFrontend(
+                Configuration configuration,
+                GenericCLI cliUnderTest,
+                String expectedResolveOrderOption,
+                String userCodeClassLoaderClassName) {
+            super(configuration, Collections.singletonList(cliUnderTest));
+            this.expectedResolveOrder = expectedResolveOrderOption;
+            this.userCodeClassLoaderClassName = userCodeClassLoaderClassName;
+        }
+
+        @Override
+        protected void run(String[] args) throws Exception {
+            super.run(args);
+        }
+
+        @Override
+        protected void executeProgram(Configuration configuration, PackagedProgram program) {
+            assertEquals(TEST_JAR_MAIN_CLASS, program.getMainClassName());
+            assertEquals(
+                    expectedResolveOrder, configuration.get(CoreOptions.CLASSLOADER_RESOLVE_ORDER));
+            assertEquals(
+                    userCodeClassLoaderClassName,
+                    program.getUserCodeClassLoader().getClass().getName());
+            this.configurationAfterExecution = configuration;
+        }
+
+        public Configuration getConfigurationAfterExecution() {
+            return this.configurationAfterExecution;
         }
     }
 }

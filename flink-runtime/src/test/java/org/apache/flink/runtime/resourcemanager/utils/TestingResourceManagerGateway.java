@@ -34,6 +34,7 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.io.network.partition.DataSetMetaInfo;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.JobMasterRegistrationSuccess;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -47,6 +48,7 @@ import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorEx
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.slots.ResourceRequirements;
 import org.apache.flink.runtime.taskexecutor.FileType;
@@ -96,6 +98,10 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
             requestTaskManagerFileUploadByNameFunction;
 
     private volatile Consumer<Tuple2<ResourceID, Throwable>> disconnectTaskExecutorConsumer;
+
+    private volatile Function<
+                    Tuple3<ResourceID, JobID, JobVertexID>, CompletableFuture<PreviewDataResponse>>
+            requestTaskManagerPreviewFunction;
 
     private volatile Function<
                     Tuple3<ResourceID, InstanceID, SlotReport>, CompletableFuture<Acknowledge>>
@@ -235,6 +241,12 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
     public void setRequestThreadDumpFunction(
             Function<ResourceID, CompletableFuture<ThreadDumpInfo>> requestThreadDumpFunction) {
         this.requestThreadDumpFunction = requestThreadDumpFunction;
+    }
+
+    public void setRequestTaskManagerPreviewFunction(
+            Function<Tuple3<ResourceID, JobID, JobVertexID>, CompletableFuture<PreviewDataResponse>>
+                    requestTaskManagerPreviewFunction) {
+        this.requestTaskManagerPreviewFunction = requestTaskManagerPreviewFunction;
     }
 
     public void setDeclareRequiredResourcesFunction(
@@ -437,6 +449,21 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
             return function.apply(Tuple2.of(taskManagerId, fileName));
         } else {
             return CompletableFuture.completedFuture(new TransientBlobKey());
+        }
+    }
+
+    @Override
+    public CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(
+            ResourceID taskManagerId, JobID jobId, JobVertexID jobVertexId, Time timeout) {
+        final Function<
+                        Tuple3<ResourceID, JobID, JobVertexID>,
+                        CompletableFuture<PreviewDataResponse>>
+                function = requestTaskManagerPreviewFunction;
+
+        if (function != null) {
+            return function.apply(Tuple3.of(taskManagerId, jobId, jobVertexId));
+        } else {
+            return CompletableFuture.completedFuture(new PreviewDataResponse());
         }
     }
 

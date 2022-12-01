@@ -87,7 +87,11 @@ under the License.
 		<module>flink-streaming-java</module>
 		<module>flink-streaming-scala</module>
 		<!--<module>flink-connectors</module>-->
+		<module>flink-connectors/flink-connector-preview</module>
+		<module>flink-connectors/flink-connector-files</module>
 		<!--<module>flink-formats</module>-->
+		<module>flink-formats/flink-json</module>
+		<module>flink-formats/flink-csv</module>
 		<module>flink-examples</module>
 		<module>flink-clients</module>
 		<module>flink-container</module>
@@ -607,7 +611,7 @@ under the License.
 				<scope>import</scope>
 				<version>${jackson-bom.version}</version>
 			</dependency>
-			
+
 			<dependency>
 				<groupId>com.squareup.okhttp3</groupId>
 				<artifactId>okhttp</artifactId>

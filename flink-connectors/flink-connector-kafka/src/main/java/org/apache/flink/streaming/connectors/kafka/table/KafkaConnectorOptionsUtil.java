@@ -32,6 +32,7 @@ import org.apache.flink.streaming.connectors.kafka.table.KafkaConnectorOptions.S
 import org.apache.flink.streaming.connectors.kafka.table.KafkaConnectorOptions.ValueFieldsStrategy;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -40,6 +41,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
 
@@ -279,7 +281,8 @@ class KafkaConnectorOptionsUtil {
         }
     }
 
-    public static Properties getKafkaProperties(Map<String, String> tableOptions) {
+    public static Properties getKafkaProperties(
+            Map<String, String> tableOptions, Configuration configuration) {
         final Properties kafkaProperties = new Properties();
 
         if (hasKafkaClientProperties(tableOptions)) {
@@ -292,6 +295,19 @@ class KafkaConnectorOptionsUtil {
                                 kafkaProperties.put(subKey, value);
                             });
         }
+
+        if (configuration.contains(ExecutionConfigOptions.TABLE_MQ_SPECIFIED_GROUP_PREFIX)) {
+            String specifiedGroupPrefix =
+                    configuration.getString(ExecutionConfigOptions.TABLE_MQ_SPECIFIED_GROUP_PREFIX);
+            if (!kafkaProperties.containsKey("group.id")
+                    || !kafkaProperties.getProperty("group.id").startsWith(specifiedGroupPrefix)) {
+                throw new FlinkRuntimeException(
+                        "The mq group must prefix with: "
+                                + specifiedGroupPrefix
+                                + ", maybe usage scene is session debug, means may have bug in the process.");
+            }
+        }
+
         return kafkaProperties;
     }
 

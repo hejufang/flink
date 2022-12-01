@@ -117,6 +117,18 @@ public final class FactoryUtil {
                     .defaultValues("rest")
                     .withDescription("Specify the endpoints that are used.");
 
+    public static final ConfigOption<Integer> PARALLELISM =
+            ConfigOptions.key("parallelism")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription("The parallelism of connector.");
+
+    public static final ConfigOption<Long> RATE_LIMIT_NUM =
+            ConfigOptions.key("rate-limit-num")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("Defines the rate limit number for connector.");
+
     /**
      * Suffix for keys of {@link ConfigOption} in case a connector requires multiple formats (e.g.
      * for both key and value).

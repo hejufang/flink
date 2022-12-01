@@ -18,6 +18,8 @@ package org.apache.flink.runtime.jobgraph.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 
 import javax.annotation.Nullable;
 
@@ -99,4 +101,14 @@ public interface TaskInvokable {
      */
     void maybeInterruptOnCancel(
             Thread toInterrupt, @Nullable String taskName, @Nullable Long timeout);
+
+    /** Whether this task support preview, means is running preview connector. */
+    default boolean supportPreview() {
+        return false;
+    }
+
+    /** Get preview data from task. */
+    default PreviewDataResponse getPreviewData(PreviewDataRequest previewDataRequest) {
+        throw new UnsupportedOperationException("getData not supported by " + getClass().getName());
+    }
 }
