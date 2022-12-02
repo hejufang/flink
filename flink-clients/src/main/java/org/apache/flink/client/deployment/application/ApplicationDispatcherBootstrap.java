@@ -160,7 +160,7 @@ public class ApplicationDispatcherBootstrap extends AbstractDispatcherBootstrap 
 							applicationStatus = ApplicationStatus.FAILED;
 						}
 
-						LOG.warn("Application {}: ", applicationStatus, t);
+						LOG.error("Application {}: ", applicationStatus, t);
 					} else {
 						applicationStatus = ApplicationStatus.SUCCEEDED;
 						LOG.info("Application completed SUCCESSFULLY");
