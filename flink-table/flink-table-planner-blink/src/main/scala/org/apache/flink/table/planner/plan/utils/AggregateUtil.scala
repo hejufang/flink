@@ -184,7 +184,7 @@ object AggregateUtil extends Enumeration {
       aggNode: StreamPhysicalRel,
       aggCalls: Seq[AggregateCall],
       grouping: Array[Int],
-      isDigestsInvolve: Boolean = false): AggregateInfoList = {
+      isDigestsInvolved: Boolean = false): AggregateInfoList = {
     val input = aggNode.getInput(0)
     // need to call `retract()` if input contains update or delete
     val modifyKindSetTrait = input.getTraitSet.getTrait(ModifyKindSetTraitDef.INSTANCE)
@@ -205,7 +205,7 @@ object AggregateUtil extends Enumeration {
       needRetractionArray,
       needInputCount = needRetraction,
       isStateBackendDataViews = true,
-      isDigestsInvolve = true)
+      isDigestsInvolve = isDigestsInvolved)
   }
 
   def deriveSumAndCountFromAvg(

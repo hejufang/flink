@@ -57,8 +57,7 @@ class StreamExecGroupTableAggregate(
   val aggInfoList: AggregateInfoList = AggregateUtil.deriveAggregateInfoList(
     this,
     aggCalls,
-    grouping,
-    isDigestsInvolve = false)
+    grouping)
 
   override def requireWatermark: Boolean = false
 
