@@ -650,8 +650,12 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 				log.info("Received new TaskManager pod: {}", podName);
 			}
-			log.info("Received {} new TaskManager pods, {} duplicated pods, {} unrecognized pods. Remaining pending pod requests: {}",
-				pods.size() - duplicatePodNum - unrecognizedPodNum, duplicatePodNum, unrecognizedPodNum, getNumRequestedNotAllocatedWorkers());
+
+			int receivedPodNum = pods.size() - duplicatePodNum - unrecognizedPodNum;
+			if (receivedPodNum > 0) {
+				log.info("Received {} new TaskManager pods, {} duplicated pods, {} unrecognized pods. Remaining pending pod requests: {}",
+					receivedPodNum, duplicatePodNum, unrecognizedPodNum, getNumRequestedNotAllocatedWorkers());
+			}
 		});
 	}
 
