@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.Window.Group
 import org.apache.calcite.rel.core.{AggregateCall, Window}
+import org.apache.calcite.rel.hint.RelHint
 import org.apache.calcite.rel.{RelCollation, RelWriter}
 import org.apache.calcite.rex._
 import org.apache.calcite.sql.SqlKind
@@ -847,4 +848,27 @@ object RelExplainUtil {
       case (k, v) => s"$k = (${v.mkString(", ")})"
     }.mkString(", ")
 
+  /** Converts [[RelHint]]s to String. */
+  def hintsToString(hints: util.List[RelHint]): String = {
+    val sb = new StringBuilder
+    sb.append("[")
+    hints.foreach {
+      hint =>
+        sb.append("[").append(hint.hintName)
+        if (!hint.inheritPath.isEmpty) {
+          sb.append(" inheritPath:").append(hint.inheritPath)
+        }
+        if (hint.listOptions.size() > 0 || hint.kvOptions.size() > 0) {
+          sb.append(" options:")
+          if (hint.listOptions.size > 0) {
+            sb.append(hint.listOptions.toString)
+          } else {
+            sb.append(hint.kvOptions.toString)
+          }
+        }
+        sb.append("]")
+    }
+    sb.append("]")
+    sb.toString
+  }
 }

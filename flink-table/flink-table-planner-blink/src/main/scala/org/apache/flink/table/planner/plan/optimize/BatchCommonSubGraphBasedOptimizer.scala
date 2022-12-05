@@ -26,7 +26,7 @@ import org.apache.flink.table.planner.plan.nodes.physical.batch.BatchExecLegacyS
 import org.apache.flink.table.planner.plan.optimize.program.{BatchOptimizeContext, FlinkBatchProgram}
 import org.apache.flink.table.planner.plan.schema.IntermediateRelTable
 import org.apache.flink.table.planner.plan.utils.RuleStatisticsListener
-import org.apache.flink.table.planner.utils.{Logging, TableConfigUtils}
+import org.apache.flink.table.planner.utils.{JavaScalaConversionUtil, Logging, TableConfigUtils}
 import org.apache.flink.util.Preconditions
 
 import org.apache.calcite.rel.RelNode
@@ -40,8 +40,17 @@ class BatchCommonSubGraphBasedOptimizer(planner: BatchPlanner)
   extends CommonSubGraphBasedOptimizer with Logging {
 
   override protected def doOptimize(roots: Seq[RelNode]): Seq[RelNodeBlock] = {
+    // TODO currently join hint only works in BATCH
+    // resolve hints before optimizing
+    val joinHintResolver = new JoinHintResolver()
+    val resolvedHintRoots = joinHintResolver.resolve(JavaScalaConversionUtil.toJava(roots))
+
+    // clear query block alias before optimizing
+//    val clearQueryBlockAliasResolver = new ClearQueryBlockAliasResolver
+//    val resolvedAliasRoots = clearQueryBlockAliasResolver.resolve(resolvedHintRoots)
     // build RelNodeBlock plan
-    val rootBlocks = RelNodeBlockPlanBuilder.buildRelNodeBlockPlan(roots, planner.getTableConfig)
+    val rootBlocks = RelNodeBlockPlanBuilder.buildRelNodeBlockPlan(
+      JavaScalaConversionUtil.toScala(resolvedHintRoots), planner.getTableConfig)
     // optimize recursively RelNodeBlock
     rootBlocks.foreach(optimizeBlock)
     if (LOG.isDebugEnabled) {

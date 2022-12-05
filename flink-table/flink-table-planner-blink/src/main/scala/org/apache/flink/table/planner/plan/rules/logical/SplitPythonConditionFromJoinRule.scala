@@ -61,7 +61,8 @@ class SplitPythonConditionFromJoinRule extends RelOptRule(
       join.getLeft,
       join.getRight,
       newJoinCondition,
-      join.getJoinType)
+      join.getJoinType,
+      join.getHints)
 
     val rexProgram = new RexProgramBuilder(bottomJoin.getRowType, rexBuilder).getProgram
     val topCalcCondition = RexUtil.composeConjunction(rexBuilder, pythonFilters)

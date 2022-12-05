@@ -19,12 +19,14 @@
 package org.apache.flink.table.planner.utils;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.planner.calcite.FlinkContext;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlOperatorBinding;
@@ -71,6 +73,14 @@ public final class ShortcutUtils {
 
 	public static FlinkContext unwrapContext(Context context) {
 		return context.unwrap(FlinkContext.class);
+	}
+
+	public static TableConfig unwrapTableConfig(RelNode relNode) {
+		return unwrapContext(relNode).getTableConfig();
+	}
+
+	public static TableConfig unwrapTableConfig(RelOptRuleCall relOptRuleCall) {
+		return unwrapContext(relOptRuleCall.getPlanner()).getTableConfig();
 	}
 
 	private ShortcutUtils() {

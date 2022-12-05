@@ -118,7 +118,6 @@ Calc(select=[CASE(IS NOT NULL(a), a, a0) AS $f0, b, c, b0, c0])
   <TestCase name="testInnerJoinWithEquiAndLocalPred">
     <Resource name="sql">
       <![CDATA[SELECT c, g FROM MyTable2 INNER JOIN MyTable1 ON a = d AND d < 2]]>
-
     </Resource>
     <Resource name="planBefore">
       <![CDATA[
@@ -340,7 +339,6 @@ Calc(select=[c, g])
   <TestCase name="testInnerJoinWithEquiPred">
     <Resource name="sql">
       <![CDATA[SELECT c, g FROM MyTable1, MyTable2 WHERE a = d]]>
-
     </Resource>
     <Resource name="planBefore">
       <![CDATA[
@@ -434,6 +432,38 @@ Calc(select=[c, g])
    +- Exchange(distribution=[hash[a]])
       +- Calc(select=[a, c])
          +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testSelfJoin">
+    <Resource name="sql">
+      <![CDATA[SELECT * FROM
+  (SELECT * FROM src WHERE k = 0) src1
+LEFT OUTER JOIN
+  (SELECT * from src WHERE k = 0) src2
+ON (src1.k = src2.k AND src2.k > 10)
+         ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(k=[$0], v=[$1], k0=[$2], v0=[$3])
++- LogicalJoin(condition=[AND(=($0, $2), >($2, 10))], joinType=[left])
+   :- LogicalProject(k=[$0], v=[$1])
+   :  +- LogicalFilter(condition=[=($0, 0)])
+   :     +- LogicalTableScan(table=[[default_catalog, default_database, src, source: [TestTableSource(k, v)]]])
+   +- LogicalProject(k=[$0], v=[$1])
+      +- LogicalFilter(condition=[=($0, 0)])
+         +- LogicalTableScan(table=[[default_catalog, default_database, src, source: [TestTableSource(k, v)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+HashJoin(joinType=[LeftOuterJoin], where=[=(k, k0)], select=[k, v, k0, v0], build=[right])
+:- Exchange(distribution=[hash[k]])
+:  +- Calc(select=[CAST(0:BIGINT) AS k, v], where=[=(k, 0:BIGINT)])
+:     +- LegacyTableSourceScan(table=[[default_catalog, default_database, src, source: [TestTableSource(k, v)]]], fields=[k, v])
++- Exchange(distribution=[hash[k]])
+   +- Values(tuples=[[]], values=[k, v])
 ]]>
     </Resource>
   </TestCase>

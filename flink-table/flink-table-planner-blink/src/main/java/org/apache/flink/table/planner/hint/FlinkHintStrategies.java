@@ -24,6 +24,7 @@ import org.apache.flink.table.planner.plan.schema.FlinkPreparingTableBase;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.SingleRel;
+import org.apache.calcite.rel.hint.HintOptionChecker;
 import org.apache.calcite.rel.hint.HintPredicate;
 import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategy;
@@ -98,6 +99,34 @@ public abstract class FlinkHintStrategies {
 								.build())
 				.hintStrategy(FlinkHints.HINT_NAME_USE_BROADCAST_JOIN,
 					HintPredicates.and(HintPredicates.JOIN, joinWithFixedTableName()))
+			// internal join hint used for alias
+			.hintStrategy(
+				FlinkHints.HINT_ALIAS,
+				// currently, only join hints care about query block alias
+				HintStrategy.builder(HintPredicates.JOIN)
+					.optionChecker(fixedSizeListOptionChecker(1))
+					.build())
+			// TODO semi/anti join with CORRELATE is not supported
+			.hintStrategy(
+				JoinStrategy.BROADCAST.getJoinHintName(),
+				HintStrategy.builder(HintPredicates.JOIN)
+					.optionChecker(NON_EMPTY_LIST_OPTION_CHECKER)
+					.build())
+			.hintStrategy(
+				JoinStrategy.SHUFFLE_HASH.getJoinHintName(),
+				HintStrategy.builder(HintPredicates.JOIN)
+					.optionChecker(NON_EMPTY_LIST_OPTION_CHECKER)
+					.build())
+			.hintStrategy(
+				JoinStrategy.SHUFFLE_MERGE.getJoinHintName(),
+				HintStrategy.builder(HintPredicates.JOIN)
+					.optionChecker(NON_EMPTY_LIST_OPTION_CHECKER)
+					.build())
+			.hintStrategy(
+				JoinStrategy.NEST_LOOP.getJoinHintName(),
+				HintStrategy.builder(HintPredicates.JOIN)
+					.optionChecker(NON_EMPTY_LIST_OPTION_CHECKER)
+					.build())
 				.build();
 	}
 
@@ -150,4 +179,26 @@ public abstract class FlinkHintStrategies {
 		}
 		return relNode;
 	}
+
+	// ~ hint option checker ------------------------------------------------------------
+	private static HintOptionChecker fixedSizeListOptionChecker(int size) {
+		return (hint, errorHandler) ->
+			errorHandler.check(
+				hint.listOptions.size() == size,
+				"Invalid hint: {}, expecting {} table or view {} "
+					+ "specified in hint {}.",
+				FlinkHints.stringifyHints(Collections.singletonList(hint)),
+				size,
+				size > 1 ? "names" : "name",
+				hint.hintName);
+	}
+
+	private static final HintOptionChecker NON_EMPTY_LIST_OPTION_CHECKER =
+		(hint, errorHandler) ->
+			errorHandler.check(
+				hint.listOptions.size() > 0,
+				"Invalid hint: {}, expecting at least "
+					+ "one table or view specified in hint {}.",
+				FlinkHints.stringifyHints(Collections.singletonList(hint)),
+				hint.hintName);
 }
