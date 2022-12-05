@@ -537,7 +537,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							.addTagValue("exit_code", String.valueOf(exitCode))
 							.build());
 		}
-		LOG.info("Stopping Worker {} with exit code {}", resourceId, exitCode);
+		LOG.info("Stopping Worker {}, nodeName: {}, with exit code {}", resourceId, getPodNodeName(resourceId), exitCode);
 		internalStopPod(resourceId.toString());
 		return true;
 	}
