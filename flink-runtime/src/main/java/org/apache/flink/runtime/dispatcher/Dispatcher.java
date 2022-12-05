@@ -35,6 +35,7 @@ import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.SimpleHistogram;
+import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.client.DuplicateJobSubmissionException;
@@ -45,6 +46,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.executiongraph.ErrorInfo;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
 import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -103,6 +105,7 @@ import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.BiConsumerWithException;
 import org.apache.flink.util.function.BiFunctionWithException;
@@ -1638,6 +1641,19 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			ChannelHandlerContext channelContext,
 			Throwable throwable,
 			ArchivedExecutionGraph archivedExecutionGraph) {
+		// get root exception from archivedExecutionGraph
+		ErrorInfo failureCause = archivedExecutionGraph.getFailureInfo();
+		if (null != failureCause && null != failureCause.getException()) {
+			// get inner error info
+			SerializedThrowable exception = failureCause.getException();
+			Throwable deserializeThrowable = exception.deserializeError(ClassLoader.getSystemClassLoader());
+			// JobException may contain errors from TM
+			if (deserializeThrowable instanceof JobException && null != exception.getCause()) {
+				throwable = exception.getCause();
+			} else {
+				throwable = exception;
+			}
+		}
 		writeFinishJobToContext(archivedExecutionGraph.getJobID(), channelContext, archivedExecutionGraph.getState(), throwable);
 		this.jobReachedGloballyTerminalState(archivedExecutionGraph);
 	}
