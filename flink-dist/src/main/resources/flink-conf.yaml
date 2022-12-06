@@ -206,6 +206,7 @@ common:
   flink.gc.g1: false
   flink.parallel.gc.thread.use.cores: true
   flink.enable-async-logger: true
+  # This directory must be created before the flink process run. This directory is now created by YARN/Godel.
   io.tmp.dirs: ./tmp
 
   # Env

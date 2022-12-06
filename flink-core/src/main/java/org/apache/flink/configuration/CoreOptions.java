@@ -321,7 +321,8 @@ public class CoreOptions {
 		key("io.tmp.dirs")
 			.defaultValue(System.getProperty("java.io.tmpdir"))
 			.withDeprecatedKeys("taskmanager.tmp.dirs")
-			.withDescription("Directories for temporary files, separated by\",\", \"|\", or the system's java.io.File.pathSeparator.");
+			.withDescription("Directories for temporary files, separated by\",\", \"|\", or the system's java.io.File.pathSeparator. " +
+					"This directory must be created before the flink process run. This directory is now created by YARN/Godel.");
 
 	// ------------------------------------------------------------------------
 	//  program
