@@ -468,7 +468,11 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 				serializers);
 			this.strategy = strategy;
 			// See details in RowDataSchemaCompatibilityResolveStrategy
-			this.isWriteLengthEnable = !RowDataSchemaCompatibilityResolveStrategy.EMPTY.equals(strategy);
+			if (strategy != null) {
+				this.isWriteLengthEnable = !RowDataSchemaCompatibilityResolveStrategy.EMPTY.equals(strategy);
+			} else {
+				this.isWriteLengthEnable = false;
+			}
 		}
 
 		@Override
