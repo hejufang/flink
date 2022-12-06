@@ -2159,7 +2159,17 @@ public final class ConfigConstants {
 	public static final String SAVE_META_ENABLED_DEFAULT = "false";
 	public static final String REGISTER_DASHBOARD_ENABLED = "register-dashboard.enabled";
 	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "false";
+
+	/**
+	 * The domain URL to view a registered Grafana dashboard from the office network.
+	 */
 	public static final String GRAFANA_DOMAIN_URL_KEY = "grafana.domain_url";
+
+	/**
+	 * The domain URL to register a Grafana dashboard within the production network. If unset, will fall back to {@link #GRAFANA_DOMAIN_URL_KEY}.
+	 */
+	public static final String GRAFANA_REGISTRATION_DOMAIN_URL_KEY = "grafana.registration.domain_url";
+
 	public static final String GRAFANA_DOMAIN_URL_VALUE = "https://grafana.byted.org";
 	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
 	public static final String METRIC_REGISTER_URL_TEMPLATE = "%s/api/dashboards/db";

@@ -235,7 +235,8 @@ public class Utils {
 		LOG.info("clusterName = {}", clusterName);
 		String dataSource = jobConfig.getString(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY, ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
 		LOG.info("dataSource = {}", dataSource);
-		String grafanaDomainUrl = jobConfig.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY, ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+		String grafanaDomainUrl = jobConfig.getString(ConfigConstants.GRAFANA_REGISTRATION_DOMAIN_URL_KEY,
+				jobConfig.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY, ConfigConstants.GRAFANA_DOMAIN_URL_VALUE));
 		String url = String.format(ConfigConstants.METRIC_REGISTER_URL_TEMPLATE, grafanaDomainUrl);
 		String token = jobConfig.getString(ConfigConstants.REGISTER_DASHBOARD_TOKEN, "");
 		if (url == null || token == null) {
