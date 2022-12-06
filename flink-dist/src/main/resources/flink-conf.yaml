@@ -426,7 +426,7 @@ flink:
 dw:
   dc: cn
   clusterName: dw
-  high-availability.zookeeper.quorum: fdbd:dc01:12:119::39:2184,fdbd:dc01:12:120::66:2184,fdbd:dc01:ff:1:1:224:152:92:2184,fdbd:dc01:ff:1:1:224:71:64:2184,fdbd:dc01:ff:1:1:224:71:66:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:1:1:224:152:92:2184,fdbd:dc01:ff:1:1:224:71:64:2184,fdbd:dc01:ff:1:1:224:71:66:2184,fdbd:dc01:ff:105:4052:a1aa:c011:9c9c:2184,fdbd:dc01:ff:113:ab11:981f:2c8:d81a:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -437,7 +437,7 @@ dw:
 lepad:
   dc: cn
   clusterName: lepad
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -448,7 +448,7 @@ lepad:
 larva:
   dc: cn
   clusterName: larva
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: larva
@@ -467,7 +467,7 @@ locst:
 oryx:
   dc: cn
   clusterName: oryx
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: oryx
   ipv6.enabled: true
@@ -475,7 +475,7 @@ oryx:
 default:
   dc: cn
   clusterName: default
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: default
@@ -484,7 +484,7 @@ default:
 leser:
   dc: cn
   clusterName: leser
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -504,7 +504,7 @@ lupin:
 lobst:
   dc: cn
   clusterName: lobst
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lobst
   ipv6.enabled: true
@@ -616,7 +616,7 @@ ies-hl:
 wj:
   dc: cn
   clusterName: wj
-  high-availability.zookeeper.quorum: fdbd:dc01:13:75::25:2184,fdbd:dc01:13:76::68:2184,fdbd:dc01:13:76::74:2184,fdbd:dc01:13:76::72:2184,fdbd:dc01:13:105::142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:107:3fd5:2c4d:f28a:a28f:2184,fdbd:dc01:ff:108:98ae:7fda:750:2626:2184,fdbd:dc01:ff:114:846d:e552:4f08:8df:2184,fdbd:dc01:ff:116:9472:3398:e73d:f205:2184,fdbd:dc01:ff:11c:4207:d4b7:208e:fdeb:2184
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: wj
