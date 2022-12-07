@@ -22,16 +22,12 @@ rm -rf output
 
 # compile current branch
 if [ "$CUSTOM_USE_CUSTOM_DEPENDENCY_VERSION" == 'true' ] && [ ! -z "$CUSTOM_HTAP_CLIENT_VERSION" ]; then
-  mvn clean package -U -DskipTests -Pinclude-hadoop -Psql-jars -Pdocs-and-source -Dhtap.jclient.version=$CUSTOM_HTAP_CLIENT_VERSION | grep -v Progress
+  mvn clean package -U -T 1C -DskipTests -Dfast -Dbyted-modules -Pinclude-hadoop -Psql-jars -Dhtap.jclient.version=$CUSTOM_HTAP_CLIENT_VERSION | grep -v Progress
 else
-  mvn clean package -U -DskipTests -Pinclude-hadoop -Psql-jars -Pdocs-and-source | grep -v Progress
+  mvn clean package -U -T 1C -DskipTests -Dfast -Dbyted-modules -Pinclude-hadoop -Psql-jars | grep -v Progress
 fi
 
 # copy flink-1.11 to output
 mkdir -p output
 rm -rf flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/opt
 cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/* output/
-# common jar conflict
-bash tools/common-jar-check/common_jar_check.sh "output/"
-
-

@@ -35,6 +35,7 @@ under the License.
 
 	<properties>
 		<zookeeper.optional.version>3.5.9</zookeeper.optional.version>
+		<skipOptAssembly>false</skipOptAssembly>
 	</properties>
 
 	<dependencies>
@@ -554,6 +555,19 @@ under the License.
 
 	<profiles>
 		<profile>
+			<!-- Skips opt assembly -->
+			<id>byted-modules</id>
+			<activation>
+				<property>
+					<name>byted-modules</name>
+				</property>
+			</activation>
+			<properties>
+				<skipOptAssembly>true</skipOptAssembly>
+			</properties>
+		</profile>
+
+		<profile>
 			<!-- Copies that shaded Hadoop uber jar to the dist folder. -->
 			<id>include-hadoop</id>
 			<activation>
@@ -1014,6 +1028,7 @@ under the License.
 							<goal>single</goal>
 						</goals>
 						<configuration>
+							<skipAssembly>${skipOptAssembly}</skipAssembly>
 							<descriptors>
 								<descriptor>src/main/assemblies/opt.xml</descriptor>
 							</descriptors>

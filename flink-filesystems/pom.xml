@@ -38,18 +38,6 @@ under the License.
 		<fs.hadoopshaded.version>3.1.0</fs.hadoopshaded.version>
 	</properties>
 
-	<modules>
-		<module>flink-hadoop-fs</module>
-		<module>flink-mapr-fs</module>
-		<module>flink-fs-hadoop-shaded</module>
-		<module>flink-s3-fs-base</module>
-		<module>flink-s3-fs-hadoop</module>
-		<module>flink-s3-fs-presto</module>
-		<module>flink-swift-fs-hadoop</module>
-		<module>flink-oss-fs-hadoop</module>
-		<module>flink-azure-fs-hadoop</module>
-	</modules>
-
 	<!-- Common dependency setup for all filesystems -->
 	<dependencies>
 
@@ -71,6 +59,41 @@ under the License.
 			<artifactId>flink-test-utils-junit</artifactId>
 		</dependency>
 	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>all-modules</id>
+			<activation>
+				<property>
+					<name>!byted-modules</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-hadoop-fs</module>
+				<module>flink-mapr-fs</module>
+				<module>flink-fs-hadoop-shaded</module>
+				<module>flink-s3-fs-base</module>
+				<module>flink-s3-fs-hadoop</module>
+				<module>flink-s3-fs-presto</module>
+				<module>flink-swift-fs-hadoop</module>
+				<module>flink-oss-fs-hadoop</module>
+				<module>flink-azure-fs-hadoop</module>
+			</modules>
+		</profile>
+
+		<profile>
+			<id>byted-modules</id>
+			<activation>
+				<property>
+					<name>byted-modules</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-hadoop-fs</module>
+				<module>flink-mapr-fs</module>
+			</modules>
+		</profile>
+	</profiles>
 
 	<build>
 		<plugins>

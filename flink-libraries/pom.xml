@@ -33,15 +33,6 @@ under the License.
 	<name>flink-libraries</name>
 	<packaging>pom</packaging>
 
-	<modules>
-		<module>flink-gelly</module>
-		<module>flink-gelly-scala</module>
-		<module>flink-gelly-examples</module>
-		<module>flink-cep</module>
-		<module>flink-cep-scala</module>
-		<module>flink-state-processing-api</module>
-	</modules>
-
 	<!-- override these root dependencies as 'provided', so they don't end up
 		in the jars-with-dependencies (uber jars) of connectors and
 		user programs that depend on the connectors -->
@@ -63,4 +54,35 @@ under the License.
 			<artifactId>flink-test-utils-junit</artifactId>
 		</dependency>
 	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>all-modules</id>
+			<activation>
+				<property>
+					<name>!byted-modules</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-gelly</module>
+				<module>flink-gelly-scala</module>
+				<module>flink-gelly-examples</module>
+				<module>flink-cep</module>
+				<module>flink-cep-scala</module>
+				<module>flink-state-processing-api</module>
+			</modules>
+		</profile>
+
+		<profile>
+			<id>byted-modules</id>
+			<activation>
+				<property>
+					<name>byted-modules</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-state-processing-api</module>
+			</modules>
+		</profile>
+	</profiles>
 </project>
