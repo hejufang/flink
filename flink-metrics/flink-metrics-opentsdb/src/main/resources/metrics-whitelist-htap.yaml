@@ -89,6 +89,7 @@ non-global:
         query_fetch_cost,
         plan_cache_total,
         plan_cache_hit,
+        request_error,
       # jm threadPool usage
         numPendingIOTask,
         numRunningIOTask,
