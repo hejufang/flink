@@ -510,4 +510,10 @@ public class CoreOptions {
 			.defaultValue(false)
 			.withDescription("Whether app's cluster is changed,  " +
 				"when the app need to be submitted twice.");
+
+	public static final ConfigOption<Boolean> SET_CPU_QUANTITY_ENABLED =
+		key("flink.set-cpu-quantity.enabled")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Whether set the number of cpus.");
 }

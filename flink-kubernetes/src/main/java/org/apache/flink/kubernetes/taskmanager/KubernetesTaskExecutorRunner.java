@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.taskmanager;
 
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -74,6 +75,12 @@ public class KubernetesTaskExecutorRunner {
 	private static void runTaskManagerSecurely(String[] args, ResourceID resourceID) {
 		try {
 			final Configuration configuration = TaskManagerRunner.loadConfiguration(args);
+			// set cpu numbers
+			if (configuration.get(CoreOptions.SET_CPU_QUANTITY_ENABLED)) {
+				LOG.info("taskmanager set cpu quantity enabled");
+				System.setProperty(ConfigConstants.CPU_NUMBERS_AS_DOUBLE,
+					String.valueOf(configuration.get(KubernetesConfigOptions.TASK_MANAGER_CPU)));
+			}
 			final PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
 			FileSystem.initialize(configuration, pluginManager);
 

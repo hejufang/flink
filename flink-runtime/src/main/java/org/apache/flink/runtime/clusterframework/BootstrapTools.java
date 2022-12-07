@@ -27,6 +27,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.entrypoint.parser.CommandLineOptions;
+import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.runtime.util.config.memory.ProcessMemoryUtils;
 import org.apache.flink.util.NetUtils;
@@ -679,8 +680,16 @@ public class BootstrapTools {
 		public static ForkJoinExecutorConfiguration fromConfiguration(final Configuration configuration) {
 			final double parallelismFactor = configuration.getDouble(AkkaOptions.FORK_JOIN_EXECUTOR_PARALLELISM_FACTOR);
 			final int minParallelism = configuration.getInteger(AkkaOptions.FORK_JOIN_EXECUTOR_PARALLELISM_MIN);
-			final int maxParallelism = configuration.getInteger(AkkaOptions.FORK_JOIN_EXECUTOR_PARALLELISM_MAX);
+			int maxParallelism = configuration.getInteger(AkkaOptions.FORK_JOIN_EXECUTOR_PARALLELISM_MAX);
 
+			int cpu = Hardware.getNumberCPUCores();
+			int targetParallelism = (int) Math.ceil(cpu * parallelismFactor);
+			if (targetParallelism <= minParallelism) {
+				maxParallelism = minParallelism;
+			} else if (targetParallelism <= maxParallelism) {
+				maxParallelism = targetParallelism;
+			}
+			
 			return new ForkJoinExecutorConfiguration(parallelismFactor, minParallelism, maxParallelism);
 		}
 	}

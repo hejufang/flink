@@ -31,6 +31,7 @@ import org.apache.flink.runtime.rest.handler.router.Router;
 import org.apache.flink.runtime.rest.handler.router.RouterHandler;
 import org.apache.flink.runtime.rest.versioning.RestAPIVersion;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.NetUtils;
@@ -181,7 +182,7 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
 			};
 
 			NioEventLoopGroup bossGroup = new NioEventLoopGroup(1, new ExecutorThreadFactory("flink-rest-server-netty-boss"));
-			NioEventLoopGroup workerGroup = new NioEventLoopGroup(0, new ExecutorThreadFactory("flink-rest-server-netty-worker"));
+			NioEventLoopGroup workerGroup = new NioEventLoopGroup(Hardware.getNumberCPUCores() * 2, new ExecutorThreadFactory("flink-rest-server-netty-worker"));
 
 			bootstrap = new ServerBootstrap();
 			bootstrap

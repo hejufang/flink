@@ -20,6 +20,7 @@ package org.apache.flink.yarn.entrypoint;
 
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -108,6 +109,13 @@ public class YarnEntrypointUtils {
 		final String localDirs = env.get(ApplicationConstants.Environment.LOCAL_DIRS.key());
 		BootstrapTools.updateTmpDirectoriesInConfiguration(configuration, localDirs);
 
+		// set cpu numbers
+
+		if (configuration.get(CoreOptions.SET_CPU_QUANTITY_ENABLED)) {
+			LOG.info("jobmanager set cpu quantity enabled");
+			System.setProperty(ConfigConstants.CPU_NUMBERS_AS_DOUBLE,
+				String.valueOf(configuration.get(YarnConfigOptions.APP_MASTER_VCORES)));
+		}
 		return configuration;
 	}
 

@@ -21,21 +21,28 @@ package org.apache.flink.kubernetes.entrypoint;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.kubernetes.KubernetesClusterDescriptor;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class contains utility methods for the {@link KubernetesSessionClusterEntrypoint}.
  */
 class KubernetesEntrypointUtils {
+
+	private static final Logger LOG = LoggerFactory.getLogger(KubernetesEntrypointUtils.class);
 
 	/**
 	 * For non-HA cluster, {@link JobManagerOptions#ADDRESS} has be set to Kubernetes service name on client side. See
@@ -80,6 +87,12 @@ class KubernetesEntrypointUtils {
 			configuration.setString(RestOptions.ADDRESS, ipAddress);
 		}
 
+		// set cpu numbers
+		if (configuration.get(CoreOptions.SET_CPU_QUANTITY_ENABLED)) {
+			LOG.info("jobmanager set cpu quantity enabled");
+			System.setProperty(ConfigConstants.CPU_NUMBERS_AS_DOUBLE,
+				String.valueOf(configuration.get(KubernetesConfigOptions.JOB_MANAGER_CPU)));
+		}
 		return configuration;
 	}
 

@@ -2260,4 +2260,6 @@ public final class ConfigConstants {
 
 	public static final String COMPONENT_NAME = "componentName";
 	public static final String COMPONENT_JOBMANAGER = "jobManager";
+
+	public static final String CPU_NUMBERS_AS_DOUBLE = "cpuNumbers";
 }

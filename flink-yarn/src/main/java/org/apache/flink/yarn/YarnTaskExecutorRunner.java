@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystem;
@@ -38,6 +39,7 @@ import org.apache.flink.runtime.util.JvmShutdownSafeguard;
 import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
@@ -94,7 +96,13 @@ public class YarnTaskExecutorRunner {
 			LOG.info("Current working Directory: {}", currDir);
 
 			final Configuration configuration = TaskManagerRunner.loadConfiguration(args);
+			// set cpu numbers
 
+			if (configuration.get(CoreOptions.SET_CPU_QUANTITY_ENABLED)) {
+				LOG.info("taskmanager set cpu quantity enabled");
+				System.setProperty(ConfigConstants.CPU_NUMBERS_AS_DOUBLE,
+					String.valueOf(configuration.get(YarnConfigOptions.VCORES)));
+			}
 			final PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
 
 			FileSystem.initialize(configuration, pluginManager);

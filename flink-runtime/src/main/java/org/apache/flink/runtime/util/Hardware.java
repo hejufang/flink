@@ -29,6 +29,7 @@ import java.lang.reflect.Method;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.util.OperatingSystem;
 
 import org.slf4j.Logger;
@@ -49,11 +50,14 @@ public class Hardware {
 	
 	/**
 	 * Gets the number of CPU cores (hardware contexts) that the JVM has access to.
+	 * As java 8 could not get the correct number of cpus, we prefer to use the system property
+	 * which is set according to the config. If the property is empty, use jdk processors as default.
 	 * 
 	 * @return The number of CPU cores.
 	 */
 	public static int getNumberCPUCores() {
-		return Runtime.getRuntime().availableProcessors();
+		return (int) Math.ceil(Double.parseDouble(System.getProperty(ConfigConstants.CPU_NUMBERS_AS_DOUBLE,
+			String.valueOf(Runtime.getRuntime().availableProcessors()))));
 	}
 
 	/**
