@@ -90,6 +90,7 @@ non-global:
         plan_cache_total,
         plan_cache_hit,
         request_error,
+        direct_query_count,
       # jm threadPool usage
         numPendingIOTask,
         numRunningIOTask,
