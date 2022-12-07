@@ -28,7 +28,12 @@ public enum FlinkSqlConformance implements SqlConformance {
 	/** Conformance value that instructs Calcite to use SQL semantics
 	 * consistent with the Apache HIVE, but ignoring its more
 	 * inconvenient or controversial dicta. */
-	HIVE;
+	HIVE,
+
+	/**
+	 * Conformance special for apaas.
+	 */
+	APAAS;
 
 	@Override
 	public boolean isLiberal() {
@@ -37,6 +42,9 @@ public enum FlinkSqlConformance implements SqlConformance {
 
 	@Override
 	public boolean isGroupByAlias() {
+		if (this == APAAS) {
+			return true;
+		}
 		return false;
 	}
 
@@ -47,6 +55,9 @@ public enum FlinkSqlConformance implements SqlConformance {
 
 	@Override
 	public boolean isHavingAlias() {
+		if (this == APAAS) {
+			return true;
+		}
 		return false;
 	}
 
@@ -66,6 +77,7 @@ public enum FlinkSqlConformance implements SqlConformance {
 		switch (this) {
 			case DEFAULT:
 			case HIVE:
+			case APAAS:
 				return true;
 			default:
 				return false;

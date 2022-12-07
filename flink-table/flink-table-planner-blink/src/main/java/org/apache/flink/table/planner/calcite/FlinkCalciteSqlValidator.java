@@ -19,7 +19,10 @@
 package org.apache.flink.table.planner.calcite;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.sql.parser.validate.FlinkSqlConformance;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.functions.TemporalTableFunctionImpl;
 import org.apache.flink.table.planner.functions.bridging.BridgingSqlFunction;
 import org.apache.flink.table.planner.functions.utils.TableSqlFunction;
@@ -52,11 +55,19 @@ import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 @Internal
 public final class FlinkCalciteSqlValidator extends SqlValidatorImpl {
 
+	public static boolean enableApaasSqlConformance = GlobalConfiguration
+		.loadConfiguration()
+		.get(ExecutionConfigOptions.ENABLE_APAAS_SQL_CONFORMANCE);
+
 	public FlinkCalciteSqlValidator(
 			SqlOperatorTable opTab,
 			SqlValidatorCatalogReader catalogReader,
 			RelDataTypeFactory typeFactory) {
-		super(opTab, catalogReader, typeFactory, SqlConformanceEnum.DEFAULT);
+		super(opTab, catalogReader, typeFactory,
+			enableApaasSqlConformance ? FlinkSqlConformance.APAAS : SqlConformanceEnum.DEFAULT);
+		if (enableApaasSqlConformance) {
+			setCallRewrite(false);
+		}
 	}
 
 	@Override

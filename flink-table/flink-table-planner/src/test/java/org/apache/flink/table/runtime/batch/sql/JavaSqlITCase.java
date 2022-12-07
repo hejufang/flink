@@ -29,6 +29,7 @@ import org.apache.flink.api.java.typeutils.MapTypeInfo;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
+import org.apache.flink.table.calcite.FlinkCalciteSqlValidator;
 import org.apache.flink.table.runtime.utils.TableProgramsCollectionTestBase;
 import org.apache.flink.test.operators.util.CollectionDataSets;
 import org.apache.flink.types.Row;
@@ -175,5 +176,56 @@ public class JavaSqlITCase extends TableProgramsCollectionTestBase {
 		List<Row> results = resultSet.collect();
 		String expected = "bar\n" + "spam\n";
 		compareResultAsText(results, expected);
+	}
+
+	@Test
+	public void testGroupByAlias() throws Exception {
+		ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
+		BatchTableEnvironment tableEnv = BatchTableEnvironment.create(env, config());
+
+		DataSet<Tuple3<Integer, Long, String>> ds1 = CollectionDataSets.getSmall3TupleDataSet(env);
+		tableEnv.createTemporaryView("t1", ds1, $("a"), $("b"), $("c"));
+
+		String sqlQuery = "SELECT a + 1 as new_a1 , sum(b) as new_b FROM t1 group by new_a1";
+		FlinkCalciteSqlValidator.enableApaasSqlConformance = true;
+		Table result = tableEnv.sqlQuery(sqlQuery);
+		DataSet<Row> resultSet = tableEnv.toDataSet(result, Row.class);
+		List<Row> results = resultSet.collect();
+		String expected = "2,1\n" + "3,2\n" + "4,2\n";
+		compareResultAsText(results, expected);
+	}
+
+	@Test
+	public void testHavingAlias() throws Exception {
+		ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
+		BatchTableEnvironment tableEnv = BatchTableEnvironment.create(env, config());
+
+		DataSet<Tuple3<Integer, Long, String>> ds1 = CollectionDataSets.getSmall3TupleDataSet(env);
+		tableEnv.createTemporaryView("t1", ds1, $("a"), $("b"), $("c"));
+
+		String sqlQuery = "SELECT a, sum(b) as new_b FROM t1 group by a having new_b > 1";
+		FlinkCalciteSqlValidator.enableApaasSqlConformance = true;
+		Table result = tableEnv.sqlQuery(sqlQuery);
+		DataSet<Row> resultSet = tableEnv.toDataSet(result, Row.class);
+		List<Row> results = resultSet.collect();
+		String expected = "2,2\n" + "3,2\n";
+		compareResultAsText(results, expected);
+	}
+
+	@Test
+	public void testOrderByAlias() throws Exception {
+		ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
+		BatchTableEnvironment tableEnv = BatchTableEnvironment.create(env, config());
+
+		DataSet<Tuple3<Integer, Long, String>> ds1 = CollectionDataSets.getSmall3TupleDataSet(env);
+		tableEnv.createTemporaryView("t1", ds1, $("a"), $("b"), $("c"));
+
+		String sqlQuery = "SELECT a + 1 as new_a, sum(b) as new_b FROM t1 group by a order by new_b desc";
+		FlinkCalciteSqlValidator.enableApaasSqlConformance = true;
+		Table result = tableEnv.sqlQuery(sqlQuery);
+		DataSet<Row> resultSet = tableEnv.toDataSet(result, Row.class);
+		List<Row> results = resultSet.collect();
+		String expected = "4,2\n" + "3,2\n" + "2,1\n";
+		compareOrderedResultAsText(results, expected);
 	}
 }

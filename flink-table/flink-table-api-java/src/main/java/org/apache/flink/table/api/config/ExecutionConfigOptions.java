@@ -424,6 +424,12 @@ public class ExecutionConfigOptions {
 			.withDescription("Specifies whether to use state field digests to name data view and fields of" +
 				"RowData in states.");
 
+	public static final ConfigOption<Boolean> ENABLE_APAAS_SQL_CONFORMANCE =
+		key("table.exec.sql-conformance-for-apaas.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether enable apaas sql conformance. Support having alias, group by alias, " +
+				"order by alias, and do not do call rewrite during sql validation when enabled.");
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

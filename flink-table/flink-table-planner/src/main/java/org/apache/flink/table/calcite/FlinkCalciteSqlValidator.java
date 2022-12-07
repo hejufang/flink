@@ -19,7 +19,10 @@
 package org.apache.flink.table.calcite;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.sql.parser.validate.FlinkSqlConformance;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
 
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.JoinType;
@@ -41,11 +44,19 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 @Internal
 public final class FlinkCalciteSqlValidator extends SqlValidatorImpl {
 
+	public static boolean enableApaasSqlConformance = GlobalConfiguration
+		.loadConfiguration()
+		.get(ExecutionConfigOptions.ENABLE_APAAS_SQL_CONFORMANCE);
+
 	public FlinkCalciteSqlValidator(
 			SqlOperatorTable opTab,
 			SqlValidatorCatalogReader catalogReader,
 			RelDataTypeFactory typeFactory) {
-		super(opTab, catalogReader, typeFactory, SqlConformanceEnum.DEFAULT);
+		super(opTab, catalogReader, typeFactory,
+			enableApaasSqlConformance ? FlinkSqlConformance.APAAS : SqlConformanceEnum.DEFAULT);
+		if (enableApaasSqlConformance) {
+			setCallRewrite(false);
+		}
 	}
 
 	@Override
