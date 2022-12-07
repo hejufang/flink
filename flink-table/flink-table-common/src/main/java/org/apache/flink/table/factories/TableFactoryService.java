@@ -27,6 +27,9 @@ import org.apache.flink.table.descriptors.FormatDescriptorValidator;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
+import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +43,7 @@ import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_PROPERTY_VERSION;
@@ -52,6 +56,11 @@ import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMA
 public class TableFactoryService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TableFactoryService.class);
+	private static final Cache<ClassLoader, List<TableFactory>> TABLE_FACTORY_CACHE =
+		CacheBuilder.newBuilder()
+			.maximumSize(128)
+			.expireAfterWrite(30, TimeUnit.MINUTES)
+			.build();
 
 	/**
 	 * Finds a table factory of the given class and descriptor.
@@ -206,18 +215,23 @@ public class TableFactoryService {
 	 */
 	private static List<TableFactory> discoverFactories(Optional<ClassLoader> classLoader) {
 		try {
-			List<TableFactory> result = new LinkedList<>();
 			ClassLoader cl = classLoader.orElse(Thread.currentThread().getContextClassLoader());
+			List<TableFactory> result = TABLE_FACTORY_CACHE.getIfPresent(cl);
+			if (result != null) {
+				return result;
+			}
+
+			result = new LinkedList<>();
 			ServiceLoader
 				.load(TableFactory.class, cl)
 				.iterator()
 				.forEachRemaining(result::add);
+			TABLE_FACTORY_CACHE.put(cl, result);
 			return result;
 		} catch (ServiceConfigurationError e) {
 			LOG.error("Could not load service provider for table factories.", e);
 			throw new TableException("Could not load service provider for table factories.", e);
 		}
-
 	}
 
 	/**
