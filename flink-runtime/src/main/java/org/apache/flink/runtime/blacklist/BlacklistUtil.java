@@ -124,19 +124,20 @@ public class BlacklistUtil {
 	 */
 	public enum BlackedExceptionState {
 		/**
-		 * The exception doesn't occur within the period, 1 to 6 minutes after the blockage.
-		 * And now is in the period.
+		 * The latest exception from blocked host occurred less than 1 minutes.
 		 */
 		UNKNOWN,
 
 		/**
-		 * The exception doesn't occur within the period, 1 to 6 minutes after the blockage.
-		 * And now is after the period.
+		 * The confidence of blocking one exception is more than 80% after 1 minute from the latest exception in the
+		 * first blocked host occurred. Confidence is calculated as the percentage of recent exceptions (happened within
+		 * the last 5min) in all the exceptions.
 		 */
 		RIGHT,
 
 		/**
-		 * When we block the relative hosts, the exception occurs within the period, 1 to 6 minutes after the blockage.
+		 * The confidence of blocking one exception is less than 80% after 1 minute from the latest exception in the
+		 * first blocked host occurred.
 		 */
 		WRONG
 	}

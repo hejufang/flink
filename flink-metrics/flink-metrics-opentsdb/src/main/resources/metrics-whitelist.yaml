@@ -264,7 +264,7 @@ non-global:
         unrecognizedPod,
       # blacklist
         blackedHost,
-        hasWrongBlackedException,
+        blackedExceptionStatus,
         blackedExceptionAccuracy,
       # container descheduler
         descheduledContainers,

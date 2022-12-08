@@ -33,7 +33,9 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 
@@ -274,33 +276,46 @@ public class BlacklistTrackerImplTest {
 		Assert.assertEquals(2, taskBlacklistRecord.getBlackedHosts().size());
 		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
 
-		// check these two exception is unknown.
+		// Exception occur after 30s, both blocking of RuntimeException and Exception should be marked as UNKNOWN
+		// since the exception occurs less than 60s.
+		clock.advanceTime(30_000L, TimeUnit.MILLISECONDS);
+		blacklistReporter.onFailure("host3", new ResourceID("resource5"), new Exception("exception1"), clock.absoluteTimeMillis());
+		// trigger calculating blacklist
+		executor.triggerNonPeriodicScheduledTask();
 		BlackedExceptionAccuracy blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
-		Assert.assertEquals(2, blackedExceptionAccuracy.getUnknownBlackedException().size());
+		Assert.assertEquals(2, numOfBlackedExceptionWithZeroHost(blackedExceptionAccuracy.getNumOfHostsForUnknownBlackedException()));
 
-		// RuntimeException occur after 65s, check RuntimeException will be marked as Wrong.
-		clock.advanceTime(65_000L, TimeUnit.MILLISECONDS);
-		blacklistReporter.onFailure("host3", new ResourceID("resource5"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		// RuntimeException occur after 70s
+		clock.advanceTime(40_000L, TimeUnit.MILLISECONDS);
+		blacklistReporter.onFailure("host4", new ResourceID("resource6"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
+		blacklistReporter.onFailure("host4", new ResourceID("resource7"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		// trigger calculating blacklist
 		executor.triggerNonPeriodicScheduledTask();
-		blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
-		Assert.assertEquals(1, blackedExceptionAccuracy.getWrongBlackedException().size());
-		Assert.assertEquals(1, blackedExceptionAccuracy.getUnknownBlackedException().size());
 
-		blacklistReporter.onFailure("host3", new ResourceID("resource5"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		// trigger calculating blacklist
-		executor.triggerNonPeriodicScheduledTask();
+		// No more Exception happened in recent 300s, blocking of Exception will be marked as RIGHT.
+		// A RuntimeException had happened in recent 300s, so blocking of RuntimeException will be marked as WRONG.
+		clock.advanceTime(295_000L, TimeUnit.MILLISECONDS);
 		blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
-		Assert.assertEquals(1, blackedExceptionAccuracy.getWrongBlackedException().size());
-		Assert.assertEquals(1, blackedExceptionAccuracy.getUnknownBlackedException().size());
+		Assert.assertEquals(1, numOfBlackedExceptionWithZeroHost(blackedExceptionAccuracy.getNumOfHostsForWrongBlackedException()));
+		Assert.assertEquals(1, numOfBlackedExceptionWithZeroHost(blackedExceptionAccuracy.getNumOfHostsForRightBlackedException()));
 
-		// Nothing happen in 365s, check Exception will be marked as Right.
-		clock.advanceTime(365_000L, TimeUnit.MILLISECONDS);
+		// No more failure (both Exception and RuntimeException) happened in recent 300s, both blocking of them will be marked as RIGHT.
+		clock.advanceTime(10_000L, TimeUnit.MILLISECONDS);
 		blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
-		Assert.assertEquals(1, blackedExceptionAccuracy.getWrongBlackedException().size());
-		Assert.assertEquals(1, blackedExceptionAccuracy.getRightBlackedException().size());
+		Assert.assertEquals(2, numOfBlackedExceptionWithZeroHost(blackedExceptionAccuracy.getNumOfHostsForRightBlackedException()));
 
 		blacklistTracker.close();
+	}
+
+	private int numOfBlackedExceptionWithZeroHost(Map<String, Integer> numHostsOfBlackedExceptions) {
+		AtomicInteger res = new AtomicInteger(0);
+		numHostsOfBlackedExceptions.forEach((k, v) -> {
+			if (v != 0) {
+				int cnt = res.get();
+				res.set(cnt + 1);
+			}
+		});
+		return res.get();
 	}
 
 	@Test

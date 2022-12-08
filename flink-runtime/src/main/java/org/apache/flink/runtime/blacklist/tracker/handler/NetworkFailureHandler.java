@@ -124,6 +124,8 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 			resourceIdToNetworkFailuresTimestamp.put(resourceId, remoteAddressToLastTimestamp);
 		}
 		clearExpiredTimestampRecord(2 * timestampRecordExpireTime.toMilliseconds());
+		// record failures to host failure queue for calculating accuracy.
+		hostFailuresQueue.add(hostFailure);
 		// should not add host if either the src and dest host has been in the blacklist.
 		String remoteNodeName = blacklistActions.queryNodeName(remoteAddress);
 		if (StringUtils.isNullOrWhitespaceOnly(remoteNodeName)) {
@@ -182,5 +184,4 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 		}
 		resourceIdToNetworkFailuresTimestamp.entrySet().removeIf(e -> e.getValue().isEmpty());
 	}
-
 }

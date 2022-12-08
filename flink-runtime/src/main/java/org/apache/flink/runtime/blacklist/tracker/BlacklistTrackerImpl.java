@@ -68,13 +68,13 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 	private static final String BLACKLIST_METRIC_NAME = "blackedHost";
 	private static final String BLACKLIST_EXCEPTION_ACCURACY_METRIC_NAME = "blackedExceptionAccuracy";
-	private static final String HAS_WRONG_BLACKED_EXCEPTION_METRIC_NAME = "hasWrongBlackedException";
+	private static final String BLACKED_EXCEPTION_STATUS_METRIC_NAME = "blackedExceptionStatus";
 	private static final String WAREHOUSE_BLACKLIST_FAILURES = "warehouseBlacklistFailures";
 	private static final String WAREHOUSE_BLACKLIST_RECORDS = "warehouseBlacklistRecords";
 
 	private final TagGauge blacklistGauge = new TagGauge.TagGaugeBuilder().build();
 	private final TagGauge blackedExceptionAccuracyGauge = new TagGauge.TagGaugeBuilder().build();
-	private final TagGauge hasWrongBlackedExceptionGauge = new TagGauge.TagGaugeBuilder().build();
+	private final TagGauge blackedExceptionStatusGauge = new TagGauge.TagGaugeBuilder().build();
 	private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet =
 			new MessageSet<>(MessageType.BLACKLIST);
 	private final MessageSet<WarehouseBlacklistRecordMessage> blacklistRecordMessageSet =
@@ -386,7 +386,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private void registerMetrics() {
 		jobManagerMetricGroup.gauge(BLACKLIST_METRIC_NAME, blacklistGauge);
 		jobManagerMetricGroup.gauge(BLACKLIST_EXCEPTION_ACCURACY_METRIC_NAME, blackedExceptionAccuracyGauge);
-		jobManagerMetricGroup.gauge(HAS_WRONG_BLACKED_EXCEPTION_METRIC_NAME, hasWrongBlackedExceptionGauge);
+		jobManagerMetricGroup.gauge(BLACKED_EXCEPTION_STATUS_METRIC_NAME, blackedExceptionStatusGauge);
 		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_FAILURES, blacklistFailureMessageSet);
 		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_RECORDS, blacklistRecordMessageSet);
 	}
@@ -453,42 +453,44 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	public void reportBlackedRecordAccuracy() {
 		try {
 			LOG.debug("Start to reportBlackedRecordAccuracy.");
-			hasWrongBlackedExceptionGauge.reset();
+			blackedExceptionStatusGauge.reset();
 			blackedExceptionAccuracyGauge.reset();
 
 			for (FailureHandler failureHandler: failureHandlers) {
 				BlackedExceptionAccuracy blackedExceptionAccuracy = failureHandler.getBlackedRecordAccuracy();
-				hasWrongBlackedExceptionGauge.addMetric(
-						blackedExceptionAccuracy.hasWrongBlackedException() ? 1 : 0,
-						new TagGaugeStoreImpl.TagValuesBuilder()
-								.addTagValue("type", failureHandler.getFailureType().name())
-								.build());
-
-				for (Class<? extends Throwable> e : blackedExceptionAccuracy.getUnknownBlackedException()) {
-					blackedExceptionAccuracyGauge.addMetric(
-							1,
+				for (Map.Entry<String, Integer> entry : blackedExceptionAccuracy.getNumOfHostsForUnknownBlackedException().entrySet()) {
+					blackedExceptionStatusGauge.addMetric(
+							entry.getValue(),
 							new TagGaugeStoreImpl.TagValuesBuilder()
 									.addTagValue("type", failureHandler.getFailureType().name())
-									.addTagValue("exception", e.getName())
+									.addTagValue("exception", entry.getKey())
 									.addTagValue("blacked_exception_state", BlacklistUtil.BlackedExceptionState.UNKNOWN.name())
 									.build());
 				}
-				for (Class<? extends Throwable> e : blackedExceptionAccuracy.getWrongBlackedException()) {
-					blackedExceptionAccuracyGauge.addMetric(
-							1,
+				for (Map.Entry<String, Integer> entry : blackedExceptionAccuracy.getNumOfHostsForWrongBlackedException().entrySet()) {
+					blackedExceptionStatusGauge.addMetric(
+							entry.getValue(),
 							new TagGaugeStoreImpl.TagValuesBuilder()
 									.addTagValue("type", failureHandler.getFailureType().name())
-									.addTagValue("exception", e.getName())
+									.addTagValue("exception", entry.getKey())
 									.addTagValue("blacked_exception_state", BlacklistUtil.BlackedExceptionState.WRONG.name())
 									.build());
 				}
-				for (Class<? extends Throwable> e : blackedExceptionAccuracy.getRightBlackedException()) {
-					blackedExceptionAccuracyGauge.addMetric(
-							1,
+				for (Map.Entry<String, Integer> entry : blackedExceptionAccuracy.getNumOfHostsForRightBlackedException().entrySet()) {
+					blackedExceptionStatusGauge.addMetric(
+							entry.getValue(),
 							new TagGaugeStoreImpl.TagValuesBuilder()
 									.addTagValue("type", failureHandler.getFailureType().name())
-									.addTagValue("exception", e.getName())
+									.addTagValue("exception", entry.getKey())
 									.addTagValue("blacked_exception_state", BlacklistUtil.BlackedExceptionState.RIGHT.name())
+									.build());
+				}
+				for (Map.Entry<String, Double> confidenceEntry : blackedExceptionAccuracy.getConfidenceMapAfterBlackedHosts().entrySet()) {
+					blackedExceptionAccuracyGauge.addMetric(
+							confidenceEntry.getValue(),
+							new TagGaugeStoreImpl.TagValuesBuilder()
+									.addTagValue("type", failureHandler.getFailureType().name())
+									.addTagValue("exception", confidenceEntry.getKey())
 									.build());
 				}
 			}

@@ -22,7 +22,6 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.HostFailure;
-import org.apache.flink.runtime.blacklist.tracker.BlackedExceptionAccuracy;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.util.clock.Clock;
 
@@ -31,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -41,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Statistic based failure handler.
  */
-public abstract class StatisticBasedFailureHandler implements FailureHandler {
+public abstract class StatisticBasedFailureHandler extends AbstractFailureHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(StatisticBasedFailureHandler.class);
 
 	// statistic related
@@ -55,6 +53,7 @@ public abstract class StatisticBasedFailureHandler implements FailureHandler {
 
 	protected final Map<String, LinkedList<HostFailure>> blackedHosts = new HashMap<>();
 	protected final Map<String, LinkedList<HostFailure>> failureHosts = new HashMap<>();
+	protected final LinkedList<HostFailure> hostFailuresQueue = new LinkedList<>();
 
 	protected final Clock clock;
 	protected int currentTotalNumHosts;
@@ -148,12 +147,6 @@ public abstract class StatisticBasedFailureHandler implements FailureHandler {
 	}
 
 	@Override
-	public BlackedExceptionAccuracy getBlackedRecordAccuracy() {
-		// todo analyze accuracy, depends on how to monitor accuracy
-		return new BlackedExceptionAccuracy(Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
-	}
-
-	@Override
 	public void clear() {
 		blackedHosts.clear();
 		failureHosts.clear();
@@ -189,8 +182,20 @@ public abstract class StatisticBasedFailureHandler implements FailureHandler {
 			return false;
 		}
 		this.failureHosts.computeIfAbsent(hostName, v -> new LinkedList<>());
-		this.failureHosts.get(hostName).add(0, hostFailure);
+		this.failureHosts.get(hostName).addLast(hostFailure);
 		return true;
+	}
+
+	protected long getCurrentTimestamp(){
+		return clock.absoluteTimeMillis();
+	}
+
+	@Override
+	protected LinkedList<HostFailure> getHostFailureQueue() {
+		long currentTime = clock.absoluteTimeMillis();
+		// remove expired exceptions, exceptions will be expired after several minutes
+		this.hostFailuresQueue.removeIf(failure -> currentTime - failure.getTimestamp() > failureExpireTime.toMilliseconds());
+		return hostFailuresQueue;
 	}
 
 	// Internal functions.
@@ -211,11 +216,22 @@ public abstract class StatisticBasedFailureHandler implements FailureHandler {
 			}
 		}
 		failureHosts.entrySet().removeIf(e -> e.getValue().isEmpty());
+		removeExpiredAndOfflineHostsRelatedFailuresInQueue();
 		return failureHostsCopy;
 	}
 
+	private void removeExpiredAndOfflineHostsRelatedFailuresInQueue(){
+		long currentTime = clock.absoluteTimeMillis();
+		// remove expired exceptions, exceptions will be expired after several minutes
+		this.hostFailuresQueue.removeIf(failure -> currentTime - failure.getTimestamp() > failureExpireTime.toMilliseconds());
+		// if the src or dest task manager is offline, we ignore this network failure.
+		this.hostFailuresQueue.removeIf(this::isFailureRelatedTaskManagersOffline);
+	}
+
 	private void markExceptionInHost(Map<String, LinkedList<HostFailure>> blackedHost, String host, LinkedList<HostFailure> failures) {
-		blackedHost.put(host, failures);
+		LinkedList<HostFailure> listOnlyContainsLastFailure = new LinkedList<>();
+		listOnlyContainsLastFailure.add(failures.getLast());
+		blackedHost.put(host, listOnlyContainsLastFailure);
 	}
 
 	private String generateIssueHostSnapshot(double mean, double sd) {

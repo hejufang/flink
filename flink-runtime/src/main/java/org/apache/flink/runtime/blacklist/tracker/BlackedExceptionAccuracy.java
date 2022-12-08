@@ -18,35 +18,65 @@
 
 package org.apache.flink.runtime.blacklist.tracker;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * Wrapper of unknown/wrong/right blacked exceptions.
  */
 public class BlackedExceptionAccuracy {
-	private final Set<Class<? extends Throwable>> unknownBlackedException;
-	private final Set<Class<? extends Throwable>> wrongBlackedException;
-	private final Set<Class<? extends Throwable>> rightBlackedException;
 
-	public BlackedExceptionAccuracy(Set<Class<? extends Throwable>> unknownBlackedException, Set<Class<? extends Throwable>> wrongBlackedException, Set<Class<? extends Throwable>> rightBlackedException) {
-		this.unknownBlackedException = unknownBlackedException;
-		this.wrongBlackedException = wrongBlackedException;
-		this.rightBlackedException = rightBlackedException;
+	/**
+	 * These maps store the number of blacked hosts for each exception with different blockage status (UNKNOWN, RIGHT, WRONG).
+	 * The key is the exception class name, the value is the number of blacked hosts for this exception.
+	 */
+	private final Map<String, Integer> numOfHostsForUnknownBlackedException;
+	private final Map<String, Integer> numOfHostsForWrongBlackedException;
+	private final Map<String, Integer> numOfHostsForRightBlackedException;
+	private final Map<String, Double> confidenceMapAfterBlackedHosts;
+
+	public BlackedExceptionAccuracy(
+			Map<String, Integer> numOfHostsForBlackedException,
+			Set<String> unknownBlackedExceptions,
+			Map<String, Double> confidenceMapAfterBlackedHosts) {
+		this.numOfHostsForUnknownBlackedException = new HashMap<>();
+		this.numOfHostsForWrongBlackedException = new HashMap<>();
+		this.numOfHostsForRightBlackedException = new HashMap<>();
+		this.confidenceMapAfterBlackedHosts = confidenceMapAfterBlackedHosts;
+		for (Map.Entry<String, Double> entry : confidenceMapAfterBlackedHosts.entrySet()) {
+			Integer numOfBlackedHostForThisException = numOfHostsForBlackedException.get(entry.getKey());
+			if (unknownBlackedExceptions.contains(entry.getKey())) {
+				numOfHostsForUnknownBlackedException.put(entry.getKey(), numOfBlackedHostForThisException);
+				numOfHostsForRightBlackedException.put(entry.getKey(), 0);
+				numOfHostsForWrongBlackedException.put(entry.getKey(), 0);
+				continue;
+			}
+			if (entry.getValue() > 0.8) {
+				numOfHostsForUnknownBlackedException.put(entry.getKey(), 0);
+				numOfHostsForRightBlackedException.put(entry.getKey(), numOfBlackedHostForThisException);
+				numOfHostsForWrongBlackedException.put(entry.getKey(), 0);
+			} else {
+				numOfHostsForUnknownBlackedException.put(entry.getKey(), 0);
+				numOfHostsForRightBlackedException.put(entry.getKey(), 0);
+				numOfHostsForWrongBlackedException.put(entry.getKey(), numOfBlackedHostForThisException);
+			}
+		}
 	}
 
-	public Set<Class<? extends Throwable>> getUnknownBlackedException() {
-		return unknownBlackedException;
+	public Map<String, Integer> getNumOfHostsForUnknownBlackedException() {
+		return numOfHostsForUnknownBlackedException;
 	}
 
-	public Set<Class<? extends Throwable>> getWrongBlackedException() {
-		return wrongBlackedException;
+	public Map<String, Integer> getNumOfHostsForWrongBlackedException() {
+		return numOfHostsForWrongBlackedException;
 	}
 
-	public Set<Class<? extends Throwable>> getRightBlackedException() {
-		return rightBlackedException;
+	public Map<String, Integer> getNumOfHostsForRightBlackedException() {
+		return numOfHostsForRightBlackedException;
 	}
 
-	public boolean hasWrongBlackedException() {
-		return !wrongBlackedException.isEmpty();
+	public Map<String, Double> getConfidenceMapAfterBlackedHosts() {
+		return confidenceMapAfterBlackedHosts;
 	}
 }

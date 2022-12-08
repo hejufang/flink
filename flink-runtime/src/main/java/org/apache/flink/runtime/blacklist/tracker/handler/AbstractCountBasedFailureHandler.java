@@ -21,7 +21,6 @@ package org.apache.flink.runtime.blacklist.tracker.handler;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
-import org.apache.flink.runtime.blacklist.tracker.BlackedExceptionAccuracy;
 import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
@@ -37,13 +36,9 @@ import java.util.Set;
  * the abstract implement of {@link FailureHandler}.
  * maintain all failures and filtered exceptions.
  */
-public abstract class AbstractCountBasedFailureHandler implements FailureHandler {
+public abstract class AbstractCountBasedFailureHandler extends AbstractFailureHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractCountBasedFailureHandler.class);
 
-	// Exceptions within this time period will be ignored after the blacked record. These exceptions may cause by old failover.
-	private final Long failureTolerateTime = 60_000L;
-	// Blacked record will be marked right if there is no exceptions appear after this time period.
-	private final Long accuracyCheckingTime = 360_000L;
 	private final LinkedList<HostFailure> hostFailureQueue;
 	private final Map<Class<? extends Throwable>, Long> filteredExceptions;
 	private final int maxFailureNum;
@@ -145,37 +140,6 @@ public abstract class AbstractCountBasedFailureHandler implements FailureHandler
 	}
 
 	@Override
-	public BlackedExceptionAccuracy getBlackedRecordAccuracy() {
-		Set<Class<? extends Throwable>> unknownBlackedException = new HashSet<>();
-		Set<Class<? extends Throwable>> wrongBlackedException = new HashSet<>();
-		Set<Class<? extends Throwable>> rightBlackedException = new HashSet<>();
-
-		long currentTs = clock.absoluteTimeMillis();
-		for (HostFailure latestBlackedFailure : getBlackedRecord().getLatestBlackedFailure()) {
-			Class<? extends Throwable> exception = latestBlackedFailure.getException().getClass();
-			if (latestBlackedFailure.getTimestamp() > currentTs - accuracyCheckingTime) {
-				// not exceed accuracyMarkRightTimeout, this record is unknown or wrong.
-				unknownBlackedException.add(exception);
-			} else {
-				rightBlackedException.add(exception);
-			}
-
-			for (HostFailure hostFailure : hostFailureQueue) {
-				if (exception.equals(hostFailure.getException().getClass()) &&
-						hostFailure.getTimestamp() > latestBlackedFailure.getTimestamp() + failureTolerateTime && hostFailure.getTimestamp() < latestBlackedFailure.getTimestamp() + accuracyCheckingTime) {
-					wrongBlackedException.add(exception);
-				}
-			}
-		}
-
-		unknownBlackedException.removeAll(wrongBlackedException);
-		rightBlackedException.removeAll(unknownBlackedException);
-		rightBlackedException.removeAll(wrongBlackedException);
-		LOG.debug("rightBlackedException: {}, wrongBlackedException: {}, unknownBlackedException: {}", rightBlackedException, wrongBlackedException, unknownBlackedException);
-		return new BlackedExceptionAccuracy(unknownBlackedException, wrongBlackedException, rightBlackedException);
-	}
-
-	@Override
 	public void tryUpdateMaxHostPerExceptionThreshold(int totalWorkerNumber) {
 		int newMaxHostPerException = Math.max(maxHostPerExceptionMinNumber, (int) Math.ceil(totalWorkerNumber * maxHostPerExceptionRatio));
 		if (newMaxHostPerException != maxHostPerException) {
@@ -249,5 +213,9 @@ public abstract class AbstractCountBasedFailureHandler implements FailureHandler
 			}
 			return r;
 		});
+	}
+
+	protected long getCurrentTimestamp(){
+		return clock.absoluteTimeMillis();
 	}
 }
