@@ -28,6 +28,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.util.TestHistogram;
 import org.apache.flink.metrics.util.TestMeter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.rpc.TestingRpcService;
@@ -178,12 +179,12 @@ public class MetricQueryServiceTest extends TestLogger {
 		final Histogram h = new TestHistogram();
 		final Meter m = new TestMeter();
 
-		final TaskManagerMetricGroup tm = UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup();
+		OperatorMetricGroup op = UnregisteredMetricGroups.createUnregisteredOperatorMetricGroup();
 
-		queryService.addMetric("counter", c, tm);
-		queryService.addMetric("gauge", g, tm);
-		queryService.addMetric("histogram", h, tm);
-		queryService.addMetric("meter", m, tm);
+		queryService.addMetric("counter", c, op);
+		queryService.addMetric("gauge", g, op);
+		queryService.addMetric("histogram", h, op);
+		queryService.addMetric("meter", m, op);
 
 		MetricDumpSerialization.MetricSerializationResult dump = queryService.queryMetrics(TIMEOUT).get();
 

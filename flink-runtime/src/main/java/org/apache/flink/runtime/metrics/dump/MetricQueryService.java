@@ -41,6 +41,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.runtime.metrics.dump.MetricDumpSerialization.MetricDumpSerializer;
+import static org.apache.flink.runtime.metrics.dump.QueryScopeInfo.INFO_CATEGORY_JM;
+import static org.apache.flink.runtime.metrics.dump.QueryScopeInfo.INFO_CATEGORY_TM;
 
 /**
  * The MetricQueryService creates a key-value representation of all metrics currently registered with Flink when queried.
@@ -93,9 +95,18 @@ public class MetricQueryService extends RpcEndpoint implements MetricQueryServic
 	public void addMetric(String metricName, Metric metric, AbstractMetricGroup group) {
 		runAsync(() -> {
 			QueryScopeInfo info = group.getQueryServiceMetricInfo(FILTER);
-			if (enableFilterMetric && !legalMetricNameSet.contains(metricName)) {
-				LOG.debug("enable filter metric, filtered metric: {}", metricName);
-				return;
+			/*
+			 * do not filter JM and TM's metrics.
+			 */
+			switch (info.getCategory()){
+				case INFO_CATEGORY_JM:
+				case INFO_CATEGORY_TM:
+					break;
+				default:
+					if (enableFilterMetric && !legalMetricNameSet.contains(metricName)) {
+						LOG.debug("enable filter metric, filtered metric: {}", metricName);
+						return;
+					}
 			}
 			LOG.debug("legal metrics: {}", metricName);
 
