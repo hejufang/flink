@@ -69,6 +69,8 @@ public class HiveCompatibleITCase {
 	private static HiveMetastoreClientWrapper hmsClient;
 
 	private static final String[] QUERIES = new String[]{
+		"select col1 from foo lateral view explode(array(x,y)) as col1",
+		"select * from ( select i, true as a from bar)",
 		"select x from foo order by x desc limit 1",
 		"select x,count(y),max(y) from foo group by x",
 		"select count(distinct i) from bar group by s",

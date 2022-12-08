@@ -24,6 +24,7 @@ import org.apache.flink.table.planner.delegation.hive.HiveParserUnparseTranslato
 import org.apache.flink.table.planner.delegation.hive.HiveParserUtils;
 
 import org.antlr.runtime.ClassicToken;
+import org.antlr.runtime.CommonToken;
 import org.antlr.runtime.Token;
 import org.antlr.runtime.tree.Tree;
 import org.apache.calcite.plan.RelOptCluster;
@@ -776,11 +777,18 @@ public class HiveParserSemanticAnalyzer {
 	private String processSubQuery(HiveParserQB qb, ASTNode subq) throws SemanticException {
 
 		// This is a subquery and must have an alias
-		if (subq.getChildCount() != 2) {
+		if (subq.getChildCount() != 2 && subq.getChildCount() != 1) {
 			throw new SemanticException(ErrorMsg.NO_SUBQUERY_ALIAS.getMsg(subq));
 		}
 		ASTNode subqref = (ASTNode) subq.getChild(0);
-		String alias = unescapeIdentifier(subq.getChild(1).getText());
+		ASTNode aliasToken = null;
+		if (subq.getChildCount() == 2) {
+			aliasToken = (ASTNode) subq.getChild(1);
+		} else {
+			aliasToken = new ASTNode(new CommonToken(
+				HiveASTParser.Identifier, HiveParserUtils.genUniqAliasName()));
+		}
+		String alias = aliasToken.getText();
 
 		// Recursively do the first phase of semantic analysis for the subquery
 		HiveParserQBExpr qbexpr = new HiveParserQBExpr(alias);
@@ -789,14 +797,13 @@ public class HiveParserSemanticAnalyzer {
 
 		// If the alias is already there then we have a conflict
 		if (qb.exists(alias)) {
-			throw new SemanticException(ErrorMsg.AMBIGUOUS_TABLE_ALIAS.getMsg(subq
-					.getChild(1)));
+			throw new SemanticException(ErrorMsg.AMBIGUOUS_TABLE_ALIAS.getMsg(aliasToken));
 		}
 		// Insert this map into the stats
 		qb.setSubqAlias(alias, qbexpr);
 		qb.addAlias(alias);
 
-		unparseTranslator.addIdentifierTranslation((ASTNode) subq.getChild(1));
+		unparseTranslator.addIdentifierTranslation(aliasToken);
 
 		return alias;
 	}

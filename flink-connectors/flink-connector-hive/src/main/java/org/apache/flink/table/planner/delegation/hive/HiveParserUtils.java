@@ -141,6 +141,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.apache.hadoop.hive.ql.parse.HiveParserBaseSemanticAnalyzer.unescapeIdentifier;
@@ -161,6 +162,7 @@ public class HiveParserUtils {
 	// set useShadedImmutableList to false if you want to
 	private static final boolean useShadedImmutableList =
 		!"true".equalsIgnoreCase(System.getenv(RUN_IN_IDEA_KEY));
+	private static final AtomicInteger aliasCounter = new AtomicInteger();
 
 	private HiveParserUtils() {
 	}
@@ -800,6 +802,10 @@ public class HiveParserUtils {
 		return HiveTypeUtil.toFlinkType(HiveParserTypeConverter.convert(relDataType));
 	}
 
+	public static String genUniqAliasName() {
+		return "flink_auto_gen_alias_" + aliasCounter.getAndIncrement();
+	}
+
 	// extracts useful information for a given lateral view node
 	public static LateralViewInfo extractLateralViewInfo(ASTNode lateralView, HiveParserRowResolver inputRR,
 			HiveParserSemanticAnalyzer hiveAnalyzer, FrameworkConfig frameworkConfig, RelOptCluster cluster) throws SemanticException {
@@ -824,13 +830,19 @@ public class HiveParserUtils {
 			operands.add(exprDesc);
 			operandColInfos.add(new ColumnInfo(getColumnInternalName(i - 1), exprDesc.getWritableObjectInspector(), null, false));
 		}
-		// decide table alias -- there must be a table alias
-		ASTNode tabAliasNode = (ASTNode) selExpr.getChild(selExpr.getChildCount() - 1);
-		Preconditions.checkArgument(tabAliasNode.getToken().getType() == HiveASTParser.TOK_TABALIAS);
-		String tabAlias = unescapeIdentifier(tabAliasNode.getChild(0).getText().toLowerCase());
+		// decide table alias -- table alias is optional
+		String tabAlias = null;
+		int exprEndIndex = selExpr.getChildCount() - 1;
+		ASTNode tabAliasNode = (ASTNode) selExpr.getChild(exprEndIndex);
+		if (tabAliasNode.getToken().getType() != HiveASTParser.TOK_TABALIAS) {
+			exprEndIndex = selExpr.getChildCount();
+			tabAlias = genUniqAliasName();
+		} else {
+			tabAlias = unescapeIdentifier(tabAliasNode.getChild(0).getText().toLowerCase());
+		}
 		// decide column aliases -- column aliases are optional
 		List<String> colAliases = new ArrayList<>();
-		for (int i = 1; i < selExpr.getChildCount() - 1; i++) {
+		for (int i = 1; i < exprEndIndex; i++) {
 			ASTNode child = (ASTNode) selExpr.getChild(i);
 			Preconditions.checkArgument(child.getToken().getType() == HiveASTParser.Identifier);
 			colAliases.add(unescapeIdentifier(child.getText().toLowerCase()));
