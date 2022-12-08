@@ -68,6 +68,8 @@ containerized.taskmanager.env.FLINK_HOME: /opt/tiger/flink_deploy
 kubernetes.entry.path: /opt/tiger/flink_deploy/bin/docker-entrypoint.sh
 kubernetes.jobmanager.service-account: gts
 kubernetes.namespace: gts
+kubernetes.flink.log.dir: /opt/tiger/workdir/log
+kubernetes.file-download-volume.size: 20G
 
 #==============================================================================
 # High Availability
@@ -86,6 +88,7 @@ state.checkpoints.dir: file:///tmp
 state.backend.incremental: true
 state.checkpoints.num-retained: 3
 state.backend.rocksdb.checkpoint.transfer.thread.num: 4
+state.backend.rocksdb.localdir: /opt/tiger/workdir/state
 
 state.backend.rocksdb.memory.managed: false
 execution.checkpointing.mode: EXACTLY_ONCE

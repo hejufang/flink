@@ -102,6 +102,14 @@ id=$([ -f "$pid" ] && echo $(wc -l < "$pid") || echo "0")
 
 FLINK_LOG_PREFIX="${FLINK_LOG_DIR}/flink-${FLINK_IDENT_STRING}-${SERVICE}-${id}-${HOSTNAME}"
 log="${FLINK_LOG_PREFIX}.log"
+if [ "$_FLINK_COMPONENT" = "jobmanager" ]; then
+    FLINK_LOG_PREFIX="${FLINK_LOG_DIR}/jobmanager"
+    log="${FLINK_LOG_PREFIX}.log"
+elif [ "$_FLINK_COMPONENT" = "taskmanager" ]; then
+    FLINK_LOG_PREFIX="${FLINK_LOG_DIR}/taskmanager"
+    log="${FLINK_LOG_PREFIX}.log"
+fi
+
 
 log_setting=("-Dlog.file=${log}" "-Dlog4j.configuration=file:${FLINK_CONF_DIR}/log4j-console.properties" "-Dlog4j.configurationFile=file:${FLINK_CONF_DIR}/log4j-console.properties" "-Dlogback.configurationFile=file:${FLINK_CONF_DIR}/logback-console.xml")
 

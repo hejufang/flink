@@ -26,6 +26,7 @@ COMMAND_HISTORY_SERVER="history-server"
 # If unspecified, the hostname of the container is taken as the JobManager address
 JOB_MANAGER_RPC_ADDRESS=${JOB_MANAGER_RPC_ADDRESS:-$(hostname -f)}
 CONF_FILE="${FLINK_HOME}/conf/flink-conf.yaml"
+mkdir -p $FLINK_LOG_DIR
 
 #drop_privs_cmd() {
 #    if [ $(id -u) != 0 ]; then
