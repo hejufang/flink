@@ -32,6 +32,7 @@ import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -78,13 +79,23 @@ class KubernetesEntrypointUtils {
 		}
 
 		if (HighAvailabilityMode.isHighAvailabilityModeActivated(configuration)) {
-			final String ipAddress = System.getenv().get(Constants.ENV_FLINK_POD_IP_ADDRESS);
-			Preconditions.checkState(
-				ipAddress != null,
-				"JobManager ip address environment variable %s not set",
-				Constants.ENV_FLINK_POD_IP_ADDRESS);
-			configuration.setString(JobManagerOptions.ADDRESS, ipAddress);
-			configuration.setString(RestOptions.ADDRESS, ipAddress);
+			OptionalConsumer.of(KubernetesUtils.getPodExposedAddress(configuration))
+					.ifPresent(
+							address -> {
+								configuration.setString(JobManagerOptions.ADDRESS, address);
+								configuration.setString(RestOptions.ADDRESS, address);
+								configuration.setString(RestOptions.SOCKET_ADDRESS, address);
+							})
+					.ifNotPresent(
+							() -> {
+								final String ipAddress = System.getenv().get(Constants.ENV_FLINK_POD_IP_ADDRESS);
+								Preconditions.checkState(
+										ipAddress != null,
+										"JobManager ip address environment variable %s not set",
+										Constants.ENV_FLINK_POD_IP_ADDRESS);
+								configuration.setString(JobManagerOptions.ADDRESS, ipAddress);
+								configuration.setString(RestOptions.ADDRESS, ipAddress);
+							});
 		}
 
 		// set cpu numbers

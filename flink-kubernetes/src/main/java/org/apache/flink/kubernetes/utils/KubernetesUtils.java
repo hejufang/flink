@@ -962,5 +962,15 @@ public class KubernetesUtils {
 		return clusterId + NAME_SEPARATOR + "cluster-config-map";
 	}
 
+	public static Optional<String> getPodExposedAddress(Configuration configuration) {
+		if (KubernetesUtils.isHostNetworkEnabled(configuration) &&
+				configuration.getBoolean(KubernetesConfigOptions.KUBERNETES_POD_ADDRESS_FROM_ENV_ENABLED)) {
+			// These environments only works in host network.
+			return IPv6Util.getPreferredIpAddress(configuration);
+		}
+
+		return Optional.empty();
+	}
+
 	private KubernetesUtils() {}
 }

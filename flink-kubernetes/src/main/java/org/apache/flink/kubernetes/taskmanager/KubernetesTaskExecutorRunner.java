@@ -95,6 +95,9 @@ public class KubernetesTaskExecutorRunner {
 				configuration.setString(MetricOptions.QUERY_SERVICE_PORT, metricsPort);
 			}
 
+			KubernetesUtils.getPodExposedAddress(configuration)
+					.ifPresent(address -> configuration.setString(TaskManagerOptions.HOST, address));
+
 			// This current dir is used by RocksDBStateBackend
 			configuration.getOptional(KubernetesConfigOptions.CONTAINER_WORK_DIR)
 					.ifPresent(dir -> configuration.setString(ConfigConstants.TASK_MANAGER_CURRENT_WORKING_DIR, dir));

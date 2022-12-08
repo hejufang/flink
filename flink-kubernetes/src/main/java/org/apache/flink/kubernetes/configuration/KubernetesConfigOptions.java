@@ -499,6 +499,13 @@ public class KubernetesConfigOptions {
 			.defaultValue(Boolean.FALSE)
 			.withDescription("whether to enable using host network for clusters in Kubernetes.");
 
+	public static final ConfigOption<Boolean> KUBERNETES_POD_ADDRESS_FROM_ENV_ENABLED =
+			key("kubernetes.pod-address.from-env.enabled")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether to enable the use of the pod address from environment as the exposed address. " +
+							"This configuration takes effect only if " + KUBERNETES_HOST_NETWORK_ENABLED.key() + " is enabled.");
+
 	public static final ConfigOption<DownloadMode> FILE_DOWNLOAD_MODE =
 			key("kubernetes.file-download-mode")
 					.enumType(DownloadMode.class)

@@ -2232,6 +2232,8 @@ public final class ConfigConstants {
 	public static final String ENV_BYTED_IPV6_SUPPORT = "BYTED_HOST_IPV6";
 	public static final String ENV_MY_IPV6_SUPPORT = "MY_HOST_IPV6";
 
+	public static final String ENV_IPV6_ADDRESS = ENV_BYTED_IPV6_SUPPORT;
+	public static final String ENV_IPV4_ADDRESS = "BYTED_HOST_IP";
 
 	public static final String FILE_SCHEME = "file";
 	public static final String LOCAL_SCHEME = "local";

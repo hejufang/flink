@@ -19,18 +19,19 @@
 package org.apache.flink.runtime.util;
 
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Util to parser IPv6 options.
  */
 public class IPv6Util {
-	public static String getIpv6JavaOpt(
-		org.apache.flink.configuration.Configuration flinkConfiguration,
-		String javaOpt) {
+	public static String getIpv6JavaOpt(Configuration flinkConfiguration, String javaOpt) {
 		if (ipv6Enabled(flinkConfiguration)
 			&& !javaOpt.contains("preferIPv4Stack")
 			&& !javaOpt.contains("preferIPv6Addresses")) {
@@ -39,7 +40,7 @@ public class IPv6Util {
 		return null;
 	}
 
-	public static boolean ipv6Enabled(org.apache.flink.configuration.Configuration flinkConfiguration) {
+	public static boolean ipv6Enabled(Configuration flinkConfiguration) {
 		String cluster = flinkConfiguration.getString(
 			ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
 		String ipv6SupportedClusterStr = flinkConfiguration.getString(
@@ -48,5 +49,24 @@ public class IPv6Util {
 
 		return flinkConfiguration.getBoolean(CoreOptions.IPV6_ENABLED)
 			&& ipv6SupportedClusters.contains(cluster);
+	}
+
+	/**
+	 * Get preferred ip address.
+	 * If an IPv6 address is available, the IPv6 address is returned first.
+	 */
+	public static Optional<String> getPreferredIpAddress(Configuration configuration) {
+		if (ipv6Enabled(configuration)) {
+			final String ipv6Address = System.getenv(ConfigConstants.ENV_IPV6_ADDRESS);
+			if (!StringUtils.isNullOrWhitespaceOnly(ipv6Address)) {
+				return Optional.of(ipv6Address);
+			}
+		}
+
+		final String ipv4Address = System.getenv(ConfigConstants.ENV_IPV4_ADDRESS);
+		if (!StringUtils.isNullOrWhitespaceOnly(ipv4Address)) {
+			return Optional.of(ipv4Address);
+		}
+		return Optional.empty();
 	}
 }

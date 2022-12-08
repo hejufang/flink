@@ -61,6 +61,7 @@ kubernetes.ingress.enable
 kubernetes.podgroup.enable
 kubernetes.hostnetwork.enabled
 kubernetes.sidecar.databus.image
+kubernetes.pod-address.from-env.enabled
 containerized.master.env.KUBERNETES_REQUEST_TIMEOUT
 
 # Metrics
