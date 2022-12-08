@@ -77,21 +77,6 @@ set_config_option() {
   fi
 }
 
-prepare_configuration() {
-    set_config_option jobmanager.rpc.address ${JOB_MANAGER_RPC_ADDRESS}
-    set_config_option blob.server.port 6124
-    set_config_option query.server.port 6125
-
-    if [ -n "${TASK_MANAGER_NUMBER_OF_TASK_SLOTS}" ]; then
-        set_config_option taskmanager.numberOfTaskSlots ${TASK_MANAGER_NUMBER_OF_TASK_SLOTS}
-    fi
-
-    if [ -n "${FLINK_PROPERTIES}" ]; then
-        echo "${FLINK_PROPERTIES}" >> "${CONF_FILE}"
-    fi
-    envsubst < "${CONF_FILE}" > "${CONF_FILE}.tmp" && mv "${CONF_FILE}.tmp" "${CONF_FILE}"
-}
-
 maybe_enable_jemalloc() {
     if [ "${DISABLE_JEMALLOC:-false}" == "false" ]; then
         JEMALLOC_PATH="/usr/lib/$(uname -m)-linux-gnu/libjemalloc.so"
@@ -114,8 +99,6 @@ maybe_enable_jemalloc() {
 maybe_enable_jemalloc
 
 copy_plugins_if_required
-
-prepare_configuration
 
 args=("$@")
 if [ "$1" = "help" ]; then
