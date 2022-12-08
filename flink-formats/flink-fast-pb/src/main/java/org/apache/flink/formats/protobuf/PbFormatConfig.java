@@ -19,7 +19,9 @@
 package org.apache.flink.formats.protobuf;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.apache.flink.formats.protobuf.PbFormatOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.protobuf.PbFormatOptions.IS_AD_INSTANCE_FORMAT;
@@ -44,6 +46,7 @@ public class PbFormatConfig implements Serializable {
 	private boolean isAdInstanceFormat;
 	private boolean sinkWithSizeHeader;
 	private boolean sizeHeaderWithLittleEndian;
+	private Set<String> ignoreColumns = new HashSet<>();
 
 	public PbFormatConfig(
 			String pbDescriptorClass,
@@ -54,7 +57,8 @@ public class PbFormatConfig implements Serializable {
 			int skipBytes,
 			boolean isAdInstanceFormat,
 			boolean sinkWithSizeHeader,
-			boolean sizeHeaderWithLittleEndian) {
+			boolean sizeHeaderWithLittleEndian,
+			Set<String> ignoreColumns) {
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.ignoreParseErrors = ignoreParseErrors;
 		this.readDefaultValues = readDefaultValues;
@@ -64,6 +68,7 @@ public class PbFormatConfig implements Serializable {
 		this.isAdInstanceFormat = isAdInstanceFormat;
 		this.sinkWithSizeHeader = sinkWithSizeHeader;
 		this.sizeHeaderWithLittleEndian = sizeHeaderWithLittleEndian;
+		this.ignoreColumns = ignoreColumns;
 	}
 
 	public String getPbDescriptorClass() {
@@ -102,6 +107,10 @@ public class PbFormatConfig implements Serializable {
 		return sizeHeaderWithLittleEndian;
 	}
 
+	public Set<String> getIgnoreColumns() {
+		return ignoreColumns;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -119,7 +128,8 @@ public class PbFormatConfig implements Serializable {
 			&& skipBytes == that.skipBytes
 			&& isAdInstanceFormat == that.isAdInstanceFormat
 			&& sinkWithSizeHeader == that.sinkWithSizeHeader
-			&& sizeHeaderWithLittleEndian == that.sizeHeaderWithLittleEndian;
+			&& sizeHeaderWithLittleEndian == that.sizeHeaderWithLittleEndian
+			&& Objects.equals(ignoreColumns, that.ignoreColumns);
 	}
 
 	@Override
@@ -142,6 +152,7 @@ public class PbFormatConfig implements Serializable {
 		private boolean isAdInstanceFormat = IS_AD_INSTANCE_FORMAT.defaultValue();
 		private boolean sinkWithSizeHeader = SINK_WITH_SIZE_HEADER.defaultValue();
 		private boolean sizeHeaderWithLittleEndian = SIZE_HEADER_WITH_LITTLE_ENDIAN.defaultValue();
+		private Set<String> ignoreColumns = new HashSet<>();
 
 		public PbFormatConfigBuilder pbDescriptorClass(String messageClassName) {
 			this.pbDescriptorClass = messageClassName;
@@ -188,6 +199,11 @@ public class PbFormatConfig implements Serializable {
 			return this;
 		}
 
+		public PbFormatConfigBuilder setIgnoreColumns(Set<String> ignoreColumns) {
+			this.ignoreColumns = ignoreColumns;
+			return this;
+		}
+
 		public PbFormatConfig build() {
 			return new PbFormatConfig(
 				pbDescriptorClass,
@@ -198,7 +214,8 @@ public class PbFormatConfig implements Serializable {
 				skipBytes,
 				isAdInstanceFormat,
 				sinkWithSizeHeader,
-				sizeHeaderWithLittleEndian);
+				sizeHeaderWithLittleEndian,
+				ignoreColumns);
 		}
 	}
 }

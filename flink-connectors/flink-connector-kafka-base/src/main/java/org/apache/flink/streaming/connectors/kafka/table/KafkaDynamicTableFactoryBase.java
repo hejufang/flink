@@ -123,7 +123,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 		KafkaSourceConfig kafkaSourceConfig = getKafkaSourceConfig(
-			context.getCatalogTable().getSchema(),
+			TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema()),
 			tableOptions,
 			(RowType) producedDataType.getLogicalType(),
 			(Configuration) context.getConfiguration());
@@ -154,17 +154,16 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		// Validate the option values.
 		validateTableOptions(tableOptions);
 
-		KafkaSinkConfig sinkConfig = getSinkConfig(tableOptions, context.getCatalogTable().getSchema());
-
 		DataType consumedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		KafkaSinkConfig sinkConfig = getSinkConfig(tableOptions, physicalSchema);
 		SinkMetricsOptions metricsOptions = SinkMetricUtils.getSinkMetricsOptions(tableOptions, physicalSchema);
 		return createKafkaTableSink(
 				consumedDataType,
 				topic,
 				getKafkaProperties(context.getCatalogTable().getOptions(), (Configuration) context.getConfiguration()),
-				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), context.getCatalogTable().getSchema()),
+				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), physicalSchema),
 				encodingFormat,
 				getSinkOtherProperties(context.getCatalogTable().getOptions()),
 				sinkConfig,

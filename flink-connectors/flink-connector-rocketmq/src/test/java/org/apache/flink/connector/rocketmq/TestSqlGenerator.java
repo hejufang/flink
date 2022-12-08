@@ -74,6 +74,7 @@ public class TestSqlGenerator {
 		private final long startTimestamp;
 		private final String tableName;
 		private final int parallelism;
+		private final String genDataFormat;
 
 		public SqlGeneratorConfig(
 				String cluster,
@@ -84,7 +85,8 @@ public class TestSqlGenerator {
 				long discoverMs,
 				long startTimestamp,
 				String tableName,
-				int parallelism) {
+				int parallelism,
+				String genDataFormat) {
 			this.topic = topic;
 			this.cluster = cluster;
 			this.startMode = startMode;
@@ -94,6 +96,7 @@ public class TestSqlGenerator {
 			this.startTimestamp = startTimestamp;
 			this.tableName = tableName;
 			this.parallelism = parallelism;
+			this.genDataFormat = genDataFormat;
 		}
 
 		public String getTopic() {
@@ -130,6 +133,10 @@ public class TestSqlGenerator {
 
 		public int getParallelism() {
 			return parallelism;
+		}
+
+		public String getGenDataFormat() {
+			return genDataFormat;
 		}
 	}
 

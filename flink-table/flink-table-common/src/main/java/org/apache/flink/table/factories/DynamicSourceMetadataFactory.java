@@ -20,6 +20,7 @@ package org.apache.flink.table.factories;
 
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.io.Serializable;
@@ -46,6 +47,7 @@ public abstract class DynamicSourceMetadataFactory implements Serializable {
 	public Map<Integer, DynamicSourceMetadata> parseWithSchema(String metaInfo, TableSchema tableSchema) {
 		Map<Integer, DynamicSourceMetadata> metadataMap = new HashMap<>();
 		String[] metaPairList = metaInfo.split(",");
+		RowType rowType = (RowType) tableSchema.toRowDataType().getLogicalType();
 		for (String metaPair: metaPairList) {
 			String[] kvPair = metaPair.split("=");
 			String metaName = kvPair[0];
@@ -61,7 +63,7 @@ public abstract class DynamicSourceMetadataFactory implements Serializable {
 			if (!metadata.getLogicalClass().isInstance(dataType.getLogicalType())) {
 				throw new FlinkRuntimeException(String.format("Column `%s` must be type `%s`", metaColumnName, metadata.getLogicalClass().getName()));
 			}
-			metadataMap.put(tableSchema.getIndexListFromFieldNames(metaColumnName)[0], metadata);
+			metadataMap.put(rowType.getFieldIndex(metaColumnName), metadata);
 		}
 		return metadataMap;
 	}

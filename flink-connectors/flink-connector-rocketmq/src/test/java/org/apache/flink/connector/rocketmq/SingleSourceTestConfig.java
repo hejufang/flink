@@ -203,6 +203,7 @@ public class SingleSourceTestConfig {
 		// Topic test config
 		private boolean enableCheckpoint = false;
 		private List<List<RocketMQSplitBase>> splitBaseLists = new ArrayList<>();
+		private String genDataFormat = "json";
 
 		public static Builder newBuilder() {
 			return new Builder();
@@ -298,6 +299,11 @@ public class SingleSourceTestConfig {
 			return this;
 		}
 
+		public Builder setGenDataFormat(String genDataFormat) {
+			this.genDataFormat = genDataFormat;
+			return this;
+		}
+
 		public SingleSourceTestConfig build() {
 			Assert.assertTrue(finalEndOffset > 0);
 			Assert.assertTrue(parallelism > 0);
@@ -312,7 +318,7 @@ public class SingleSourceTestConfig {
 			}
 
 			SqlGeneratorConfig sqlGeneratorConfig = new SqlGeneratorConfig(cluster, topic, consumerGroup,
-				startMode, finalEndOffset, discoverMs, startTimestamp, tableName, parallelism);
+				startMode, finalEndOffset, discoverMs, startTimestamp, tableName, parallelism, genDataFormat);
 			MockConsumerConfig consumerConfig = new MockConsumerConfig(assignAddStep, pollLatency, maxPollSize,
 				startOffset, initMaxOffset, sqlGeneratorConfig, enableCheckpoint, countDownLatch);
 			return new SingleSourceTestConfig(splitBaseLists, consumerConfig, expectResultRowNum);

@@ -51,6 +51,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StringUtils;
 
@@ -136,7 +137,7 @@ public class RocketMQDynamicTableFactory implements
 		RocketMQOptions.validateTableOptions(helper.getOptions());
 		RocketMQConfig<RowData> rocketMQConfig =
 			createRocketmqSourceConfig(
-				context.getCatalogTable().getSchema(),
+				TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema()),
 				helper.getOptions(),
 				(RowType) sourceDataType.getLogicalType(),
 				(Configuration) context.getConfiguration());
@@ -154,7 +155,11 @@ public class RocketMQDynamicTableFactory implements
 
 		helper.validateExcept(PROPERTIES_PREFIX);
 		RocketMQOptions.validateTableOptions(helper.getOptions());
-		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(context.getCatalogTable().getSchema(), helper.getOptions(), (Configuration) context.getConfiguration(), true);
+		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(
+			TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema()),
+			helper.getOptions(),
+			(Configuration) context.getConfiguration(),
+			true);
 		return new RocketMQDynamicSink(sinkDataType, context.getCatalogTable().getOptions(), encodingFormat, rocketMQConfig);
 	}
 

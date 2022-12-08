@@ -75,7 +75,8 @@ public class ProtoToRowConverter {
 						formatConfig.getSkipBytes(),
 						formatConfig.isAdInstanceFormat(),
 						formatConfig.isSinkWithSizeHeader(),
-						formatConfig.isSizeHeaderWithLittleEndian());
+						formatConfig.isSizeHeaderWithLittleEndian(),
+						formatConfig.getIgnoreColumns());
 			}
 			PbCodegenAppender codegenAppender = new PbCodegenAppender();
 			String uuid = UUID.randomUUID().toString().replaceAll("\\-", "");

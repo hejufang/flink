@@ -25,6 +25,7 @@ import org.apache.flink.formats.pb.PbFormatUtils;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.BooleanType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -45,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.formats.binlog.BinlogOptions.AFTER_PREFIX;
 import static org.apache.flink.formats.binlog.BinlogOptions.BEFORE_PREFIX;
@@ -97,7 +97,7 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 			String binlogHeaderName,
 			String binlogBodyName,
 			Set<String> ignoreColumns) {
-		this.rowType = createRowType(rowType, ignoreColumns);
+		this.rowType = FactoryUtil.createRowType(rowType, ignoreColumns);
 		this.resultTypeInfo = resultTypeInfo;
 		this.ignoreParseErrors = ignoreParseErrors;
 		if (targetTable != null) {
@@ -270,12 +270,6 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 				}
 			}
 		}
-	}
-
-	private RowType createRowType(RowType rowType, Set<String> ignoreColumnSet) {
-		List<RowType.RowField> fields = rowType.getFields().stream()
-			.filter(field -> !ignoreColumnSet.contains(field.getName())).collect(Collectors.toList());
-		return new RowType(rowType.isNullable(), fields);
 	}
 
 	/**

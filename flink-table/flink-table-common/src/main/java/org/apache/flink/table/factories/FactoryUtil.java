@@ -35,6 +35,7 @@ import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.functions.DeleteNormalizer;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.EncodingUtils;
 import org.apache.flink.util.Preconditions;
 
@@ -583,6 +584,31 @@ public final class FactoryUtil {
 
 		factory.optionalOptions()
 			.forEach(option -> readOption(options, option));
+	}
+
+	public static RowType createRowType(RowType rowType, Set<String> ignoreColumnSet) {
+		if (ignoreColumnSet == null || ignoreColumnSet.isEmpty()) {
+			return rowType;
+		}
+		List<RowType.RowField> fields = rowType.getFields().stream()
+			.filter(field -> !ignoreColumnSet.contains(field.getName())).collect(Collectors.toList());
+		return new RowType(rowType.isNullable(), fields);
+	}
+
+	public static Set<String> parseMetadataColumn(Optional<String> columnsOption) {
+		Set<String> metaSet = new HashSet<>();
+		columnsOption.ifPresent(
+			metadataColumns -> Arrays.stream(metadataColumns.split(",")).forEach(
+				metadata -> {
+					String[] metaAndColumn = metadata.split("=");
+					if (metaAndColumn.length != 2) {
+						return;
+					}
+					metaSet.add(metaAndColumn[1]);
+				}
+			)
+		);
+		return metaSet;
 	}
 
 	// --------------------------------------------------------------------------------------------

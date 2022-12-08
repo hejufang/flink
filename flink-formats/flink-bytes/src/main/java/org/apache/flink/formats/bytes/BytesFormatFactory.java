@@ -33,11 +33,13 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
 import org.apache.flink.table.factories.DynamicTableFactory;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -55,7 +57,8 @@ public class BytesFormatFactory implements
 			DynamicTableFactory.Context context,
 			ReadableConfig formatOptions) {
 
-		validateSchema(context.getCatalogTable().getSchema());
+		validateSchema(context.getCatalogTable().getSchema(),
+			FactoryUtil.parseMetadataColumn(formatOptions.getOptional(FactoryUtil.SOURCE_METADATA_COLUMNS)));
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
@@ -80,7 +83,7 @@ public class BytesFormatFactory implements
 			DynamicTableFactory.Context context,
 			ReadableConfig formatOptions) {
 
-		validateSchema(context.getCatalogTable().getSchema());
+		validateSchema(context.getCatalogTable().getSchema(), new HashSet<>());
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -112,9 +115,10 @@ public class BytesFormatFactory implements
 		return Collections.emptySet();
 	}
 
-	private void validateSchema(TableSchema schema) {
+	private void validateSchema(TableSchema schema, Set<String> ignoreColumns) {
 		// TableSchema#toPhysicalRowDataType will remove generated fields (computed column)
-		List<DataType> dataTypes = schema.toPhysicalRowDataType().getChildren();
+		List<DataType> dataTypes = schema.toPhysicalRowDataTypeWithFilter(
+			c -> !ignoreColumns.contains(c.getName())).getChildren();
 		Preconditions.checkArgument(dataTypes.size() == 1,
 			String.format("BytesFormat only accept one column except computed column, but you provide %d fields.",
 				schema.getFieldCount()));

@@ -83,6 +83,8 @@ public class PbFormatFactory implements
 		formatOptions
 			.getOptional(PbFormatOptions.SIZE_HEADER_WITH_LITTLE_ENDIAN)
 			.ifPresent(configBuilder::sizeHeaderWithLittleEndian);
+		configBuilder.setIgnoreColumns(FactoryUtil.parseMetadataColumn(
+			formatOptions.getOptional(FactoryUtil.SOURCE_METADATA_COLUMNS)));
 		return configBuilder.build();
 	}
 

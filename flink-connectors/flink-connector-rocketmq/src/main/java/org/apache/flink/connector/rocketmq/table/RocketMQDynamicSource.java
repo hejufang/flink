@@ -160,7 +160,6 @@ public class RocketMQDynamicSource implements ScanTableSource {
 				long endTimestamp,
 				long endOffset) {
 			super(deserializationSchema, endTimestamp, endOffset);
-			assert deserializationSchema.getProducedType().getArity() + metadataMap.size() == outFieldNum;
 			this.metadataMap = metadataMap;
 			this.outFieldNum = outFieldNum;
 		}

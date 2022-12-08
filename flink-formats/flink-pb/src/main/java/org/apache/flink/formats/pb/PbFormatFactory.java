@@ -96,7 +96,9 @@ public class PbFormatFactory implements
 				isAdInstanceFormat,
 				ignoreParseErrors,
 				enableRuntimePbCut,
-				discardUnknownFields);
+				discardUnknownFields,
+				FactoryUtil.parseMetadataColumn(formatOptions.getOptional(
+					FactoryUtil.SOURCE_METADATA_COLUMNS)));
 	}
 
 	@Override
@@ -194,6 +196,7 @@ public class PbFormatFactory implements
 		private final boolean ignoreParseErrors;
 		private final boolean enableRuntimePbCut;
 		private final boolean discardKnownFields;
+		private final Set<String> ignoreColumns;
 
 		public PbDecodingFormat(
 				String pbClass,
@@ -203,7 +206,8 @@ public class PbFormatFactory implements
 				boolean isAdInstanceFormat,
 				boolean ignoreParseErrors,
 				boolean enableRuntimePbCut,
-				boolean discardUnknownFields) {
+				boolean discardUnknownFields,
+				Set<String> ignoreColumns) {
 			this.pbClass = pbClass;
 			this.protoFile = protoFile;
 			this.skipBytes = skipBytes;
@@ -212,6 +216,7 @@ public class PbFormatFactory implements
 			this.ignoreParseErrors = ignoreParseErrors;
 			this.enableRuntimePbCut = enableRuntimePbCut;
 			this.discardKnownFields = discardUnknownFields;
+			this.ignoreColumns = ignoreColumns;
 		}
 
 		@Override
@@ -235,6 +240,7 @@ public class PbFormatFactory implements
 				.setIgnoreParseErrors(ignoreParseErrors)
 				.setRuntimeCutPb(enableRuntimePbCut)
 				.setDiscardKnownFields(discardKnownFields)
+				.setIgnoreColumns(ignoreColumns)
 				.build();
 		}
 

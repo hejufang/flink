@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.operations;
 
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
+import org.apache.flink.sql.parser.ddl.SqlTableColumn;
 import org.apache.flink.sql.parser.ddl.SqlTableLike;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
 import org.apache.flink.sql.parser.ddl.constraint.SqlTableConstraint;
@@ -42,6 +43,8 @@ import org.apache.flink.table.planner.calcite.FlinkCalciteSqlValidator;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -60,6 +64,7 @@ import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
  * Helper class for converting {@link SqlCreateTable} to {@link CreateTableOperation}.
  */
 class SqlCreateTableConverter {
+	private static final Logger LOG = LoggerFactory.getLogger(SqlCreateTableConverter.class);
 
 	private final MergeTableLikeUtil mergeTableLikeUtil;
 	private final CatalogManager catalogManager;
@@ -139,6 +144,13 @@ class SqlCreateTableConverter {
 				// We should keep all physical columns in source tables
 				// when format is 'binlog' or 'pb_binlog_drc'.
 				removeNonInferredPhysicalColumns = false;
+			} else if ("pb".equals(format) || "fast-pb".equals(format)) {
+				if (!sqlCreateTable.getColumnList().getList().isEmpty() &&
+						hasMetaColumns(sqlCreateTable.getColumnList().getList(), mergedOptions)) {
+					LOG.info("Table {} contains metadata columns, merge metadata columns",
+						sqlCreateTable.getTableName());
+					removeNonInferredPhysicalColumns = false;
+				}
 			}
 		}
 
@@ -168,6 +180,18 @@ class SqlCreateTableConverter {
 			partitionKeys,
 			mergedOptions,
 			tableComment);
+	}
+
+	private boolean hasMetaColumns(List<SqlNode> nodes, Map<String, String> mergedOptions) {
+		String metaColumns = mergedOptions.get(FactoryUtil.SOURCE_METADATA_COLUMNS.key());
+		if (metaColumns == null) {
+			return false;
+		}
+
+		Set<String> metaColumnSet = FactoryUtil.parseMetadataColumn(Optional.of(metaColumns));
+		return nodes.stream()
+				.filter(node -> node instanceof SqlTableColumn)
+				.anyMatch(node -> metaColumnSet.contains(((SqlTableColumn) node).getName().toString()));
 	}
 
 	private Optional<TableSchema> inferTableSchema(Map<String, String> options) {

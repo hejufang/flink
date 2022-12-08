@@ -27,6 +27,7 @@ import org.apache.flink.formats.pb.proto.ProtoCutUtil;
 import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -36,6 +37,8 @@ import com.google.protobuf.DynamicMessage;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -81,7 +84,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			boolean isAdInstanceFormat,
 			boolean ignoreParseErrors,
 			boolean runtimeCutPb,
-			boolean discardUnknownField) {
+			boolean discardUnknownField,
+			Set<String> ignoreColumns) {
 
 		this.resultTypeInfo = resultTypeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
@@ -92,9 +96,9 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		this.ignoreParseErrors = ignoreParseErrors;
 		if (this.withWrapper) {
 			int index = rowType.getFieldIndex(PbConstant.FORMAT_PB_WRAPPER_NAME);
-			pbTypeInfo = (RowType) rowType.getTypeAt(index);
+			pbTypeInfo = FactoryUtil.createRowType((RowType) rowType.getTypeAt(index), ignoreColumns);
 		} else {
-			pbTypeInfo = rowType;
+			pbTypeInfo = FactoryUtil.createRowType(rowType, ignoreColumns);
 		}
 		this.runtimeCutPb = runtimeCutPb;
 		this.discardUnknownField = discardUnknownField;
@@ -203,6 +207,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		private boolean ignoreParseErrors = false;
 		private boolean runtimeCutPb = false;
 		private boolean discardKnownFields = true;
+		private Set<String> ignoreColumns = new HashSet<>();
 
 		private Builder() {
 		}
@@ -261,6 +266,11 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			return this;
 		}
 
+		public Builder setIgnoreColumns(Set<String> ignoreColumns) {
+			this.ignoreColumns = ignoreColumns;
+			return this;
+		}
+
 		public PbRowDataDeserializationSchema build() {
 			checkState(pbDescriptorClass != null || protoFile != null,
 				"'pbDescriptorClass' and 'protoFile' can not be null at the same time.");
@@ -277,7 +287,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				this.isAdInstanceFormat,
 				this.ignoreParseErrors,
 				this.runtimeCutPb,
-				this.discardKnownFields);
+				this.discardKnownFields,
+				this.ignoreColumns);
 		}
 	}
 }

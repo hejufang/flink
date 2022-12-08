@@ -27,6 +27,7 @@ import org.apache.flink.formats.protobuf.PbFormatUtils;
 import org.apache.flink.formats.protobuf.PbSchemaValidator;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -63,19 +64,19 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		this.resultTypeInfo = resultTypeInfo;
 		this.pbFormatConfig = pbFormatConfig;
 		// do it in client side to report error in the first place
-		new PbSchemaValidator(
-			PbFormatUtils.getDescriptor(pbFormatConfig.getPbDescriptorClass()), rowType)
-			.validate();
 		if (pbFormatConfig.isWithWrapper()) {
 			int index = rowType.getFieldIndex(PbConstant.FORMAT_PB_WRAPPER_NAME);
-			this.rowType = (RowType) rowType.getTypeAt(index);
+			this.rowType = FactoryUtil.createRowType((RowType) rowType.getTypeAt(index), pbFormatConfig.getIgnoreColumns());
 		} else {
-			this.rowType = rowType;
+			this.rowType = FactoryUtil.createRowType(rowType, pbFormatConfig.getIgnoreColumns());
 		}
+		new PbSchemaValidator(
+			PbFormatUtils.getDescriptor(pbFormatConfig.getPbDescriptorClass()), this.rowType)
+			.validate();
 		// this step is only used to validate codegen in client side in the first place
 		try {
 			// validate converter in client side to early detect errors
-			protoToRowConverter = new ProtoToRowConverter(rowType, pbFormatConfig);
+			protoToRowConverter = new ProtoToRowConverter(this.rowType, pbFormatConfig);
 		} catch (PbCodegenException e) {
 			throw new FlinkRuntimeException(e);
 		}

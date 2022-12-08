@@ -18,6 +18,7 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.formats.pb.TestPb;
 
 import com.bytedance.mqproxy.proto.Message;
 import com.bytedance.mqproxy.proto.MessageExt;
@@ -408,15 +409,22 @@ public class MockConsumer {
 						consumerConfig.getSqlGeneratorConfig().getConsumerGroup(),
 						queuePb.getTopic(),
 						queuePb.getBrokerName(), queuePb.getQueueId(), i, UUID.randomUUID());
-					generatorMap.put(UID, uid);
-					generatorList.add(new Tuple2<>(Arrays.asList(uid,
-						generatorMap.get(VARCHAR_FIELD), generatorMap.get(INT_FIELD), generatorMap.get(BIGINT_FIELD)), i));
+
+					ByteString msg;
+					if (consumerConfig.sqlGeneratorConfig.getGenDataFormat().contains("pb")) {
+						msg = TestPb.InnerMessage.newBuilder().setBoolTest(true)
+							.setLongTest((Long) generatorMap.get(BIGINT_FIELD)).build().toByteString();
+					} else {
+						generatorMap.put(UID, uid);
+						generatorList.add(new Tuple2<>(Arrays.asList(uid, generatorMap.get(VARCHAR_FIELD),
+							generatorMap.get(INT_FIELD), generatorMap.get(BIGINT_FIELD)), i));
+						msg = ByteString.copyFromUtf8(JSON.toJSONString(generatorMap));
+					}
+
 					messageExtList.add(MessageExt.newBuilder()
 						.setMessageQueue(queuePb)
 						.setQueueOffset(i)
-						.setMsg(
-							Message.newBuilder().setBody(ByteString.copyFromUtf8(
-								JSON.toJSONString(generatorMap))))
+						.setMsg(Message.newBuilder().setBody(msg))
 						.setBodyCRC(0)
 						.setBornHostBytes(ByteString.copyFromUtf8(""))
 						.setBornTimestamp(1).build());

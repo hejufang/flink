@@ -358,7 +358,7 @@ public class RocketMQFlip27ITTest {
 		return objectList;
 	}
 
-	protected StreamTableEnvironment createStreamTableEnvironment(
+	public static StreamTableEnvironment createStreamTableEnvironment(
 			int parallelism,
 			String savePointDir,
 			String checkpointDir) throws Exception {
