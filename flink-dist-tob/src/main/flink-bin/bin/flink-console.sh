@@ -101,14 +101,16 @@ fi
 id=$([ -f "$pid" ] && echo $(wc -l < "$pid") || echo "0")
 
 FLINK_LOG_PREFIX="${FLINK_LOG_DIR}/flink-${FLINK_IDENT_STRING}-${SERVICE}-${id}-${HOSTNAME}"
-log="${FLINK_LOG_PREFIX}.log"
+
 if [ "$_FLINK_COMPONENT" = "jobmanager" ]; then
     FLINK_LOG_PREFIX="${FLINK_LOG_DIR}/jobmanager"
-    log="${FLINK_LOG_PREFIX}.log"
 elif [ "$_FLINK_COMPONENT" = "taskmanager" ]; then
     FLINK_LOG_PREFIX="${FLINK_LOG_DIR}/taskmanager"
-    log="${FLINK_LOG_PREFIX}.log"
 fi
+
+log="${FLINK_LOG_PREFIX}.log"
+log_out="${FLINK_LOG_PREFIX}.out"
+log_err="${FLINK_LOG_PREFIX}.err"
 
 
 log_setting=("-Dlog.file=${log}" "-Dlog4j.configuration=file:${FLINK_CONF_DIR}/log4j-console.properties" "-Dlog4j.configurationFile=file:${FLINK_CONF_DIR}/log4j-console.properties" "-Dlogback.configurationFile=file:${FLINK_CONF_DIR}/logback-console.xml")
@@ -124,4 +126,4 @@ echo $$ >> "$pid" 2>/dev/null
 # Evaluate user options for local variable expansion
 FLINK_ENV_JAVA_OPTS=$(eval echo ${FLINK_ENV_JAVA_OPTS})
 
-exec "$JAVA_RUN" $JVM_ARGS ${FLINK_ENV_JAVA_OPTS} "${log_setting[@]}" -classpath "`manglePathList "$FLINK_TM_CLASSPATH:$SQL_GATEWAY_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" ${CLASS_TO_RUN} "${ARGS[@]}"
+exec "$JAVA_RUN" $JVM_ARGS ${FLINK_ENV_JAVA_OPTS} "${log_setting[@]}" -classpath "`manglePathList "$FLINK_TM_CLASSPATH:$SQL_GATEWAY_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" ${CLASS_TO_RUN} "${ARGS[@]}" 1> ${log_out} 2> ${log_err}
