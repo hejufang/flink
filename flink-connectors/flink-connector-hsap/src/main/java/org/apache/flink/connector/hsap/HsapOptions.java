@@ -25,6 +25,8 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -70,6 +72,12 @@ public class HsapOptions implements Serializable {
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Optional. It defines hsap server data-center.");
+
+	public static final ConfigOption<Duration> RPC_TIMEOUT = ConfigOptions
+		.key("rpc-timeout")
+		.durationType()
+		.defaultValue(Duration.of(15, ChronoUnit.SECONDS))
+		.withDescription("Optional. timeout for hsap client to hsap server");
 
 	public static final ConfigOption<Boolean> STREAMING_INGESTION = ConfigOptions
 		.key("streaming-ingestion")
@@ -128,6 +136,8 @@ public class HsapOptions implements Serializable {
 
 	private boolean autoFlush;
 
+	private final Duration rpcTimeout;
+
 	private Set<String> hllColumns;
 
 	private Set<String> rawHllColumns;
@@ -145,6 +155,7 @@ public class HsapOptions implements Serializable {
 			String dataCenter,
 			boolean streamingIngestion,
 			boolean autoFlush,
+			Duration rpcTimeout,
 			Set<String> hllColumns,
 			Set<String> rawHllColumns) {
 		this.addr = addr;
@@ -159,6 +170,7 @@ public class HsapOptions implements Serializable {
 		this.dataCenter = dataCenter;
 		this.streamingIngestion = streamingIngestion;
 		this.autoFlush = autoFlush;
+		this.rpcTimeout = rpcTimeout;
 		this.hllColumns = hllColumns;
 		this.rawHllColumns = rawHllColumns;
 	}
@@ -211,6 +223,10 @@ public class HsapOptions implements Serializable {
 		return autoFlush;
 	}
 
+	public Duration getRpcTimeout() {
+		return rpcTimeout;
+	}
+
 	public boolean isHllColumn(String name) {
 		return hllColumns.contains(name.toLowerCase());
 	}
@@ -229,7 +245,7 @@ public class HsapOptions implements Serializable {
 	public static class Builder {
 		private String addr;
 
-		private MemorySize bufferSize = MemorySize.ofMebiBytes(4);
+		private MemorySize bufferSize = MemorySize.ofMebiBytes(1);
 
 		private int maxRetryTimes = SINK_MAX_RETRIES.defaultValue();
 
@@ -242,6 +258,8 @@ public class HsapOptions implements Serializable {
 		private FlinkConnectorRateLimiter rateLimiter;
 
 		private long flushIntervalMs = 0L;
+
+		private Duration rpcTimeout = RPC_TIMEOUT.defaultValue();
 
 		private String hsapPsm;
 
@@ -315,6 +333,11 @@ public class HsapOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setRpcTimeout(Duration duration) {
+			this.rpcTimeout = duration;
+			return this;
+		}
+
 		public Builder setHllColumns(String hllColumns) {
 			String[] cols = hllColumns.split(",");
 			Set<String> columnList = new HashSet<>();
@@ -351,7 +374,8 @@ public class HsapOptions implements Serializable {
 					"and if you set %s you have to set %s", PSM.key(), DATA_CENTER.key()));
 
 			return new HsapOptions(addr, bufferSize, maxRetryTimes, database, table, parallelism,
-				rateLimiter, flushIntervalMs, hsapPsm, dataCenter, streamingIngestion, autoFlush, hllColumns,
+				rateLimiter, flushIntervalMs, hsapPsm, dataCenter, streamingIngestion, autoFlush,
+				rpcTimeout, hllColumns,
 				rawHllColumns);
 		}
 	}

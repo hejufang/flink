@@ -42,8 +42,8 @@ import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.types.RowKind;
 
-import com.bytedance.hsap.client2.Put;
-import com.bytedance.hsap.client2.StreamingTable;
+import com.bytedance.hsap.client.Put;
+import com.bytedance.hsap.client.StreamingTable;
 import com.bytedance.hsap.services.thrift.CellType;
 import com.bytedance.hsap.services.thrift.Row;
 import com.bytedance.hsap.type.HSAPValue;

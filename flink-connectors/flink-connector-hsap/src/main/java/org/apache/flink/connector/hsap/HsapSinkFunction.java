@@ -46,11 +46,11 @@ import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import com.bytedance.hsap.client.Connection;
 import com.bytedance.hsap.client.HsapParams;
-import com.bytedance.hsap.client2.Connection;
-import com.bytedance.hsap.client2.Put;
-import com.bytedance.hsap.client2.StreamingTable;
-import com.bytedance.hsap.client2.Table;
+import com.bytedance.hsap.client.Put;
+import com.bytedance.hsap.client.StreamingTable;
+import com.bytedance.hsap.client.Table;
 import com.bytedance.hsap.type.HSAPValue;
 
 import java.time.LocalDate;
@@ -110,6 +110,8 @@ public class HsapSinkFunction
 		hsapParams.setFlushTimeInterval(hsapOptions.getFlushIntervalMs(), TimeUnit.MILLISECONDS);
 		hsapParams.setIgsPsm(hsapOptions.getHsapPsm());
 		hsapParams.setDataCenter(hsapOptions.getDataCenter());
+		hsapParams.setAutoFlush(hsapOptions.isAutoFlush());
+		hsapParams.setClientRpcTimeout((int) hsapOptions.getRpcTimeout().toMillis());
 
 		connection = new Connection(hsapParams);
 
@@ -120,8 +122,6 @@ public class HsapSinkFunction
 		} else {
 			table = connection.getBatchTable(hsapOptions.getDatabase(), hsapOptions.getTable());
 		}
-
-		hsapParams.setAutoFlush(hsapOptions.isAutoFlush());
 
 		table.open();
 

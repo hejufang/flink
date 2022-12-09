@@ -37,6 +37,7 @@ import static org.apache.flink.connector.hsap.HsapOptions.DB_NAME;
 import static org.apache.flink.connector.hsap.HsapOptions.HLL_COLUMNS;
 import static org.apache.flink.connector.hsap.HsapOptions.PSM;
 import static org.apache.flink.connector.hsap.HsapOptions.RAW_HLL_COLUMNS;
+import static org.apache.flink.connector.hsap.HsapOptions.RPC_TIMEOUT;
 import static org.apache.flink.connector.hsap.HsapOptions.STREAMING_INGESTION;
 import static org.apache.flink.connector.hsap.HsapOptions.TABLE_NAME;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
@@ -88,6 +89,7 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 		set.add(SINK_BUFFER_FLUSH_SIZE);
 		set.add(SINK_MAX_RETRIES);
 		set.add(STREAMING_INGESTION);
+		set.add(RPC_TIMEOUT);
 		set.add(AUTO_FLUSH);
 		set.add(HLL_COLUMNS);
 		set.add(RAW_HLL_COLUMNS);
@@ -120,6 +122,12 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 		readableConfig.getOptional(AUTO_FLUSH).ifPresent(
 			autoFlush -> {
 				hsapOptions.setAutoFlush(autoFlush);
+			}
+		);
+
+		readableConfig.getOptional(RPC_TIMEOUT).ifPresent(
+			rpcTimeout -> {
+				hsapOptions.setRpcTimeout(rpcTimeout);
 			}
 		);
 
