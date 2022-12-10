@@ -56,6 +56,7 @@ public abstract class StatisticBasedFailureHandler extends AbstractFailureHandle
 	protected final LinkedList<HostFailure> hostFailuresQueue = new LinkedList<>();
 
 	protected final Clock clock;
+	protected final int blacklistMaxLength;
 	protected int currentTotalNumHosts;
 
 	protected BlacklistActions blacklistActions;
@@ -63,6 +64,7 @@ public abstract class StatisticBasedFailureHandler extends AbstractFailureHandle
 	public StatisticBasedFailureHandler(
 			Time failureEffectiveTime,
 			Time failureExpireTime,
+			int blacklistMaxLength,
 			float meanSdRatioAllBlockedThreshold,
 			float meanSdRatioSomeBlockedThreshold,
 			int expectedMinHost,
@@ -71,6 +73,7 @@ public abstract class StatisticBasedFailureHandler extends AbstractFailureHandle
 			Clock clock) {
 		this.failureEffectiveTime = failureEffectiveTime;
 		this.failureExpireTime = failureExpireTime;
+		this.blacklistMaxLength = blacklistMaxLength;
 		this.meanSdRatioAllBlockedThreshold = meanSdRatioAllBlockedThreshold;
 		this.meanSdRatioSomeBlockedThreshold = meanSdRatioSomeBlockedThreshold;
 		this.expectedMinHost = expectedMinHost;
@@ -143,7 +146,12 @@ public abstract class StatisticBasedFailureHandler extends AbstractFailureHandle
 			LOG.debug(generateIssueHostSnapshot(mean, sd));
 			// remove the host failure statistics information that have been in blocked hosts
 			removeFailuresFromBlackedHosts();
+			removeEarliestBlacklist(this.blackedHosts);
 		}
+	}
+
+	protected int getBlacklistMaxLength(){
+		return blacklistMaxLength;
 	}
 
 	@Override

@@ -241,6 +241,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				failureEffectiveTime,
 				networkFailureExpireTime,
 				timestampRecordExpireTime,
+				taskBlacklistMaxLength,
 				meanSdRatioAllBlockedThreshold,
 				meanSdRatioThresholdSomeBlocked,
 				expectedMinHost,

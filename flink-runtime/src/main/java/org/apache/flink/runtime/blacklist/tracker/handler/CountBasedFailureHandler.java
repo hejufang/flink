@@ -29,11 +29,8 @@ import org.apache.flink.util.clock.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -78,19 +75,7 @@ public class CountBasedFailureHandler extends AbstractCountBasedFailureHandler {
 
 		tmpBlackedHosts.entrySet().removeIf(e -> e.getValue().size() < getMaxFailureNumPerHost());
 
-		// blacklist too long, remove the earliest part.
-		if (tmpBlackedHosts.size() > getBlacklistMaxLength()) {
-			List<String> keyList = new ArrayList<>(tmpBlackedHosts.keySet());
-			keyList.sort(Comparator.comparingLong(o -> tmpBlackedHosts.get(o).getLast().getTimestamp()));
-			for (String host : keyList) {
-				if (tmpBlackedHosts.size() > getBlacklistMaxLength()) {
-					LOG.debug("Remove normal blacked host {} because exceed blacklist max length", host);
-					tmpBlackedHosts.remove(host);
-				} else {
-					break;
-				}
-			}
-		}
+		removeEarliestBlacklist(tmpBlackedHosts);
 
 		LOG.debug("newly blacked hosts are {}.", tmpBlackedHosts);
 		this.blackedHosts.clear();

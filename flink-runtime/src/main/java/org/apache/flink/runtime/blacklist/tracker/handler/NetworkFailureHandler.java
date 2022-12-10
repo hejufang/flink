@@ -53,6 +53,7 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 			Time failureEffectiveTime,
 			Time networkFailureExpireTime,
 			Time timestampRecordExpireTime,
+			int blacklistMaxLength,
 			float meanSdRatioAllBlockedThreshold,
 			float meanSdRatioSomeBlockedThreshold,
 			int expectedMinHost,
@@ -62,6 +63,7 @@ public class NetworkFailureHandler extends StatisticBasedFailureHandler {
 		super(
 				failureEffectiveTime,
 				networkFailureExpireTime,
+				blacklistMaxLength,
 				meanSdRatioAllBlockedThreshold,
 				meanSdRatioSomeBlockedThreshold,
 				expectedMinHost,

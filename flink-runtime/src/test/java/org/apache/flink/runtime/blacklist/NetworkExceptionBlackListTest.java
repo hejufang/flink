@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -58,7 +59,7 @@ public class NetworkExceptionBlackListTest {
 		blacklistTracker = new BlacklistTrackerImpl(
 				2,
 				2,
-				3,
+				4,
 				3,
 				Time.seconds(60),
 				Time.seconds(1),
@@ -161,6 +162,32 @@ public class NetworkExceptionBlackListTest {
 		// trigger calculating blacklist.
 		executor.triggerNonPeriodicScheduledTask();
 		Assert.assertEquals(4, getAllBlacklist(blacklistTracker.getBlackedRecords()).size());
+	}
+
+	@Test
+	public void testBlacklistExceedMaxLength(){
+		networkExceptionSimulator.start();
+		networkExceptionSimulator.triggerNetworkExceptionInHost("host1");
+		clock.advanceTime(30, TimeUnit.SECONDS);
+		executor.triggerNonPeriodicScheduledTask();
+		Set<String> blacklist = getAllBlacklist(blacklistTracker.getBlackedRecords());
+		Assert.assertEquals(1, blacklist.size());
+
+		networkExceptionSimulator.triggerNetworkExceptionInHost("host2", "host3", "host4");
+		networkExceptionSimulator.triggerNetworkExceptionInHost("host2", "host3", "host4");
+		clock.advanceTime(30, TimeUnit.SECONDS);
+		executor.triggerNonPeriodicScheduledTask();
+		blacklist = getAllBlacklist(blacklistTracker.getBlackedRecords());
+		Assert.assertEquals(4, blacklist.size());
+		Assert.assertTrue(blacklist.containsAll(Arrays.asList("host1", "host2", "host3", "host4")));
+
+		networkExceptionSimulator.triggerNetworkExceptionInHost("host5");
+		clock.advanceTime(30, TimeUnit.SECONDS);
+		executor.triggerNonPeriodicScheduledTask();
+		blacklist = getAllBlacklist(blacklistTracker.getBlackedRecords());
+		// the max blacklist size is 4, should release the first blacked host: host1
+		Assert.assertEquals(4, blacklist.size());
+		Assert.assertTrue(blacklist.containsAll(Arrays.asList("host5", "host2", "host3", "host4")));
 	}
 
 	@Test

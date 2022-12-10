@@ -24,9 +24,12 @@ import org.apache.flink.runtime.blacklist.tracker.BlackedExceptionAccuracy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -95,8 +98,26 @@ public abstract class AbstractFailureHandler implements FailureHandler{
 		return new BlackedExceptionAccuracy(numOfHostsForBlackedException, unknownExceptions, confidenceMapAfterBlackedHosts);
 	}
 
+	protected void removeEarliestBlacklist(Map<String, LinkedList<HostFailure>> blackedHosts) {
+		// blacklist too long, remove the earliest part.
+		if (blackedHosts.size() > getBlacklistMaxLength()) {
+			List<String> keyList = new ArrayList<>(blackedHosts.keySet());
+			keyList.sort(Comparator.comparingLong(o -> blackedHosts.get(o).getLast().getTimestamp()));
+			for (String host : keyList) {
+				if (blackedHosts.size() > getBlacklistMaxLength()) {
+					LOG.info("Remove normal blacked host {} because exceed blacklist max length", host);
+					blackedHosts.remove(host);
+				} else {
+					break;
+				}
+			}
+		}
+	}
+
 	protected abstract LinkedList<HostFailure> getHostFailureQueue();
 
 	protected abstract long getCurrentTimestamp();
+
+	protected abstract int getBlacklistMaxLength();
 
 }
