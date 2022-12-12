@@ -71,6 +71,12 @@ kubernetes.namespace: gts
 kubernetes.flink.log.dir: /opt/tiger/workdir/log
 kubernetes.file-download-volume.size: 20G
 
+# Arcee configuration
+kubernetes.arcee.scheduling-config.schedule-timeout-seconds: 120
+kubernetes.arcee.restart-policy.max-retries: 5
+kubernetes.arcee.restart-policy.interval-second: 5
+kubernetes.arcee.restart-policy.type: OnFailure
+
 #==============================================================================
 # High Availability
 #==============================================================================
