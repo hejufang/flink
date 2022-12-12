@@ -31,9 +31,8 @@ import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
 import org.apache.flink.table.planner.runtime.utils._
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
-import org.apache.flink.table.types.logical.{BigIntType, IntType, VarCharType}
+import org.apache.flink.table.types.logical.{BigIntType, IntType, RowType, SmallIntType, TinyIntType, VarCharType}
 import org.apache.flink.types.Row
-
 import org.junit.Assert._
 import org.junit._
 
@@ -74,6 +73,41 @@ class CalcITCase extends StreamingTestBase {
     env.execute()
 
     val expected = List("+I(1,1,1)")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+  }
+
+  @Test
+  def testRowConstructorWithSmallTinyInt(): Unit = {
+    val sqlQuery = "SELECT row(`a`, `b`, `c`), 4 FROM MyTableRow"
+
+    val rowData: GenericRowData = new GenericRowData(3)
+    rowData.setField(0, 1: Byte)
+    rowData.setField(1, 2: Short)
+    rowData.setField(2, 3L)
+
+    val data = List(rowData)
+
+    implicit val tpe: TypeInformation[GenericRowData] =
+      new RowDataTypeInfo(
+        new TinyIntType(),
+        new SmallIntType(),
+        new BigIntType()).asInstanceOf[TypeInformation[GenericRowData]]
+
+    val ds = env.fromCollection(data)
+
+    val t = ds.toTable(tEnv, 'a, 'b, 'c)
+    tEnv.registerTable("MyTableRow", t)
+
+    val outputType = new RowDataTypeInfo(
+      RowType.of(new TinyIntType(), new SmallIntType(), new BigIntType()),
+      new IntType())
+
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[RowData]
+    val sink = new TestingAppendRowDataSink(outputType)
+    result.addSink(sink)
+    env.execute()
+
+    val expected = List("+I(+I(1,2,3),4)")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
   }
 
