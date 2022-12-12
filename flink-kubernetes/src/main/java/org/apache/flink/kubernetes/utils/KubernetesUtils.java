@@ -666,7 +666,7 @@ public class KubernetesUtils {
 				baseJavaOpts += " -Dlog4j2.AsyncQueueFullPolicy=Discard";
 			}
 			if (!baseJavaOpts.contains("-DLog4jContextSelector=")) {
-				baseJavaOpts += " -DLog4jContextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector";
+				baseJavaOpts += " -DLog4jContextSelector=org.apache.logging.log4j.core.async.BasicAsyncLoggerContextSelector";
 			}
 		}
 

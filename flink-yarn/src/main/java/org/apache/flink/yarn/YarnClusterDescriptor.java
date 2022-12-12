@@ -1746,7 +1746,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				javaOpts += " -Dlog4j2.AsyncQueueFullPolicy=Discard";
 			}
 			if (!javaOpts.contains("-DLog4jContextSelector=")) {
-				javaOpts += " -DLog4jContextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector";
+				javaOpts += " -DLog4jContextSelector=org.apache.logging.log4j.core.async.BasicAsyncLoggerContextSelector";
 			}
 		}
 
