@@ -483,7 +483,6 @@ oryx:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: oryx
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 default:
@@ -518,7 +517,6 @@ lupin:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.enabled: true
   ipv6.supported.cluster: lupin
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 lobst:
@@ -528,7 +526,6 @@ lobst:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lobst
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 lizad:
@@ -538,7 +535,6 @@ lizad:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lizad
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 lemur:
@@ -548,7 +544,6 @@ lemur:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lemur
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 loris:
@@ -558,7 +553,6 @@ loris:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: loris
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 llama:
@@ -568,7 +562,6 @@ llama:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: llama
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 lionn:
@@ -578,7 +571,6 @@ lionn:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lionn
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 lynxs:
@@ -588,7 +580,6 @@ lynxs:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lynxs
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 lambs:
@@ -598,7 +589,6 @@ lambs:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lambs
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 brain-lf:
@@ -608,7 +598,6 @@ brain-lf:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: brain-lf
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 panda-lf:
@@ -618,7 +607,6 @@ panda-lf:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: panda-lf
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 ies-lf:
@@ -628,7 +616,6 @@ ies-lf:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.enabled: true
   ipv6.supported.cluster: ies-lf
-  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 brain-hl:
@@ -638,7 +625,6 @@ brain-hl:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: brain-hl
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 panda-hl:
@@ -648,7 +634,6 @@ panda-hl:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: panda-hl
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 ies-hl:
@@ -658,7 +643,6 @@ ies-hl:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.enabled: true
   ipv6.supported.cluster: ies-hl
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 wj:
@@ -679,7 +663,6 @@ hl:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: hl
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hyrax:
@@ -715,7 +698,6 @@ hibis:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: hibis
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 topi:
@@ -725,7 +707,6 @@ topi:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: topi
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hippo:
@@ -735,7 +716,6 @@ hippo:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: hippo
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 heron:
@@ -745,7 +725,6 @@ heron:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: heron
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 herry:
@@ -767,7 +746,6 @@ hamer:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: hamer
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hyena:
@@ -777,7 +755,6 @@ hyena:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: hyena
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hound:
@@ -787,7 +764,6 @@ hound:
   hdfs.prefix: hdfs://haruna/flink_hl
   ipv6.supported.cluster: hound
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hinny:
@@ -798,7 +774,6 @@ hinny:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hinny
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hamst:
@@ -809,7 +784,6 @@ hamst:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hamst
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hermt:
@@ -820,7 +794,6 @@ hermt:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hermt
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 husky:
@@ -831,7 +804,6 @@ husky:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: husky
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 honet:
@@ -842,7 +814,6 @@ honet:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: honet
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hawks:
@@ -864,7 +835,6 @@ harpy:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: harpy
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hares:
@@ -875,7 +845,6 @@ hares:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hares
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hakes:
@@ -886,7 +855,6 @@ hakes:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hakes
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 hover:
@@ -898,9 +866,7 @@ hover:
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: hover
-  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
-
 
 queen:
   dc: cn
@@ -911,7 +877,6 @@ queen:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: queen
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 quire:
@@ -923,7 +888,6 @@ quire:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quire
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 quark:
@@ -935,7 +899,6 @@ quark:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quark
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 quinc:
@@ -973,7 +936,6 @@ quetz:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quetz
   ipv6.enabled: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 quail:
@@ -985,7 +947,6 @@ quail:
   ipv6.supported.cluster: quail
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 quoll:
@@ -997,7 +958,6 @@ quoll:
   ipv6.supported.cluster: quoll
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 quoka:
@@ -1053,7 +1013,6 @@ panda-lq:
   ipv6.supported.cluster: panda-lq
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 ies-lq:
@@ -1063,7 +1022,6 @@ ies-lq:
   hdfs.prefix: hdfs://haruna/flink_lq
   ipv6.enabled: true
   ipv6.supported.cluster: ies-lq
-  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 yakow:
@@ -1089,7 +1047,6 @@ koala-yg:
   ipv6.enabled: true
   ipv6.supported.cluster: koala-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
-  engine-external-service.base-url: https://doctor-engine-service-yg-prod.byted.org
   table.exec.enable-top1: true
 
 panda-yg:
@@ -1102,7 +1059,6 @@ panda-yg:
   ipv6.enabled: true
   ipv6.supported.cluster: panda-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
-  engine-external-service.base-url: https://doctor-engine-service-yg-prod.byted.org
   table.exec.enable-top1: true
 
 peter-yg:
@@ -1115,7 +1071,6 @@ peter-yg:
   ipv6.enabled: true
   ipv6.supported.cluster: peter-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
-  engine-external-service.base-url: https://doctor-engine-service-yg-prod.byted.org
   table.exec.enable-top1: true
 
 camel:
@@ -2101,6 +2056,7 @@ Gaura-LF:
   ipv6.supported.cluster: Gaura-LF
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 Gaura-HL:
@@ -2120,6 +2076,7 @@ Gaura-HL:
   ipv6.supported.cluster: Gaura-HL
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 Echo-HL:
@@ -2138,6 +2095,7 @@ Echo-HL:
   ipv6.enabled: true
   ipv6.supported.cluster: Echo-HL
   resourcemanager.slow-container.release-timeout-enabled: true
+  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 Foxtrot-HL:
@@ -2157,6 +2115,7 @@ Foxtrot-HL:
   ipv6.supported.cluster: Foxtrot-HL
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
+  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 Gaura-LQ:
@@ -2176,6 +2135,7 @@ Gaura-LQ:
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 Echo-LQ:
@@ -2194,6 +2154,7 @@ Echo-LQ:
   ipv6.enabled: true
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
+  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 Foxtrot-LQ:
@@ -2213,6 +2174,7 @@ Foxtrot-LQ:
   ipv6.supported.cluster: Foxtrot-LQ
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
+  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 Gaura-YG:
@@ -2232,6 +2194,7 @@ Gaura-YG:
   ipv6.supported.cluster: Gaura-YG
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
+  engine-external-service.base-url: https://doctor-engine-service-yg-prod.byted.org
   table.exec.enable-top1: true
 
 cloudnative-lf:
@@ -2286,6 +2249,7 @@ Feins-LQ:
   ipv6.supported.cluster: Feins-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 Feins-HL:
@@ -2305,6 +2269,7 @@ Feins-HL:
   ipv6.supported.cluster: Feins-HL
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-hl-prod.byted.org
   table.exec.enable-top1: true
 
 Feins-LF:
@@ -2324,6 +2289,7 @@ Feins-LF:
   ipv6.supported.cluster: Feins-LF
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
 
 Seif-BOE:
@@ -2370,6 +2336,7 @@ Koryn-LQ:
   register-dashboard.enabled: true
   ipv6.supported.cluster: Koryn-LQ
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true
 
 Basil-MY:
