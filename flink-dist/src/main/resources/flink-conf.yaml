@@ -333,6 +333,7 @@ common:
   bytedance.streaming.restart-strategy: aggregated-failure-rate
   bytedance.streaming.kubernetes.arcee.restart-policy.type: Always
   bytedance.streaming.table.exec.hive.infer-source-parallelism: false
+  bytedance.streaming.taskmanager.network.netty.client.latency-check-interval-ms: 5000
 
   # hdfs conf for checkpoint
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
@@ -1011,7 +1012,6 @@ quoka:
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   taskmanager.network.partition.downStreamTaskConnectTimeoutMs: 600000
-  taskmanager.network.netty.client.latency-check-interval-ms: 5000
   execution.checkpointing.default.interval: 300000
   engine-external-service.base-url: https://doctor-engine-service-lq-prod.byted.org
   table.exec.enable-top1: true

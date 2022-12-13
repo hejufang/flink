@@ -23,7 +23,6 @@ global:
   name:
     [
         numRestarts,
-        isTaskStuck,
         numOfRestartsAggrByBackoffTime,
         numOfFailFilteredByAggregatedStrategy,
         fullRestarts,
@@ -98,6 +97,9 @@ global:
         numBuffersInDroppedInRecoverableFailover,
         downStreamConnectTimeout,
         numberOfRestoredStateless,
+      # Task status
+        isTaskStuck,
+        networkLatency,
       # slowTask
         slowtaskHandleResult
     ]

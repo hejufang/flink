@@ -133,7 +133,6 @@ common:
   taskmanager.serializer.prune.buffer.threshold: 262144
   taskmanager.network.netty.connection.tcp-user-timeout-seconds: 600
   taskmanager.task-stuck-check.interval: 60000
-  taskmanager.network.netty.client.latency-check-interval-ms: 5000
 
   # RPC / Akka
   akka.ask.timeout: 180 s # default 10 s
@@ -188,6 +187,7 @@ common:
   bytedance.streaming.restart-strategy: aggregated-failure-rate
   bytedance.streaming.kubernetes.arcee.restart-policy.type: OnFailure
   bytedance.streaming.taskmanager.task-stuck-check.interval: 60000
+  bytedance.streaming.taskmanager.network.netty.client.latency-check-interval-ms: 5000
 
   # hdfs conf for slow node
   flink.hdfs.dfs.datanode.socket.write.timeout: 30000
