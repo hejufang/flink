@@ -33,6 +33,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink.BucketsBuilder;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.config.TableConfigOptions;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
@@ -48,6 +49,7 @@ import org.apache.flink.table.filesystem.FileSystemOutputFormat;
 import org.apache.flink.table.filesystem.FileSystemTableSink;
 import org.apache.flink.table.filesystem.FileSystemTableSink.TableBucketAssigner;
 import org.apache.flink.table.filesystem.FileSystemTableSink.TableRollingPolicy;
+import org.apache.flink.table.planner.plan.utils.HiveUtils$;
 import org.apache.flink.table.sinks.AppendStreamTableSink;
 import org.apache.flink.table.sinks.OverwritableTableSink;
 import org.apache.flink.table.sinks.PartitionableTableSink;
@@ -179,7 +181,8 @@ public class HiveTableSink implements
 				builder.setDynamicGrouped(dynamicGrouping);
 				builder.setPartitionColumns(partitionColumns);
 				builder.setFileSystemFactory(fsFactory);
-				builder.setFormatFactory(new HiveOutputFormatFactory(recordWriterFactory));
+				int bucketNum = getBucketNum();
+				builder.setFormatFactory(new HiveOutputFormatFactory(recordWriterFactory, bucketNum));
 				builder.setMetaStoreFactory(
 						msFactory);
 				builder.setOverwrite(overwrite);
@@ -360,5 +363,12 @@ public class HiveTableSink implements
 					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_ENABLED.key())));
 		HivePermissionUtils.checkPermission(user, psm, dbName, tableName, projectedFieldNames,
 			ALL, true, geminiServerUrl);
+	}
+
+	private int getBucketNum() {
+		if (flinkConf.get(TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET_WRITE)) {
+			return HiveUtils$.MODULE$.getBucketNum(catalogTable.getOptions());
+		}
+		return -1;
 	}
 }

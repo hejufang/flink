@@ -17,39 +17,34 @@
  */
 package org.apache.flink.table.planner.plan.batch.sql
 
-import org.apache.flink.api.common.typeinfo.{AtomicType, TypeInformation}
-import org.apache.flink.api.java.typeutils.{PojoTypeInfo, TupleTypeInfo}
 import org.apache.flink.api.scala._
-import org.apache.flink.api.scala.typeutils.CaseClassTypeInfo
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.config.{ExecutionConfigOptions, TableConfigOptions}
 import org.apache.flink.table.catalog.stats.CatalogTableStatistics
-import org.apache.flink.table.catalog.{CatalogTableImpl, ObjectPath}
-import org.apache.flink.table.expressions.Expression
 import org.apache.flink.table.planner.plan.rules.physical.batch.BatchExecSortMergeJoinRule
-import org.apache.flink.table.planner.plan.utils.HiveUtils
-import org.apache.flink.table.planner.utils.{BatchTableTestUtil, TableTestBase}
-import org.apache.flink.table.types.utils.TypeConversions
-import org.apache.flink.table.typeutils.FieldInfoUtils
+import org.apache.flink.table.planner.utils.{BatchTableTestUtil, BucketTableUtils, TableTestBase}
 
-import scala.collection.JavaConverters._
 import org.junit.{Before, Test}
 
 class BucketTableTest extends TableTestBase {
   private val BUCKET_TABLE_A = "bucketTableA"
   private val BUCKET_TABLE_B = "bucketTableB"
+  private val BUCKET_TABLE_C = "bucketTableC"
 
   protected val util: BatchTableTestUtil = batchTestUtil()
 
   val stats = new CatalogTableStatistics(1200000, -1, -1, -1)
   util.addTableSource[(Int, Long, String)]("MyTable1", 'a, 'b, 'c)
   util.addTableSource[(Int, Long, Int, String, Long)]("MyTable2", 'd, 'e, 'f, 'g, 'h)
-  registerBucketTable[(Int, Long, String, Long, String, Long)](
-    BUCKET_TABLE_A, Array("bucketColA1", "bucketColA2"),
+  BucketTableUtils.registerBucketTable[(Int, Long, String, Long, String, Long)](
+    util.tableEnv, None, BUCKET_TABLE_A, Array("bucketColA1", "bucketColA2"),
     4, Some(stats), 'a1, 'bucketColA1, 'a2, 'bucketColA2, 'a3, 'a4)
-  registerBucketTable[(Int, Long, String, Long, String)](
-    BUCKET_TABLE_B, Array("bucketColB1", "bucketColB2"), 2, None,
+  BucketTableUtils.registerBucketTable[(Int, Long, String, Long, String)](
+    util.tableEnv, None, BUCKET_TABLE_B, Array("bucketColB1", "bucketColB2"), 2, None,
     'b1, 'bucketColB1, 'b2, 'bucketColB2, 'b3)
+  BucketTableUtils.registerBucketCatalogTable[(Long, Long, String)](
+    util.tableEnv, Some(Seq()), BUCKET_TABLE_C, Array("id1", "id2"), 2,
+    true, 'id1, 'id2, 'a3)
 
   @Before
   def before(): Unit = {
@@ -58,6 +53,8 @@ class BucketTableTest extends TableTestBase {
       "NestedLoopJoin, BroadcastHashJoin, SortMergeJoin, SortAgg")
     util.tableConfig.getConfiguration.setBoolean(
       TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET, true)
+    util.tableConfig.getConfiguration.setBoolean(
+      TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET_WRITE, true)
     util.tableConfig.getConfiguration.setBoolean(
       BatchExecSortMergeJoinRule.TABLE_OPTIMIZER_SMJ_REMOVE_SORT_ENABLED, true)
   }
@@ -131,7 +128,7 @@ class BucketTableTest extends TableTestBase {
   def testSortAgg(): Unit = {
     util.tableEnv.getConfig.getConfiguration.setString(
       ExecutionConfigOptions.TABLE_EXEC_DISABLED_OPERATORS,
-      "NestedLoopJoin, BroadcastHashJoin, SortMergeJoin")
+      "NestedLoopJoin, BroadcastHashJoin, SortMergeJoin, HashAgg")
     util.verifyTransformation(
       s"""
          | select bucketColA1, bucketColA2, sum(a1) from
@@ -139,49 +136,21 @@ class BucketTableTest extends TableTestBase {
          |""".stripMargin)
   }
 
-  private def registerBucketTable[T: TypeInformation](
-      tableName: String,
-      bucketCols: Array[String],
-      bucketNum: Int,
-      catalogStats: Option[CatalogTableStatistics],
-      fields: Expression*): Unit = {
-    val typeInfo: TypeInformation[T] = implicitly[TypeInformation[T]]
-    val tableSchema =
-      if (fields.isEmpty) {
-        val fieldTypes: Array[TypeInformation[_]] = typeInfo match {
-          case tt: TupleTypeInfo[_] => (0 until tt.getArity).map(tt.getTypeAt).toArray
-          case ct: CaseClassTypeInfo[_] => (0 until ct.getArity).map(ct.getTypeAt).toArray
-          case at: AtomicType[_] => Array[TypeInformation[_]](at)
-          case pojo: PojoTypeInfo[_] => (0 until pojo.getArity).map(pojo.getTypeAt).toArray
-          case _ => throw new TableException(s"Unsupported type info: $typeInfo")
-        }
-        val types = fieldTypes.map(TypeConversions.fromLegacyInfoToDataType)
-        val names = FieldInfoUtils.getFieldNames(typeInfo)
-        TableSchema.builder().fields(names, types).build()
-      } else {
-        FieldInfoUtils.getFieldsInfo(typeInfo, fields.toArray).toTableSchema
-      }
-
-    val properties = getBucketProperty(bucketCols, bucketNum)
-    val catalogTable = new CatalogTableImpl(tableSchema, properties, "")
-    val objectPath = new ObjectPath(util.getTableEnv.getCurrentDatabase, tableName)
-    val catalog = util.getTableEnv.getCatalog(util.getTableEnv.getCurrentCatalog).get()
-    catalog.createTable(objectPath, catalogTable, true)
-    if (catalogStats.isDefined) {
-      catalog.alterTableStatistics(objectPath, catalogStats.get, false)
-    }
+  @Test
+  def testBucketSink(): Unit = {
+    util.verifyPlanInsert(
+      s"""
+         |insert into bucket.`default`.$BUCKET_TABLE_C
+         |select cast(a as bigint), b, c from MyTable1
+         |""".stripMargin)
   }
 
-  private def getBucketProperty(
-      bucketCols: Array[String],
-      bucketNum: Int): java.util.Map[String, String] = {
-    val property = new java.util.HashMap[String, String]()
-    val javaCols = bucketCols.toList.asJava
-    HiveUtils.addBucketProperties(bucketNum, javaCols, javaCols, property)
-
-    property.put("connector.type", "TestProjectableSource")
-    property.put("is-bounded", "true")
-    property.put(HiveUtils.PROPERTY_HIVE_COMPATIBLE, "true")
-    property
+  @Test
+  def testBucket2BucketTable(): Unit = {
+    util.verifyPlanInsert(
+      s"""
+         |insert into bucket.`default`.$BUCKET_TABLE_C
+         |select bucketColA1, bucketColA2, a2 from $BUCKET_TABLE_A
+         |""".stripMargin)
   }
 }

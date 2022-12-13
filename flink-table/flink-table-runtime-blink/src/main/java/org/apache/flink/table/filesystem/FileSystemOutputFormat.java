@@ -19,6 +19,8 @@
 package org.apache.flink.table.filesystem;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.io.BucketOutputFormat;
+import org.apache.flink.api.common.io.BucketOutputFormatFactory;
 import org.apache.flink.api.common.io.FinalizeOnMaster;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.configuration.Configuration;
@@ -40,9 +42,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <T> The type of the consumed records.
  */
 @Internal
-public class FileSystemOutputFormat<T> implements OutputFormat<T>, FinalizeOnMaster, Serializable {
+public class FileSystemOutputFormat<T> implements OutputFormat<T>, FinalizeOnMaster, BucketOutputFormat, Serializable {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2L;
 
 	private static final long CHECKPOINT_ID = 0;
 
@@ -137,6 +139,14 @@ public class FileSystemOutputFormat<T> implements OutputFormat<T>, FinalizeOnMas
 		} catch (Exception e) {
 			throw new TableException("Exception in close", e);
 		}
+	}
+
+	@Override
+	public int getBucketNum() {
+		if (formatFactory instanceof BucketOutputFormatFactory) {
+			return ((BucketOutputFormatFactory) formatFactory).getBucketNum();
+		}
+		return -1;
 	}
 
 	/**

@@ -138,6 +138,14 @@ public class TableConfigOptions {
 			.withDescription("Whether enable hive bucket support. If enable hive bucket support, " +
 				"we will regard hive bucket table as a pre shuffle data.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_EXEC_SUPPORT_HIVE_BUCKET_WRITE =
+		key("table.exec.enable-hive-bucket-write-support")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enable hive bucket write support. If enable hive bucket support, " +
+				"we will write hive bucket table in hive way.");
+
 	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
 	public static final ConfigOption<Boolean> OPERATOR_DEBUG_LOGGING_ENABLED =
 		key("table.operator-debug-logging.enabled")

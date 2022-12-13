@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.io.CollectionInputFormat;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
@@ -121,6 +122,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		void setTableSourceData(Collection<Row> rows);
 
 		default void setTableLookupSourceData(Map<Row, List<Row>> rowListMap) {}
+
+		default void setTableOptions(ReadableConfig config) {}
 
 		default void setChangelog(ChangelogMode changelogMode) {}
 
@@ -298,7 +301,6 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 	@Override
 	public DynamicTableSource createDynamicTableSource(Context context) {
 		FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
-		helper.validate();
 		ChangelogMode changelogMode = parseChangelogMode(helper.getOptions().get(CHANGELOG_MODE));
 		String runtimeSource = helper.getOptions().get(RUNTIME_SOURCE);
 		boolean isBounded = helper.getOptions().get(BOUNDED);
@@ -315,6 +317,9 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		boolean isBooleanKeySupported = helper.getOptions().get(BOOLEAN_LOOKUP_KEY_SUPPORTED);
 		boolean isApplicableToPushDownProjection = helper.getOptions().get(IS_APPLICABLE_TO_PUSHDOWN_PROJECTION);
 		long laterRetryMs = helper.getOptions().get(LOOKUP_LATER_JOIN_LATENCY).toMillis();
+		if (sourceClass == null) {
+			helper.validate();
+		}
 
 		if (sourceClass.equals("DEFAULT")) {
 			Collection<Row> data = registeredData.getOrDefault(dataId, Collections.emptyList());
@@ -361,6 +366,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 						registeredData.getOrDefault(dataId, Collections.emptyList()));
 					((TableSourceWithData) dynamicTableSource).setChangelog(changelogMode);
 					((TableSourceWithData) dynamicTableSource).setBounded(isBounded);
+					((TableSourceWithData) dynamicTableSource).setTableOptions(helper.getOptions());
 				}
 				return dynamicTableSource;
 			} catch (FlinkException e) {

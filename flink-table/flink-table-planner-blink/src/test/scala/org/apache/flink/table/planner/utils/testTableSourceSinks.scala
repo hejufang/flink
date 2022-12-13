@@ -41,6 +41,7 @@ import org.apache.flink.table.functions.BuiltInFunctionDefinitions.AND
 import org.apache.flink.table.planner.plan.hint.OptionsHintTest.IS_BOUNDED
 import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
 import org.apache.flink.table.planner.runtime.utils.TimeTestUtil.EventTimeSourceFunction
+import org.apache.flink.table.planner.utils.TestLegacyProjectableTableSourceFactory.registerDataMap
 import org.apache.flink.table.planner.{JArrayList, JInt, JList, JLong, JMap}
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter.fromDataTypeToTypeInfo
 import org.apache.flink.table.sinks.{BatchTableSink, StreamTableSink, TableSink}
@@ -57,10 +58,9 @@ import _root_.java.io.{File, FileOutputStream, OutputStreamWriter}
 import _root_.java.util
 import _root_.java.util.Collections
 import _root_.java.util.function.BiConsumer
-
 import java.sql.Timestamp
 import java.util.Comparator
-
+import java.util.concurrent.atomic.AtomicInteger
 import org.apache.calcite.avatica.util.DateTimeUtils
 
 import _root_.scala.collection.JavaConversions._
@@ -482,6 +482,19 @@ class TestNestedProjectableTableSource(
   }
 }
 
+/**
+ * TestLegacyProjectableTableSourceFactory.
+ */
+object TestLegacyProjectableTableSourceFactory {
+  private val registerDataMap: mutable.Map[Int, Seq[Row]] = new mutable.HashMap[Int, Seq[Row]]()
+  private val incCounter: AtomicInteger = new AtomicInteger()
+
+  def registerRows(rows: Seq[Row]): Int = {
+    registerDataMap.put(incCounter.get(), rows)
+    incCounter.getAndIncrement()
+  }
+}
+
 /** Table source factory to find and create [[TestLegacyProjectableTableSource]]. */
 class TestLegacyProjectableTableSourceFactory extends StreamTableSourceFactory[Row] {
   override def createStreamTableSource(properties: JMap[String, String])
@@ -490,6 +503,8 @@ class TestLegacyProjectableTableSourceFactory extends StreamTableSourceFactory[R
     descriptorProps.putProperties(properties)
     val isBounded = descriptorProps.getBoolean("is-bounded")
     val tableSchema = descriptorProps.getTableSchema(Schema.SCHEMA)
+    val rows = registerDataMap.get(
+      descriptorProps.getOptionalInt("data-id").orElse(-1))
     // Build physical row type.
     val schemaBuilder = TableSchema.builder()
     tableSchema
@@ -497,7 +512,8 @@ class TestLegacyProjectableTableSourceFactory extends StreamTableSourceFactory[R
       .filter(c => !c.isGenerated)
       .foreach(c => schemaBuilder.field(c.getName, c.getType))
     val rowTypeInfo = schemaBuilder.build().toRowType
-    new TestLegacyProjectableTableSource(isBounded, tableSchema, rowTypeInfo, Seq())
+    new TestLegacyProjectableTableSource(isBounded, tableSchema,
+      rowTypeInfo, rows.getOrElse(Seq[Row]()))
   }
 
   override def requiredContext(): JMap[String, String] = {

@@ -18,9 +18,13 @@
 
 package org.apache.flink.table.planner.plan.utils
 
-import org.apache.flink.table.api.ValidationException
+import org.apache.flink.table.api.{TableConfig, ValidationException}
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
+import org.apache.flink.table.api.config.TableConfigOptions
+import org.apache.flink.table.catalog.CatalogTable
 import org.apache.flink.util.{FlinkRuntimeException, MathUtils}
+
+import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel.{RelCollation, RelCollationTraitDef, RelCollations, RelDistribution}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.sql.`type`.SqlTypeName
@@ -40,17 +44,89 @@ object HiveUtils {
   val PROPERTY_NUM_SORT_COLS = "flink.sql.sources.schema.numSortCols"
   val PROPERTY_BUCKET_SORT_COL_PREFIX = "flink.sql.sources.schema.sortCol."
 
+  class BucketColumnGetter(
+      val tableName: String,
+      fieldNames: List[String],
+      fieldTypes: List[SqlTypeName]) {
+    def this(relDataType: RelDataType, tableNames: JList[String]) = {
+      this(tableNames.mkString("."), relDataType.getFieldNames.toList,
+        relDataType.getFieldList.map(_.getType.getSqlTypeName).toList)
+    }
+
+    def getBucketFieldIndex(name: String): Int = {
+      val fieldIndex = fieldNames.indexOf(name)
+      if (fieldIndex < 0) {
+        throw new ValidationException(s"Table $tableName fields " +
+          s"${fieldNames.mkString(",")} don't contains field $name")
+      }
+      fieldTypes.get(fieldIndex) match {
+        case SqlTypeName.BIGINT | SqlTypeName.INTEGER |
+             SqlTypeName.SMALLINT | SqlTypeName.TINYINT | SqlTypeName.VARCHAR =>
+        case fType =>
+          throw new ValidationException(
+            "Current only support int, bigint, smallint, tinyint, varchar types, " +
+              s"field $name is $fType not in this types.")
+      }
+      fieldIndex
+    }
+  }
+
+  def replaceBucketRelTraitSet(
+      traitSetInput: RelTraitSet,
+      tableConfig: TableConfig,
+      bucketColumnGetter: BucketColumnGetter,
+      catalog: CatalogTable,
+      isSink: Boolean): RelTraitSet = {
+    var traitSet = traitSetInput
+    val useHiveBucketRead = tableConfig.getConfiguration.getBoolean(
+      TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET)
+    val useHiveBucketWrite = tableConfig.getConfiguration.getBoolean(
+      TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET_WRITE)
+    if (useHiveBucketRead && !isSink) {
+      traitSet = tryAddDistributionTrait(traitSet, bucketColumnGetter, catalog.getOptions)
+    }
+
+    if (useHiveBucketWrite && isSink) {
+      traitSet = tryAddDistributionTrait(traitSet, bucketColumnGetter, catalog.getOptions)
+      traitSet = tryAddRelCollationTrait(traitSet, bucketColumnGetter, catalog.getOptions)
+    }
+    traitSet
+  }
+
+  def tryAddDistributionTrait(
+      relTraitSet: RelTraitSet,
+      bucketColumnGetter: BucketColumnGetter,
+      options: util.Map[String, String]): RelTraitSet = {
+    val distribution = HiveUtils.getDistributionFromProperties(
+      bucketColumnGetter, options)
+    if (distribution == null) {
+      return relTraitSet
+    }
+    relTraitSet.replace(distribution)
+  }
+
+  def tryAddRelCollationTrait(
+      relTraitSet: RelTraitSet,
+      bucketColumnGetter: BucketColumnGetter,
+      options: util.Map[String, String]): RelTraitSet = {
+    val relCollation = HiveUtils.getRelCollationsFromProperties(
+      bucketColumnGetter, options)
+    if (relCollation == null) {
+      return relTraitSet
+    }
+    relTraitSet.replace(relCollation)
+  }
+
   def getBucketNum(options: util.Map[String, String]): Int = {
     val bucketNum = options.getOrDefault(PROPERTY_BUCKET_NUM, "-1").toInt
     if (bucketNum > 0 && !MathUtils.isPowerOf2(bucketNum)) {
-      throw new FlinkRuntimeException("Current we only support bucket number is power of 2");
+      throw new FlinkRuntimeException("Current we only support bucket number is power of 2")
     }
     bucketNum
   }
 
   def getDistributionFromProperties(
-      tableName: JList[String],
-      relDataType: RelDataType,
+      bucketColumnGetter: BucketColumnGetter,
       options: util.Map[String, String]): RelDistribution = {
     val hiveBucket = options.getOrDefault(PROPERTY_HIVE_COMPATIBLE, "false").toBoolean
     if (!hiveBucket) {
@@ -61,19 +137,18 @@ object HiveUtils {
       return null
     }
     val numBucketCols = options.getOrDefault(PROPERTY_NUM_BUCKET_COLS, "-1").toInt
-    val bucketColIndexList = getColIndexList(tableName,
-      PROPERTY_BUCKET_COL_PREFIX, relDataType, numBucketCols, options)
+    val bucketColIndexList = getColIndexList(bucketColumnGetter,
+      PROPERTY_BUCKET_COL_PREFIX, numBucketCols, options)
 
     FlinkRelDistribution.createHiveBucketDistribution(bucketColIndexList)
   }
 
   def getRelCollationsFromProperties(
-      tableName: JList[String],
-      relDataType: RelDataType,
+      bucketColumnGetter: BucketColumnGetter,
       options: util.Map[String, String]): RelCollation = {
     val numBucketCols = options.getOrDefault(PROPERTY_NUM_SORT_COLS, "-1").toInt
-    val sortColumns = getColIndexList(tableName,
-      PROPERTY_BUCKET_SORT_COL_PREFIX, relDataType, numBucketCols, options)
+    val sortColumns = getColIndexList(
+      bucketColumnGetter, PROPERTY_BUCKET_SORT_COL_PREFIX, numBucketCols, options)
     val collations = sortColumns.map(
       idx =>
         FlinkRelOptUtil.ofRelFieldCollation(idx.intValue())
@@ -82,30 +157,18 @@ object HiveUtils {
   }
 
   private def getColIndexList(
-      tableName: util.List[String],
+      bucketColumnGetter: BucketColumnGetter,
       prefix: String,
-      relDataType: RelDataType,
       numCols: Int,
       options: util.Map[String, String]): Seq[Integer] = {
     (0 until numCols)
       .map(i => options.get(prefix + i))
       .map{
         case null => throw new ValidationException(
-          s"Table ${tableName.mkString(".")} bucketNum $numCols, this can't happen")
+          s"Table ${bucketColumnGetter.tableName} bucketNum $numCols, this can't happen")
         case name =>
-          val dataField = relDataType.getField(name, true, false)
-          if (dataField == null) {
-            throw new ValidationException(s"Table ${tableName.mkString(".")} fields " +
-              s"${relDataType.getFieldNames.mkString(",")} don't exists field $name")
-          }
-          dataField.getType.getSqlTypeName match {
-            case SqlTypeName.BIGINT | SqlTypeName.INTEGER |
-                 SqlTypeName.SMALLINT | SqlTypeName.TINYINT =>
-            case _ =>
-              throw new ValidationException("Current only support int types.")
-          }
-
-          Integer.valueOf(dataField.getIndex)
+          val dataField = bucketColumnGetter.getBucketFieldIndex(name)
+          Integer.valueOf(dataField)
       }
   }
 

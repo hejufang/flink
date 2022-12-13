@@ -18,13 +18,14 @@
 
 package org.apache.flink.table.planner.plan.nodes.logical
 
-import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalLegacyTableSourceScan.isTableSourceScan
 import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, LegacyTableSourceTable}
 import org.apache.flink.table.sources._
 import org.apache.flink.table.planner.plan.utils.HiveUtils
+import org.apache.flink.table.planner.plan.utils.HiveUtils.BucketColumnGetter
+
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.`type`.RelDataType
@@ -124,21 +125,10 @@ object FlinkLogicalLegacyTableSourceScan {
         }
       }).simplify()
 
-    val useHiveBucket = cluster.getPlanner.getContext
-      .unwrap(classOf[FlinkContext]).getTableConfig.getConfiguration
-      .getBoolean(TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET)
-    if (useHiveBucket) {
-      val distribution = HiveUtils.getDistributionFromProperties(
-        table.getQualifiedName, table.getRowType, table.catalogTable.getOptions)
-      if (distribution != null) {
-        traitSet = traitSet.replace(distribution)
-      }
-      val relCollation = HiveUtils.getRelCollationsFromProperties(
-        table.getQualifiedName, table.getRowType, table.catalogTable.getOptions)
-      if (relCollation != null) {
-        traitSet = traitSet.replace(relCollation)
-      }
-    }
+    val columnGetter = new BucketColumnGetter(table.getRowType, table.getQualifiedName)
+    val tableConfig = cluster.getPlanner.getContext.unwrap(classOf[FlinkContext]).getTableConfig
+    traitSet = HiveUtils.replaceBucketRelTraitSet(traitSet, tableConfig,
+      columnGetter, table.catalogTable, false)
     new FlinkLogicalLegacyTableSourceScan(cluster, traitSet, table)
   }
 }

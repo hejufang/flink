@@ -19,12 +19,13 @@
 package org.apache.flink.table.planner.plan.rules.physical.batch
 
 import org.apache.flink.table.api.TableException
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.filesystem.FileSystemOptions
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalLegacySink
 import org.apache.flink.table.planner.plan.nodes.physical.batch.BatchExecLegacySink
-import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
+import org.apache.flink.table.planner.plan.utils.{FlinkRelOptUtil, HiveUtils}
 import org.apache.flink.table.sinks.PartitionableTableSink
 
 import org.apache.calcite.plan.RelOptRule
@@ -42,7 +43,13 @@ class BatchExecLegacySinkRule extends ConverterRule(
   def convert(rel: RelNode): RelNode = {
     val sinkNode = rel.asInstanceOf[FlinkLogicalLegacySink]
     val newTrait = rel.getTraitSet.replace(FlinkConventions.BATCH_PHYSICAL)
-    var requiredTraitSet = sinkNode.getInput.getTraitSet.replace(FlinkConventions.BATCH_PHYSICAL)
+    val enableBucketWrite = FlinkRelOptUtil.getTableConfigFromContext(rel).getConfiguration
+      .getBoolean(TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET_WRITE)
+    var requiredTraitSet = if (enableBucketWrite) {
+      sinkNode.getTraitSet.replace(FlinkConventions.BATCH_PHYSICAL)
+    } else {
+      sinkNode.getInput.getTraitSet.replace(FlinkConventions.BATCH_PHYSICAL)
+    }
     if (sinkNode.catalogTable != null && sinkNode.catalogTable.isPartitioned) {
       sinkNode.sink match {
         case partitionSink: PartitionableTableSink =>
@@ -60,6 +67,12 @@ class BatchExecLegacySinkRule extends ConverterRule(
                 .get(FileSystemOptions.SINK_SHUFFLE_BY_PARTITION.key())
 
             if (shuffleEnable != null && shuffleEnable.toBoolean) {
+              if (enableBucketWrite &&
+                    HiveUtils.getBucketNum(sinkNode.catalogTable.getOptions) > 0) {
+                throw new TableException(s"Bucket table ${sinkNode.sinkName} write can't used " +
+                  s"with dynamic partition, please disable `sink.shuffle-by-partition.enable`.")
+              }
+
               requiredTraitSet = requiredTraitSet.plus(
                 FlinkRelDistribution.hash(dynamicPartIndices
                     .map(Integer.valueOf), requireStrict = false))

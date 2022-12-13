@@ -18,6 +18,8 @@
 
 package org.apache.flink.connectors.hive.write;
 
+import org.apache.flink.api.common.io.BucketOutputFormat;
+import org.apache.flink.api.common.io.BucketOutputFormatFactory;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.fs.hdfs.HadoopFileSystem;
@@ -33,21 +35,37 @@ import java.util.function.Function;
 /**
  * Hive {@link OutputFormatFactory}, use {@link RecordWriter} to write record.
  */
-public class HiveOutputFormatFactory implements OutputFormatFactory<Row> {
+public class HiveOutputFormatFactory implements OutputFormatFactory<Row>, BucketOutputFormatFactory {
 
-	private static final long serialVersionUID = 2L;
+	private static final long serialVersionUID = 3L;
 
 	private final HiveWriterFactory factory;
+	private final int bucketNum;
 
 	public HiveOutputFormatFactory(HiveWriterFactory factory) {
+		this(factory, -1);
+	}
+
+	public HiveOutputFormatFactory(HiveWriterFactory factory, int bucketNum) {
 		this.factory = factory;
+		this.bucketNum = bucketNum;
 	}
 
 	@Override
 	public HiveOutputFormat createOutputFormat(Path path) {
+		if (bucketNum > 0) {
+			return new BucketHiveOutputFormat(
+				factory.createRecordWriter(HadoopFileSystem.toHadoopPath(path)),
+				factory.createRowConverter(), bucketNum);
+		}
 		return new HiveOutputFormat(
 				factory.createRecordWriter(HadoopFileSystem.toHadoopPath(path)),
 				factory.createRowConverter());
+	}
+
+	@Override
+	public int getBucketNum() {
+		return bucketNum;
 	}
 
 	private class HiveOutputFormat implements org.apache.flink.api.common.io.OutputFormat<Row> {
@@ -76,6 +94,23 @@ public class HiveOutputFormatFactory implements OutputFormatFactory<Row> {
 		@Override
 		public void close() throws IOException {
 			recordWriter.close(false);
+		}
+	}
+
+	private class BucketHiveOutputFormat extends HiveOutputFormat implements BucketOutputFormat {
+		private final int bucketNum;
+
+		public BucketHiveOutputFormat(
+				RecordWriter recordWriter,
+				Function<Row, Writable> rowConverter,
+				int bucketNum) {
+			super(recordWriter, rowConverter);
+			this.bucketNum = bucketNum;
+		}
+
+		@Override
+		public int getBucketNum() {
+			return bucketNum;
 		}
 	}
 }

@@ -24,6 +24,7 @@ import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.api.common.io.BucketInputFormat;
+import org.apache.flink.api.common.io.BucketOutputFormat;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.ResourceSpec;
@@ -84,7 +85,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 
-import static org.apache.flink.configuration.PipelineOptions.USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM;
 import static org.apache.flink.streaming.api.graph.PlanGraphProperty.OPERATOR_ID_OF_STATEFUL_OP;
 import static org.apache.flink.streaming.api.graph.PlanGraphProperty.PARALLELISM;
 import static org.apache.flink.streaming.api.graph.PlanGraphProperty.USER_PROVIDED_HASH;
@@ -140,6 +140,7 @@ public class StreamGraph implements Pipeline {
 	protected Map<Integer, Long> vertexIDtoLoopTimeout;
 	private StateBackend stateBackend;
 	private Set<Tuple2<StreamNode, StreamNode>> iterationSourceSinkPairs;
+	private Map<Integer, Integer> node2RequiredParallelism;
 
 	public StreamGraph(ExecutionConfig executionConfig, CheckpointConfig checkpointConfig, SavepointRestoreSettings savepointRestoreSettings) {
 		this.executionConfig = checkNotNull(executionConfig);
@@ -164,6 +165,7 @@ public class StreamGraph implements Pipeline {
 		sources = new LinkedHashSet<>();
 		boundedSources = new LinkedHashSet<>();
 		sinks = new HashSet<>();
+		node2RequiredParallelism = new HashMap<>();
 	}
 
 	public ExecutionConfig getExecutionConfig() {
@@ -955,15 +957,12 @@ public class StreamGraph implements Pipeline {
 	 * Gets the assembled {@link JobGraph} with a specified {@link JobID}.
 	 */
 	public JobGraph getJobGraph(@Nullable JobID jobID) {
-		if (existsBucketSource() &&
-				!executionConfig.isUseMaxSourceParallelismAsDefaultParallelism()) {
-			throw new FlinkRuntimeException(String.format("Bucket source enable must with %s",
-				USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM.key()));
-		}
-
 		if (executionConfig.isUseMaxSourceParallelismAsDefaultParallelism()) {
 			overwriteDefaultParallelismForNonSourceNode();
 		}
+
+		setParallelismForBucket();
+
 		return StreamingJobGraphGenerator.createJobGraph(this, jobID, userProvidedHashInvolved);
 	}
 
@@ -977,33 +976,9 @@ public class StreamGraph implements Pipeline {
 	 */
 	private void overwriteDefaultParallelismForNonSourceNode() {
 		int maxParallelismOfSource = -1;
-		int maxBucketParallelismOfSource = -1;
-		List<BucketInputFormat> bucketInputFormats = new ArrayList<>();
 		for (int i : getSourceIDs()) {
 			StreamNode curStreamNode = getStreamNode(i);
-			InputFormat<?, ?> inputFormat = curStreamNode.getInputFormat();
-			if (inputFormat != null && inputFormat instanceof BucketInputFormat) {
-				// All the bucket number is power of 2, it is a guarantee in HiveUtils.
-				BucketInputFormat bucketInputFormat = (BucketInputFormat) inputFormat;
-				bucketInputFormats.add(bucketInputFormat);
-				int curBucketNum = ((BucketInputFormat) inputFormat).getBucketNum();
-				LOG.info("Find operator {} has bucket {}", curStreamNode.getOperatorName(), curBucketNum);
-				maxBucketParallelismOfSource =
-					Math.max(maxBucketParallelismOfSource, curStreamNode.getParallelism());
-				// Find the biggest parallelism that can divisible by all bucket number.
-				if (maxBucketParallelismOfSource > bucketInputFormat.getBucketNum()) {
-					LOG.info("Max parallelism {} greater than {} bucket num {}",
-						maxBucketParallelismOfSource, curStreamNode.getOperatorName(), curBucketNum);
-					maxBucketParallelismOfSource = bucketInputFormat.getBucketNum();
-				}
-			}
 			maxParallelismOfSource = Math.max(maxParallelismOfSource, curStreamNode.getParallelism());
-		}
-		if (maxBucketParallelismOfSource > 0) {
-			maxParallelismOfSource = maxBucketParallelismOfSource;
-			LOG.info("Use maxBucketParallelismOfSource {}", maxBucketParallelismOfSource);
-			final int bucketNextParallelism = maxBucketParallelismOfSource;
-			bucketInputFormats.forEach(format -> format.setOperatorParallelism(bucketNextParallelism));
 		}
 		if (maxParallelismOfSource > 0) {
 			Collection<Integer> sourceIDs = getSourceIDs();
@@ -1019,9 +994,126 @@ public class StreamGraph implements Pipeline {
 		}
 	}
 
-	private boolean existsBucketSource() {
-		return sources.stream().anyMatch(
+	private void setBucketParallelismUp2Down(StreamNode node, int parallelism) {
+		Integer requiredParallelism = node2RequiredParallelism.get(node.getId());
+		if (requiredParallelism != null && requiredParallelism != parallelism) {
+			throw new FlinkRuntimeException("We both enable bucket read and write, " +
+				"please disable bucket read to resolve this problem");
+		}
+		node.setParallelism(parallelism);
+		for (StreamEdge edge: node.getOutEdges()) {
+			if (edge.getPartitioner() instanceof ForwardPartitioner) {
+				setBucketParallelismUp2Down(getStreamNode(edge.getTargetId()), parallelism);
+			}
+		}
+	}
+
+	private void setParallelismForBucket() {
+		for (int sinkId: getSinkIDs()) {
+			StreamNode node = getStreamNode(sinkId);
+			if (node.getOutputFormat() instanceof BucketOutputFormat) {
+				int bucketNum = ((BucketOutputFormat) node.getOutputFormat()).getBucketNum();
+				if (bucketNum > 0) {
+					setBucketParallelismDown2Up(node, bucketNum);
+				}
+			}
+		}
+
+		boolean existBucketSource = sources.stream().anyMatch(
 			i -> getStreamNode(i).getInputFormat() instanceof BucketInputFormat);
+		if (existBucketSource) {
+			Set<Integer> visitedNodes = new HashSet<>();
+			for (int startSourceId: getSourceIDs()) {
+				Set<Integer> sourceIds = getUnVisitedSourceIds(startSourceId, visitedNodes);
+				LOG.info("Current topology source ids {}", sourceIds);
+				int parallelism = getBucketParallelism(sourceIds);
+				for (int sourceId: sourceIds) {
+					setBucketParallelismUp2Down(getStreamNode(sourceId), parallelism);
+					StreamNode streamNode = getStreamNode(sourceId);
+					if (streamNode.getInputFormat() instanceof BucketInputFormat) {
+						((BucketInputFormat) streamNode.getInputFormat()).setOperatorParallelism(parallelism);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Visit all nodes in one topology and returns all source nodes.
+	 * @return source id list.
+	 */
+	private Set<Integer> getUnVisitedSourceIds(
+			Integer startNodeId,
+			Set<Integer> visitedNodes) {
+		if (visitedNodes.contains(startNodeId)) {
+			return Collections.emptySet();
+		}
+
+		visitedNodes.add(startNodeId);
+		Set<Integer> sourceSet = new HashSet<>();
+		if (getSourceIDs().contains(startNodeId)) {
+			sourceSet.add(startNodeId);
+		}
+		for (StreamEdge edge: getStreamNode(startNodeId).getOutEdges()) {
+			sourceSet.addAll(getUnVisitedSourceIds(edge.getTargetId(), visitedNodes));
+		}
+
+		for (StreamEdge edge: getStreamNode(startNodeId).getInEdges()) {
+			sourceSet.addAll(getUnVisitedSourceIds(edge.getSourceId(), visitedNodes));
+		}
+		return sourceSet;
+	}
+
+	private void setBucketParallelismDown2Up(StreamNode node, int parallelism) {
+		node.setParallelism(parallelism);
+		this.node2RequiredParallelism.put(node.getId(), parallelism);
+		for (StreamEdge edge: node.getInEdges()) {
+			if (edge.getPartitioner() instanceof ForwardPartitioner) {
+				setBucketParallelismDown2Up(getStreamNode(edge.getSourceId()), parallelism);
+			}
+		}
+	}
+
+	private int getBucketParallelism(Collection<Integer> sourceIds) {
+		int maxBucketParallelismOfSource = -1;
+		int parallelismRequired = -1;
+		for (int i : sourceIds) {
+			StreamNode curStreamNode = getStreamNode(i);
+			InputFormat<?, ?> inputFormat = curStreamNode.getInputFormat();
+			Integer nodeParallelism = node2RequiredParallelism.get(i);
+			if (inputFormat != null && inputFormat instanceof BucketInputFormat) {
+				if (((BucketInputFormat) inputFormat).getBucketNum() < 1) {
+					continue;
+				}
+
+				// All the bucket number is power of 2, it is a guarantee in HiveUtils.
+				BucketInputFormat bucketInputFormat = (BucketInputFormat) inputFormat;
+				if (nodeParallelism != null) {
+					if (nodeParallelism > bucketInputFormat.getBucketNum()) {
+						throw new FlinkRuntimeException(
+							"Sink bucket number more than source, please disable `table.exec.enable-hive-bucket-support`");
+					}
+					if (parallelismRequired > 0) {
+						if (parallelismRequired != nodeParallelism) {
+							throw new FlinkRuntimeException("Multi source required different parallelism.");
+						}
+					}
+					parallelismRequired = nodeParallelism;
+				}
+
+				int curBucketNum = ((BucketInputFormat) inputFormat).getBucketNum();
+				LOG.info("Find operator {} has bucket {}", curStreamNode.getOperatorName(), curBucketNum);
+				maxBucketParallelismOfSource =
+					Math.max(maxBucketParallelismOfSource, curStreamNode.getParallelism());
+				// Find the biggest parallelism that can divisible by all bucket number.
+				if (maxBucketParallelismOfSource > bucketInputFormat.getBucketNum()) {
+					LOG.info("Max parallelism {} greater than {} bucket num {}",
+						maxBucketParallelismOfSource, curStreamNode.getOperatorName(), curBucketNum);
+					maxBucketParallelismOfSource = bucketInputFormat.getBucketNum();
+				}
+			}
+		}
+		return maxBucketParallelismOfSource;
 	}
 
 	public String getStreamingPlanAsJSON() {

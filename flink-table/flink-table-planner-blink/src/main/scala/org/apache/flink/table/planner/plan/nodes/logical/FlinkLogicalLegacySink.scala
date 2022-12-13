@@ -19,8 +19,11 @@
 package org.apache.flink.table.planner.plan.nodes.logical
 
 import org.apache.flink.table.catalog.CatalogTable
+import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
-import org.apache.flink.table.planner.plan.nodes.calcite.{LogicalLegacySink, LegacySink}
+import org.apache.flink.table.planner.plan.nodes.calcite.{LegacySink, LogicalLegacySink}
+import org.apache.flink.table.planner.plan.utils.HiveUtils
+import org.apache.flink.table.planner.plan.utils.HiveUtils.BucketColumnGetter
 import org.apache.flink.table.sinks.TableSink
 
 import org.apache.calcite.plan.{Convention, RelOptCluster, RelOptRule, RelTraitSet}
@@ -28,7 +31,6 @@ import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.convert.ConverterRule
 
 import java.util
-
 import scala.collection.JavaConversions._
 
 /**
@@ -82,7 +84,14 @@ object FlinkLogicalLegacySink {
       catalogTable: CatalogTable = null,
       staticPartitions: Map[String, String] = Map()): FlinkLogicalLegacySink = {
     val cluster = input.getCluster
-    val traitSet = cluster.traitSetOf(FlinkConventions.LOGICAL).simplify()
+    var traitSet = cluster.traitSetOf(FlinkConventions.LOGICAL).simplify()
+    val tableConfig =
+      input.getCluster.getPlanner.getContext.unwrap(classOf[FlinkContext]).getTableConfig
+    val sqlTypes = input.getRowType.getFieldList.map(_.getType.getSqlTypeName).toList
+    val columnGetter =
+      new BucketColumnGetter(sinkName, sink.getTableSchema.getFieldNames.toList, sqlTypes)
+    traitSet = HiveUtils.replaceBucketRelTraitSet(traitSet, tableConfig,
+      columnGetter, catalogTable, true)
     new FlinkLogicalLegacySink(
       cluster, traitSet, input, sink, sinkName, catalogTable, staticPartitions)
   }
