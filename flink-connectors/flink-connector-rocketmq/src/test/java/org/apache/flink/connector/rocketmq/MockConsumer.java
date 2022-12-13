@@ -76,7 +76,7 @@ import static org.powermock.api.mockito.PowerMockito.when;
  * MockConsumerReturns.
  */
 public class MockConsumer {
-	private final AssignAnswer assignAnswer;
+	private final AssignWithOffsetAnswer assignWithOffsetAnswer;
 	private final DefaultMQPullConsumer consumer;
 	private final MockConsumerConfig consumerConfig;
 	private final List<List<MessageQueuePb>> messageQueuePbLists;
@@ -88,7 +88,7 @@ public class MockConsumer {
 		this.consumer = mock(DefaultMQPullConsumer.class);
 		this.messageQueuePbLists = messageQueuePbLists;
 		this.pollAnswer = new PollAnswer(consumerConfig, messageQueuePbLists);
-		this.assignAnswer = new AssignAnswer(pollAnswer);
+		this.assignWithOffsetAnswer = new AssignWithOffsetAnswer(pollAnswer);
 	}
 
 	public MockConsumer mockQueryCommittedOffset() throws Exception {
@@ -155,7 +155,7 @@ public class MockConsumer {
 	public void mockSplitReader() throws Exception {
 		mockSeekOffsetReturns();
 		mockQueryCommittedOffset();
-		Mockito.doAnswer(assignAnswer).when(consumer).assign(any());
+		Mockito.doAnswer(assignWithOffsetAnswer).when(consumer).assignWithOffset(any());
 		when(consumer.poll(anyLong())).then(pollAnswer);
 		when(consumer.poll(anyInt(), anyLong())).then(pollAnswer);
 		mockResetOffsetToSpecified();
@@ -461,17 +461,17 @@ public class MockConsumer {
 		}
 	}
 
-	private static class AssignAnswer implements Answer<Void> {
+	private static class AssignWithOffsetAnswer implements Answer<Void> {
 		private final PollAnswer pollAnswer;
 
-		public AssignAnswer(PollAnswer pollAnswer) {
+		private AssignWithOffsetAnswer(PollAnswer pollAnswer) {
 			this.pollAnswer = pollAnswer;
 		}
 
 		@Override
 		public Void answer(InvocationOnMock invocationOnMock) throws Throwable {
-			List<MessageQueuePb> queuePbList = invocationOnMock.getArgument(0);
-			pollAnswer.addAssignPbListIfNotExist(queuePbList);
+			Map<MessageQueuePb, Long> queuePbList = invocationOnMock.getArgument(0);
+			pollAnswer.addAssignPbListIfNotExist(queuePbList.keySet().stream().collect(Collectors.toList()));
 			return null;
 		}
 	}

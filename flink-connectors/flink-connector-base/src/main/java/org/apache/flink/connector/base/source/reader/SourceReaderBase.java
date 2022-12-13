@@ -89,7 +89,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 	private boolean noMoreSplitsAssignment;
 
 	/** Source Operator RecordsOut Metric.*/
-	private Counter recordsOutMetric;
+	private final Counter recordsOutMetric;
 
 	public SourceReaderBase(
 			FutureNotifier futureNotifier,
