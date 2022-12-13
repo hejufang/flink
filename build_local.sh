@@ -18,8 +18,6 @@
 ################################################################################
 set -eo pipefail
 
-bash tob_config_check.sh
-
 . /etc/profile
 
 export JAVA_HOME=/usr/local/jdk

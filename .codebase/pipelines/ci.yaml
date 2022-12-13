@@ -2,6 +2,9 @@ name: Flink 1.11 CI ATLAS
 trigger:
   change:
     branches: [ "flink-1.11" ]
+    paths:
+      - "!flink-dist/src/main/resources/flink-conf*.yaml"
+      - "!flink-dist-tob/src/main/resources/flink-conf*.yaml"
 jobs:
   build:
     image: hub.byted.org/yarn/flink_bet_maven:d2a30895a84daad65a4171985fd64440

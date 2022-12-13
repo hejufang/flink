@@ -1,0 +1,17 @@
+name: Flink 1.11 Config CI ATLAS
+trigger:
+  change:
+    branches: [ "flink-1.11" ]
+    paths:
+      - "flink-dist/src/main/resources/flink-conf*.yaml"
+      - "flink-dist-tob/src/main/resources/flink-conf*.yaml"
+jobs:
+  build:
+    image: hub.byted.org/yarn/flink_bet_maven:d2a30895a84daad65a4171985fd64440
+    steps:
+      - uses: actions/checkout@v1
+        inputs:
+          depth: 1
+      - name: config check
+        commands:
+          - sudo -u tiger /bin/bash ./tob_config_check.sh
