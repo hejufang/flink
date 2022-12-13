@@ -172,6 +172,9 @@ public class MetricNames {
 
 	public static final String TM_CONSTRUCTOR_CACHE_HIT_RATE = "constructorCacheHitRate";
 
+	// slow task
+	public static final String SLOW_TASK_HANDLE_RESULT = "slowtaskHandleResult";
+
 	public static final String DATABUS_SIDECAR_INFO = "databusSidecarInfo";
 	public static final String DATABUS_SIDECAR_ALLOCATED_CPU = "databusSidecarAllocatedCPU";
 	public static final String DATABUS_SIDECAR_ALLOCATED_MEMORY = "databusSidecarAllocatedMemory";

@@ -408,8 +408,7 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	}
 
 	@Override
-	public void releaseTaskManager(ResourceID resourceID, Exception cause) {
-		disconnectTaskManager(resourceID, cause);
+	public void releaseTaskManager(ResourceID resourceID, Integer exitCode, Exception cause) {
 	}
 
 	@Override

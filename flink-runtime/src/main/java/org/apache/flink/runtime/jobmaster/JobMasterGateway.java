@@ -45,6 +45,7 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerOfferSlot
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.runtime.externalhandler.ExternalRequestHandleReport;
 import org.apache.flink.runtime.taskexecutor.AccumulatorReport;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
@@ -76,6 +77,13 @@ public interface JobMasterGateway extends
 	 * @return Future acknowledge of the operation
 	 */
 	CompletableFuture<Acknowledge> cancel(@RpcTimeout Time timeout);
+
+	/**
+	 * Report the external request callback result which has call from flink.
+	 *
+	 * @return Future acknowledge of the operation
+	 */
+	CompletableFuture<Acknowledge> reportExternalRequestResult(final ExternalRequestHandleReport externalRequestHandleReport);
 
 	/**
 	 * Updates the task execution state for a given task.

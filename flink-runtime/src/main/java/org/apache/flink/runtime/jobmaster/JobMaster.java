@@ -60,6 +60,8 @@ import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
+import org.apache.flink.runtime.externalhandler.ExternalRequestHandleReport;
+import org.apache.flink.runtime.externalhandler.ExternalRequestType;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
 import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -277,6 +279,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
 
+	// --------- slowTask --------
+	private final SlowTaskManager slowTaskManager;
+
 	private final boolean useAddressAsHostNameEnable;
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
@@ -382,7 +387,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(IllegalProducerStateException.class);
 
 		this.jobManagerJobMetricGroup = jobMetricGroupFactory.create(jobGraph);
+		this.slowTaskManager = new SlowTaskManager(jobMasterConfiguration.getConfiguration(), scheduledExecutorService, jobManagerJobMetricGroup);
+
 		this.schedulerNG = createScheduler(jobManagerJobMetricGroup);
+
 		this.jobStatusListener = null;
 
 		this.resourceManagerConnection = null;
@@ -619,6 +627,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		remoteBlacklistReporter.close();
 
+		slowTaskManager.stop();
+
 		return CompletableFuture.completedFuture(null);
 	}
 
@@ -630,6 +640,14 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	public CompletableFuture<Acknowledge> cancel(Time timeout) {
 		schedulerNG.cancel();
 
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> reportExternalRequestResult(ExternalRequestHandleReport externalRequestHandleReport) {
+		if (externalRequestHandleReport.getExternalRequestType().equals(ExternalRequestType.SLOW_TASK)) {
+			slowTaskManager.callBackHandleRequest(externalRequestHandleReport);
+		}
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
@@ -987,7 +1005,14 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	@Override
 	public CompletableFuture<JobDetails> requestJobDetails(Time timeout) {
-		return CompletableFuture.completedFuture(schedulerNG.requestJobDetails());
+		return CompletableFuture.completedFuture(updateJobDetailInternal(schedulerNG.requestJobDetails()));
+	}
+
+	private JobDetails updateJobDetailInternal(JobDetails jobDetails) {
+		if (slowTaskManager.inEnabled()) {
+			jobDetails.setLastSlowTaskReleaseTime(slowTaskManager.getLastReleaseTaskTime());
+		}
+		return jobDetails;
 	}
 
 	@Override
@@ -1148,6 +1173,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		slotPool.start(getFencingToken(), getAddress(), getMainThreadExecutor());
 		scheduler.start(getMainThreadExecutor());
 		remoteBlacklistReporter.start(getFencingToken(), getMainThreadExecutor());
+		slowTaskManager.start();
 
 		//TODO: Remove once the ZooKeeperLeaderRetrieval returns the stored address upon start
 		// try to reconnect to previously known leader
@@ -1217,6 +1243,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		slotPool.suspend();
 
 		remoteBlacklistReporter.suspend();
+
+		slowTaskManager.stop();
 
 		// disconnect from resource manager:
 		closeResourceManagerConnection(cause);

@@ -97,7 +97,9 @@ global:
         numRecordsDroppedInRecoverableFailover,
         numBuffersInDroppedInRecoverableFailover,
         downStreamConnectTimeout,
-        numberOfRestoredStateless
+        numberOfRestoredStateless,
+      # slowTask
+        slowtaskHandleResult
     ]
 
 non-global:

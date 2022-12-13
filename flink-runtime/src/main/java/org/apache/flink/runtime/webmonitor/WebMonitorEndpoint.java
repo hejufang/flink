@@ -69,6 +69,7 @@ import org.apache.flink.runtime.rest.handler.job.checkpoints.CheckpointStatsCach
 import org.apache.flink.runtime.rest.handler.job.checkpoints.CheckpointingStatisticsHandler;
 import org.apache.flink.runtime.rest.handler.job.checkpoints.TaskCheckpointStatisticDetailsHandler;
 import org.apache.flink.runtime.rest.handler.job.coordination.ClientCoordinationHandler;
+import org.apache.flink.runtime.rest.handler.job.externalhandler.ExternalRequestReportHandler;
 import org.apache.flink.runtime.rest.handler.job.metrics.AggregatingJobsMetricsHandler;
 import org.apache.flink.runtime.rest.handler.job.metrics.AggregatingSubtasksMetricsHandler;
 import org.apache.flink.runtime.rest.handler.job.metrics.AggregatingTaskManagersMetricsHandler;
@@ -90,6 +91,7 @@ import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerCustomLogHan
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerDetailsHandler;
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerLogFileHandler;
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerLogListHandler;
+import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerReleaseHandler;
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerStdoutFileHandler;
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerThreadDumpHandler;
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagersHandler;
@@ -129,6 +131,7 @@ import org.apache.flink.runtime.rest.messages.job.SubtaskCurrentAttemptDetailsHe
 import org.apache.flink.runtime.rest.messages.job.SubtaskExecutionAttemptAccumulatorsHeaders;
 import org.apache.flink.runtime.rest.messages.job.SubtaskExecutionAttemptDetailsHeaders;
 import org.apache.flink.runtime.rest.messages.job.coordination.ClientCoordinationHeaders;
+import org.apache.flink.runtime.rest.messages.job.externalhandler.ExternalRequestHandleReportHeaders;
 import org.apache.flink.runtime.rest.messages.job.savepoints.SavepointDumpHeaders;
 import org.apache.flink.runtime.rest.messages.smartresource.SmartResourceHeaders;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerCustomLogHeaders;
@@ -140,6 +143,7 @@ import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerThreadDumpH
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagersHeaders;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataHandler;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataHeaders;
+import org.apache.flink.runtime.rest.messages.taskmanager.release.TaskManagerReleaseHeaders;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
@@ -371,6 +375,13 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			resourceManagerRetriever,
 			metricFetcher);
 
+		final TaskManagerReleaseHandler taskManagerReleaseHandler = new TaskManagerReleaseHandler(
+			leaderRetriever,
+			timeout,
+			responseHeaders,
+			TaskManagerReleaseHeaders.getInstance(),
+			resourceManagerRetriever);
+
 		final JobDetailsHandler jobDetailsHandler = new JobDetailsHandler(
 			leaderRetriever,
 			timeout,
@@ -562,6 +573,12 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			JobCancellationHeaders.getInstance(),
 			TerminationModeQueryParameter.TerminationMode.STOP);
 
+		final ExternalRequestReportHandler externalRequestReportHandler = new ExternalRequestReportHandler(
+			leaderRetriever,
+			timeout,
+			responseHeaders,
+			ExternalRequestHandleReportHeaders.getInstance());
+
 		final JobVertexDetailsHandler jobVertexDetailsHandler = new JobVertexDetailsHandler(
 			leaderRetriever,
 			timeout,
@@ -649,6 +666,7 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 		handlers.add(Tuple2.of(jobAccumulatorsHandler.getMessageHeaders(), jobAccumulatorsHandler));
 		handlers.add(Tuple2.of(taskManagersHandler.getMessageHeaders(), taskManagersHandler));
 		handlers.add(Tuple2.of(taskManagerDetailsHandler.getMessageHeaders(), taskManagerDetailsHandler));
+		handlers.add(Tuple2.of(taskManagerReleaseHandler.getMessageHeaders(), taskManagerReleaseHandler));
 		handlers.add(Tuple2.of(subtasksTimesHandler.getMessageHeaders(), subtasksTimesHandler));
 		handlers.add(Tuple2.of(jobVertexMetricsHandler.getMessageHeaders(), jobVertexMetricsHandler));
 		handlers.add(Tuple2.of(jobVertexWatermarksHandler.getMessageHeaders(), jobVertexWatermarksHandler));
@@ -669,6 +687,7 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 		handlers.add(Tuple2.of(jobVertexTaskManagersHandler.getMessageHeaders(), jobVertexTaskManagersHandler));
 		handlers.add(Tuple2.of(jobVertexBackPressureHandler.getMessageHeaders(), jobVertexBackPressureHandler));
 		handlers.add(Tuple2.of(jobCancelTerminationHandler.getMessageHeaders(), jobCancelTerminationHandler));
+		handlers.add(Tuple2.of(externalRequestReportHandler.getMessageHeaders(), externalRequestReportHandler));
 		handlers.add(Tuple2.of(jobVertexDetailsHandler.getMessageHeaders(), jobVertexDetailsHandler));
 		handlers.add(Tuple2.of(sourceMetadataHandler.getMessageHeaders(), sourceMetadataHandler));
 		handlers.add(Tuple2.of(savepointDumpHandler.getMessageHeaders(), savepointDumpHandler));

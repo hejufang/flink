@@ -60,6 +60,7 @@ import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.slotpool.ThrowingSlotProvider;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.EagerWithBlockEdgeSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -468,7 +469,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 				return;
 			}
 			try {
-				resourceManagerGateway.releaseTaskManager(resourceID, cause);
+				resourceManagerGateway.releaseTaskManager(resourceID, WorkerExitCode.EXIT_BY_JOB_MANAGER, cause);
 			} catch (Exception e) {
 				log.error("close canceling timeout task {} fail", execution, e);
 			}

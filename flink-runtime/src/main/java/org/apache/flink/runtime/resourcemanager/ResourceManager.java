@@ -602,8 +602,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
-	public void releaseTaskManager(final ResourceID resourceId, final Exception cause) {
-		closeTaskManagerConnection(resourceId, cause, WorkerExitCode.EXIT_BY_JOB_MANAGER);
+	public void releaseTaskManager(ResourceID resourceID, Integer exitCode, Exception cause) {
+		closeTaskManagerConnection(resourceID, cause, exitCode);
 	}
 
 	@Override

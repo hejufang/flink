@@ -229,12 +229,13 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	void disconnectTaskManager(ResourceID resourceID, Exception cause);
 
 	/**
-	 * JobManager disconnects a TaskManager specified by the given resourceID from the {@link ResourceManager}.
+	 * JobManager disconnects TaskManager specified by the given resourceID from the {@link ResourceManager}.
 	 *
-	 * @param resourceID identifying the TaskManager to disconnect
-	 * @param cause for the disconnection of the TaskManager
+	 * @param resourceID identifying the TaskManager to release
+	 * @param exitCode the exit code of release
+	 * @param cause for the release of the TaskManager
 	 */
-	void releaseTaskManager(ResourceID resourceID, Exception cause);
+	void releaseTaskManager(ResourceID resourceID, Integer exitCode, Exception cause);
 
 	/**
 	 * Disconnects a JobManager specified by the given resourceID from the {@link ResourceManager}.

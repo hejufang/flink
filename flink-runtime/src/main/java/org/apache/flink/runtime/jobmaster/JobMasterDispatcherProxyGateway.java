@@ -30,6 +30,7 @@ import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.externalhandler.ExternalRequestHandleReport;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -92,6 +93,11 @@ public class JobMasterDispatcherProxyGateway implements JobMasterGateway {
 	@Override
 	public CompletableFuture<Acknowledge> cancel(Time timeout) {
 		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> reportExternalRequestResult(ExternalRequestHandleReport externalRequestHandleReport) {
+		return null;
 	}
 
 	@Override

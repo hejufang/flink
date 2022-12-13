@@ -25,6 +25,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.externalhandler.ExternalRequestHandleReport;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.JobResult;
@@ -159,6 +160,11 @@ public class TestingRestfulGateway implements RestfulGateway {
 	@Override
 	public CompletableFuture<Acknowledge> cancelJob(JobID jobId, Time timeout) {
 		return cancelJobFunction.apply(jobId);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> externalRequestHandleReport(JobID jobId, ExternalRequestHandleReport externalRequestHandleReport, Time timeout) {
+		return null;
 	}
 
 	@Override

@@ -62,6 +62,7 @@ public class JobDetails implements Serializable {
 	private static final String FIELD_NAME_TOTAL_NUMBER_TASKS = "total";
 	private static final String FILED_NAME_METRIC = "metric";
 	private static final String FILED_NAME_DTOP = "dtop";
+	private static final String FILED_NAME_SLOW_TASK_LAST_RELEASE_TIME = "slow-task-last-release-time";
 
 	private final JobID jobId;
 
@@ -84,6 +85,8 @@ public class JobDetails implements Serializable {
 	private final String metric;
 
 	private final String dtop;
+
+	private long lastSlowTaskReleaseTime;
 
 	/**
 	 * The map holds the attempt number of the current execution attempt in the Execution, which is
@@ -136,6 +139,7 @@ public class JobDetails implements Serializable {
 		this.metric = (metric == null) ? "NoMetric" : metric;
 		this.dtop = (dtop == null) ? "NoDtop" : dtop;
 		this.currentExecutionAttempts = checkNotNull(currentExecutionAttempts);
+		this.lastSlowTaskReleaseTime = 0;
 	}
 	// ------------------------------------------------------------------------
 
@@ -181,6 +185,14 @@ public class JobDetails implements Serializable {
 
 	public String getDtop() {
 		return dtop;
+	}
+
+	public long getLastSlowTaskReleaseTime() {
+		return lastSlowTaskReleaseTime;
+	}
+
+	public void setLastSlowTaskReleaseTime(long lastSlowTaskReleaseTime) {
+		this.lastSlowTaskReleaseTime = lastSlowTaskReleaseTime;
 	}
 
 	public Map<String, Map<Integer, CurrentAttempts>> getCurrentExecutionAttempts() {
@@ -280,7 +292,7 @@ public class JobDetails implements Serializable {
 			jsonGenerator.writeEndObject();
 			jsonGenerator.writeStringField(FILED_NAME_METRIC, jobDetails.getMetric());
 			jsonGenerator.writeStringField(FILED_NAME_DTOP, jobDetails.getDtop());
-
+			jsonGenerator.writeNumberField(FILED_NAME_SLOW_TASK_LAST_RELEASE_TIME, jobDetails.getLastSlowTaskReleaseTime());
 			jsonGenerator.writeEndObject();
 		}
 	}

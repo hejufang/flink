@@ -25,6 +25,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.externalhandler.ExternalRequestHandleReport;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.JobResult;
@@ -63,6 +64,13 @@ public interface RestfulGateway extends RpcGateway {
 	 * @return A future acknowledge if the cancellation succeeded
 	 */
 	CompletableFuture<Acknowledge> cancelJob(JobID jobId, @RpcTimeout Time timeout);
+
+
+	/**
+	 * Report the external request handle result.
+	 *
+	 */
+	CompletableFuture<Acknowledge> externalRequestHandleReport(JobID jobId, ExternalRequestHandleReport externalRequestHandleReport, @RpcTimeout Time timeout);
 
 	/**
 	 * Requests the {@link ArchivedExecutionGraph} for the given jobId. If there is no such graph, then
