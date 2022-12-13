@@ -30,6 +30,7 @@ import org.apache.flink.runtime.rest.handler.RestHandlerSpecification;
 import org.apache.flink.runtime.rest.handler.job.JobSubmitHandler;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
+import org.apache.flink.runtime.rest.handler.resourcegroup.APaaSResourceGroupChangedHandler;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
 import org.apache.flink.runtime.webmonitor.WebMonitorExtension;
@@ -89,6 +90,12 @@ public class DispatcherRestEndpoint extends WebMonitorEndpoint<DispatcherGateway
 
 		final Time timeout = restConfiguration.getTimeout();
 
+		APaaSResourceGroupChangedHandler resourceGroupChangedHandler = new APaaSResourceGroupChangedHandler(
+			leaderRetriever,
+			timeout,
+			responseHeaders,
+			clusterConfiguration);
+
 		JobSubmitHandler jobSubmitHandler = new JobSubmitHandler(
 			leaderRetriever,
 			timeout,
@@ -122,6 +129,7 @@ public class DispatcherRestEndpoint extends WebMonitorEndpoint<DispatcherGateway
 		}
 
 		handlers.add(Tuple2.of(jobSubmitHandler.getMessageHeaders(), jobSubmitHandler));
+		handlers.add(Tuple2.of(resourceGroupChangedHandler.getMessageHeaders(), resourceGroupChangedHandler));
 
 		return handlers;
 	}

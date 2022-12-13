@@ -380,4 +380,10 @@ public class PipelineOptions {
 					.withDescription("Whether to keep the user classpath settings compatible to yarn per job mode. " +
 							"If that mode is on, the user classpath setting will be in the order: user jar, external jar, " +
 							"and files in classpath. Noted that the usrlib is not supported in this compatible mode.");
+
+	public static final ConfigOption<String> RESOURCE_GROUP_ID =
+		key("pipeline.resource-group-id")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("ID of resource group.");
 }

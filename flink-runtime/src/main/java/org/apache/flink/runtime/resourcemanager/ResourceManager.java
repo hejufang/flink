@@ -23,7 +23,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.HighAvailabilityOptions;
@@ -44,10 +43,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
-import org.apache.flink.runtime.dispatcher.DispatcherRegistrationSuccess;
-import org.apache.flink.runtime.dispatcher.UnresolvedTaskManagerTopology;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
@@ -73,10 +69,14 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.exceptions.MaximumFailedTaskManagerExceedingException;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorException;
-import org.apache.flink.runtime.resourcemanager.registration.DispatcherRegistration;
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistration;
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.DispatcherAwareListener;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceAwareService;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceAwareServiceImpl;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceInfoAwareListener;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceManagerAwareListener;
 import org.apache.flink.runtime.resourcemanager.slotmanager.NoSlotWorkerManagerImpl;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
@@ -157,12 +157,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	/** Ongoing registration of TaskExecutors per resource ID. */
 	private final Map<ResourceID, CompletableFuture<TaskExecutorGateway>> taskExecutorGatewayFutures;
 
-	private final Map<ResourceID, CompletableFuture<DispatcherGateway>> dispatcherGatewayFutures;
-
-	private final Map<ResourceID, DispatcherRegistration> dispatcherRegistrations;
-
-	private final Map<ResourceID, UnresolvedTaskManagerTopology> taskExecutorTopology;
-
 	private final HeartbeatServices heartbeatServices;
 
 	private final Counter heartbeatTimeoutWithJM = new SimpleCounter();
@@ -185,6 +179,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final ClusterInformation clusterInformation;
 
+	private final ResourceAwareService resourceAwareService;
+
+	private final DispatcherAwareListener dispatcherAwareListener;
+
+	private final ResourceInfoAwareListener resourceInfoAwareListener;
+
+	private final ResourceManagerAwareListener resourceManagerAwareListener;
+
 	protected final ResourceManagerMetricGroup resourceManagerMetricGroup;
 
 	private final FailureRater failureRater;
@@ -199,8 +201,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final int minWorkersPerJob;
 
-	private Boolean jmResourceAllocationEnabled;
-
 	private final CompletableFuture<Void> startedFuture;
 
 	/** The heartbeat manager with task managers. */
@@ -208,9 +208,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	/** The heartbeat manager with job managers. */
 	private HeartbeatManager<Void, Void> jobManagerHeartbeatManager;
-
-	/** The heartbeat manager with dispatchers. */
-	private HeartbeatManager<Void, Void> dispatcherHeartbeatManager;
 
 	private boolean waitingFatal;
 	private String fatalMessage;
@@ -280,16 +277,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.taskExecutors = new HashMap<>(8);
 		this.historyHostNameToWorkers = new HashMap<>(8);
 		this.taskExecutorGatewayFutures = new HashMap<>(8);
-		this.dispatcherGatewayFutures = new HashMap<>(4);
-		this.dispatcherRegistrations = new HashMap<>(4);
-		this.taskExecutorTopology = new HashMap<>(8);
 
 		this.rpcTimeout = rpcTimeout;
-		this.jmResourceAllocationEnabled = flinkConfig.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
+		this.resourceAwareService = new ResourceAwareServiceImpl(resourceId, getRpcService(), rpcTimeout, flinkConfig);
+		this.dispatcherAwareListener = resourceAwareService.getDispatcherAwareListener();
+		this.resourceInfoAwareListener = resourceAwareService.getResourceInfoAwareListener();
+		this.resourceManagerAwareListener = resourceAwareService.getResourceManagerAwareListener();
 
 		this.jobManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
 		this.taskManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
-		this.dispatcherHeartbeatManager = NoOpHeartbeatManager.getInstance();
 
 		this.clusterPartitionTracker = checkNotNull(clusterPartitionTrackerFactory).get(
 			(taskExecutorResourceId, dataSetIds) -> taskExecutors.get(taskExecutorResourceId).getTaskExecutorGateway()
@@ -343,6 +339,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			startHeartbeatServices();
 
+			resourceAwareService.start(getFencingToken(), getMainThreadExecutor(), heartbeatServices);
 			blacklistTracker.start(getRpcService().getScheduledExecutor(), getMainThreadExecutor(),
 				new BlacklistActionsImpl());
 
@@ -537,28 +534,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public CompletableFuture<RegistrationResponse> registerDispatcher(
-			final DispatcherId dispatcherId,
-			final ResourceID dispatcherResourceId,
-			final String dispatcherAddress,
-			final Time timeout) {
-		CompletableFuture<DispatcherGateway> dispatcherGatewayFuture = getRpcService().connect(dispatcherAddress, dispatcherId, DispatcherGateway.class);
-		dispatcherGatewayFutures.put(dispatcherResourceId, dispatcherGatewayFuture);
-
-		return dispatcherGatewayFuture.handleAsync(
-			(DispatcherGateway dispatcherGateway, Throwable throwable) -> {
-				if (dispatcherGatewayFuture == dispatcherGatewayFutures.get(dispatcherResourceId)) {
-					dispatcherGatewayFutures.remove(dispatcherResourceId);
-					if (throwable != null) {
-						return new RegistrationResponse.Decline(throwable.getMessage());
-					} else {
-						return registerDispatcherInternal(dispatcherGateway, dispatcherResourceId, dispatcherAddress);
-					}
-				} else {
-					log.debug("Ignoring outdated DispatcherGateway connection for {}.", dispatcherId);
-					return new RegistrationResponse.Decline("Decline outdated dispatcher registration.");
-				}
-			},
-			getMainThreadExecutor());
+		final DispatcherId dispatcherId,
+		final ResourceID dispatcherResourceId,
+		final String dispatcherAddress,
+		final Time timeout) {
+		return  dispatcherAwareListener.registerDispatcher(dispatcherId, dispatcherResourceId, dispatcherAddress, timeout);
 	}
 
 		@Override
@@ -592,7 +572,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public void heartbeatFromDispatcher(final ResourceID resourceID) {
-		dispatcherHeartbeatManager.receiveHeartbeat(resourceID, null);
+		dispatcherAwareListener.heartbeatFromDispatcher(resourceID);
 	}
 
 	@Override
@@ -617,7 +597,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public void disconnectDispatcher(final ResourceID dispatcherId, final Exception cause) {
-		closeDispatcherConnection(dispatcherId, cause);
+		dispatcherAwareListener.disconnectDispatcher(dispatcherId, cause);
 	}
 
 	@Override
@@ -712,20 +692,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	public CompletableFuture<Acknowledge> requestTaskManager(int numNewTaskManagerRequests, @RpcTimeout Time timeout) {
 		checkArgument(slotManager instanceof NoSlotWorkerManagerImpl);
-
 		((NoSlotWorkerManagerImpl) slotManager).requestNewTaskManagers(numNewTaskManagerRequests);
 
-		if (log.isDebugEnabled()) {
-			log.debug("Notify Dispatchers [{}] for latest TM topology",
-				dispatcherRegistrations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")));
-		}
-
-		dispatcherRegistrations.values().forEach(
-			dispatcherRegistration -> dispatcherRegistration
-				.getDispatcherGateway()
-				.offerTaskManagers(taskExecutorTopology.values(), rpcTimeout)
-		);
-
+		dispatcherAwareListener.notifyDispatchers();
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
@@ -1230,97 +1199,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				}
 			});
 
-			if (jmResourceAllocationEnabled) {
-				UnresolvedTaskManagerTopology oldUnresolvedTaskManagerTopology = taskExecutorTopology.get(taskExecutorResourceId);
-				if (oldUnresolvedTaskManagerTopology == null) {
-					taskExecutorTopology.put(
-						taskExecutorResourceId,
-						new UnresolvedTaskManagerTopology(
-							taskExecutorGateway,
-							taskExecutorRegistration.getTaskExecutorAddress(),
-							unresolvedTaskManagerLocation,
-							taskExecutorRegistration.getSocketAddress()));
-
-					if (log.isDebugEnabled()) {
-						log.debug("Notify Dispatchers [{}] for latest TM topology because {} added",
-							dispatcherRegistrations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")),
-							taskExecutorResourceId);
-					}
-
-					dispatcherRegistrations.values().forEach(
-						dispatcherRegistration -> dispatcherRegistration
-							.getDispatcherGateway()
-							.offerTaskManagers(taskExecutorTopology.values(), rpcTimeout)
-					);
-				}
-			}
+			resourceManagerAwareListener.onRegisterTaskManager(taskExecutorGateway, taskExecutorRegistration, unresolvedTaskManagerLocation);
 
 			return new TaskExecutorRegistrationSuccess(
 				registration.getInstanceID(),
 				resourceId,
 				clusterInformation);
 		}
-	}
-
-	/**
-	 * Register a new dispatcher.
-	 *
-	 * @param dispatcherGateway to communicate with the registering Dispatcher
-	 * @param dispatcherAddress address of the Dispatcher
-	 * @return RegistrationResponse
-	 */
-	private RegistrationResponse registerDispatcherInternal(
-			DispatcherGateway dispatcherGateway,
-			ResourceID dispatcherResourceId,
-			String dispatcherAddress) {
-		if (dispatcherRegistrations.containsKey(dispatcherResourceId)) {
-			DispatcherRegistration oldDispatcherRegistration = dispatcherRegistrations.get(dispatcherResourceId);
-
-			if (Objects.equals(oldDispatcherRegistration.getDispatcherId(), dispatcherGateway.getFencingToken())) {
-				// same registration
-				log.debug("Dispatcher {}@{} was already registered.", dispatcherGateway.getFencingToken(), dispatcherAddress);
-			} else {
-				// tell old dispatcher that he is no longer the leader
-				closeDispatcherConnection(
-					dispatcherResourceId,
-					new Exception("New dispatcher " + dispatcherResourceId + " found."));
-
-				DispatcherRegistration dispatcherRegistration = new DispatcherRegistration(
-					dispatcherGateway.getFencingToken(),
-					dispatcherResourceId,
-					dispatcherGateway);
-				dispatcherRegistrations.put(dispatcherResourceId, dispatcherRegistration);
-			}
-		} else {
-			DispatcherRegistration dispatcherRegistration = new DispatcherRegistration(
-				dispatcherGateway.getFencingToken(),
-				dispatcherResourceId,
-				dispatcherGateway);
-			dispatcherRegistrations.put(dispatcherResourceId, dispatcherRegistration);
-		}
-		log.info("Registered dispatcher {}@{} at ResourceManager.", dispatcherGateway.getFencingToken(), dispatcherAddress);
-
-		if (log.isDebugEnabled()) {
-			log.debug("Notify Dispatcher {} for latest TM topology", dispatcherResourceId);
-		}
-
-		dispatcherGateway.offerTaskManagers(taskExecutorTopology.values(), rpcTimeout);
-
-		dispatcherHeartbeatManager.monitorTarget(dispatcherResourceId, new HeartbeatTarget<Void>() {
-			@Override
-			public void receiveHeartbeat(ResourceID resourceID, Void payload) {
-				// the ResourceManager will always send heartbeat requests to the Dispatcher
-			}
-
-			@Override
-			public void requestHeartbeat(ResourceID resourceID, Void payload) {
-				dispatcherGateway.heartbeatFromResourceManager(resourceID);
-			}
-		});
-
-		return new DispatcherRegistrationSuccess(
-			getFencingToken(),
-			resourceId);
 	}
 
 	private void registerJobManagerMetrics(){
@@ -1345,7 +1230,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		jobManagerRegistrations.clear();
 		jmResourceIdRegistrations.clear();
 		taskExecutors.clear();
-		dispatcherRegistrations.clear();
+		resourceAwareService.clear();
 
 		try {
 			jobLeaderIdService.clear();
@@ -1423,30 +1308,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
-	/**
-	 * This method should be called by the framework once it detects that a currently registered
-	 * dispatcher has failed.
-	 *
-	 * @param dispatcherId identifying the dispatcher leader shall be disconnected.
-	 * @param cause The exception which cause the JobManager failed.
-	 */
-	protected void closeDispatcherConnection(ResourceID dispatcherId, Exception cause) {
-		DispatcherRegistration dispatcherRegistration = dispatcherRegistrations.remove(dispatcherId);
-
-		if (dispatcherRegistration != null) {
-			final DispatcherGateway dispatcherGateway = dispatcherRegistration.getDispatcherGateway();
-			log.info("Disconnect dispatcher {}@{}", dispatcherId, dispatcherGateway.getAddress());
-
-			dispatcherHeartbeatManager.unmonitorTarget(dispatcherRegistration.getDispatcherResourceID());
-
-			// tell the dispatcher about the disconnect
-			dispatcherGateway.disconnectResourceManager(getFencingToken(), cause);
-		} else {
-			log.debug("There was no registered dispatcher {}.", dispatcherId);
-		}
-	}
-
-	protected int getMinNumberOfTaskManagerForPodGroup(){
+	protected int getMinNumberOfTaskManagerForPodGroup() {
 		if (jobManagerRegistrations.size() != 1) {
 			log.error("Multiple job master found! This method might not be invoked in application mode");
 			// return 0 as default minimum number of task manager pod in pod group annotation
@@ -1484,22 +1346,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			// TODO :: suggest failed task executor to stop itself
 			slotManager.unregisterTaskManager(workerRegistration.getInstanceID(), cause);
 			clusterPartitionTracker.processTaskExecutorShutdown(resourceID);
-
-			if (jmResourceAllocationEnabled) {
-				taskExecutorTopology.remove(resourceID);
-
-				if (log.isDebugEnabled()) {
-					log.debug("Notify Dispatchers [{}] for latest TM topology because {} closed",
-						dispatcherRegistrations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")),
-						resourceID);
-				}
-
-				dispatcherRegistrations.values().forEach(
-					dispatcherRegistration -> dispatcherRegistration
-						.getDispatcherGateway()
-						.offerTaskManagers(taskExecutorTopology.values(), rpcTimeout)
-				);
-			}
+			resourceManagerAwareListener.onCloseTaskManager(resourceID);
 
 			workerRegistration.getTaskExecutorGateway().disconnectResourceManager(cause);
 		} else {
@@ -1601,22 +1448,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			new JobManagerHeartbeatListener(),
 			getMainThreadExecutor(),
 			log);
-
-		if (jmResourceAllocationEnabled) {
-			dispatcherHeartbeatManager = heartbeatServices.createHeartbeatManagerSender(
-				resourceId,
-				new DispatcherHeartbeatListener(),
-				getMainThreadExecutor(),
-				log);
-		}
 	}
 
 	private void stopHeartbeatServices() {
 			taskManagerHeartbeatManager.stop();
 			jobManagerHeartbeatManager.stop();
-			if (jmResourceAllocationEnabled) {
-				dispatcherHeartbeatManager.stop();
-			}
+			resourceAwareService.stop();
 	}
 
 	// ------------------------------------------------------------------------
@@ -1898,33 +1735,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
-	private class DispatcherHeartbeatListener implements HeartbeatListener<Void, Void> {
-
-		@Override
-		public void notifyHeartbeatTimeout(final ResourceID resourceID) {
-			validateRunsInMainThread();
-			log.info("The heartbeat of Dispatcher with id {} timed out.", resourceID);
-			if (dispatcherRegistrations.containsKey(resourceID)) {
-				DispatcherRegistration dispatcherRegistration = dispatcherRegistrations.get(resourceID);
-
-				if (dispatcherRegistration != null) {
-					closeDispatcherConnection(
-						resourceID,
-						new TimeoutException("The heartbeat of Dispatcher with id " + resourceID + " timed out."));
-				}
-			}
-		}
-
-		@Override
-		public void reportPayload(ResourceID resourceID, Void payload) {
-			// nothing to do since there is no payload
-		}
-
-		@Override
-		public Void retrievePayload(ResourceID resourceID) {
-			return null;
-		}
-	}
 
 	// ------------------------------------------------------------------------
 	//  Resource Management
@@ -1963,15 +1773,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 						Math.max(taskCount / maxTasksPerWorker, minWorkersPerJob),
 						requestSlotCount),
 					totalWorkerCount);
-	}
-
-	// ------------------------------------------------------------------------
-	//  Testing methods
-	// ------------------------------------------------------------------------
-
-	@VisibleForTesting
-	protected void setJmResourceAllocationEnabled(boolean jmResourceAllocationEnabled) {
-		this.jmResourceAllocationEnabled = jmResourceAllocationEnabled;
 	}
 }
 

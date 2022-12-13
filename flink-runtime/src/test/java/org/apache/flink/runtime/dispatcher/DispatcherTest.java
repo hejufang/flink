@@ -26,6 +26,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.blob.VoidBlobStore;
@@ -45,6 +46,7 @@ import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobmanager.JobGraphWriter;
+import org.apache.flink.runtime.jobmaster.DispatcherToTaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.jobmaster.JobManagerRunner;
 import org.apache.flink.runtime.jobmaster.JobManagerSharedServices;
 import org.apache.flink.runtime.jobmaster.JobNotFinishedException;
@@ -59,6 +61,7 @@ import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorSocketAddress;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceInfo;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.rest.handler.legacy.utils.ArchivedExecutionGraphBuilder;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -105,8 +108,10 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -140,6 +145,8 @@ public class DispatcherTest extends TestLogger {
 	private static final Time TIMEOUT = Time.seconds(10L);
 
 	private static final JobID TEST_JOB_ID = new JobID();
+
+	private static final String TEST_RESOURCE_GROUP_ID = "Test";
 
 	@Rule
 	public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -190,6 +197,7 @@ public class DispatcherTest extends TestLogger {
 		final JobVertex testVertex = new JobVertex("testVertex");
 		testVertex.setInvokableClass(NoOpInvokable.class);
 		jobGraph = new JobGraph(TEST_JOB_ID, "testJob", testVertex);
+		jobGraph.setResourceGroupId(TEST_RESOURCE_GROUP_ID);
 
 		heartbeatServices = new HeartbeatServices(1000L, 10000L);
 
@@ -856,6 +864,69 @@ public class DispatcherTest extends TestLogger {
 		assertEquals(dispatcherGateway.getAddress(), dispatcherRegistrationRequest.getAkkaAddress());
 		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerAddress(), dispatcherRegistrationRequest.getSocketAddress());
 		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerPort(), dispatcherRegistrationRequest.getSocketPort());
+	}
+
+	@Test
+	public void testOfferTaskManagersWithResourceGroup() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		ResourceID mockResourceID = ResourceID.generate();
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		jobResultClientManager.registerClusterInformation(
+			new ClusterInformation("localhost", 1234, 1235, "localhost", 1236));
+		configuration.setBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED, true);
+		configuration.set(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE, true);
+		configuration.set(ResourceManagerOptions.RESOURCE_GROUP_ENABLE, true);
+		configuration.set(ClusterOptions.JOB_REUSE_DISPATCHER_IN_TASKEXECUTOR_ENABLE, true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.setJobResultClientManager(jobResultClientManager)
+			.build();
+		dispatcher.setResourceId(mockResourceID);
+
+		final DispatcherGateway dispatcherGateway = dispatcher.getSelfGateway(DispatcherGateway.class);
+
+		dispatcher.start();
+
+		CompletableFuture<DispatcherRegistrationRequest> registrationFuture = new CompletableFuture<>();
+		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
+			.setAddress("taskexecutor_test_02")
+			.setDispatcherRegistrationConsumer(registrationFuture::complete)
+			.createTestingTaskExecutorGateway();
+		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
+
+		final ResourceID resourceID1 = ResourceID.generate();
+		final UnresolvedTaskManagerTopology taskManagerTopology1 = new UnresolvedTaskManagerTopology(
+			taskExecutorGateway,
+			"taskexecutor_test_02", new UnresolvedTaskManagerLocation(resourceID1, "localhost", -1),
+			new TaskExecutorSocketAddress("localhost", 8091));
+		final ResourceInfo restResourceInfo = new ResourceInfo.Builder().setId(TEST_RESOURCE_GROUP_ID).build();
+		taskManagerTopology1.setResourceInfo(restResourceInfo);
+		final ResourceID resourceID2 = ResourceID.generate();
+		final UnresolvedTaskManagerTopology taskManagerTopology2 = new UnresolvedTaskManagerTopology(
+			taskExecutorGateway,
+			"taskexecutor_test_01", new UnresolvedTaskManagerLocation(resourceID2, "localhost", -1),
+			new TaskExecutorSocketAddress("localhost", 8092));
+		taskManagerTopology2.setResourceInfo(restResourceInfo);
+		List<UnresolvedTaskManagerTopology> unresolvedTaskManagerTopologies = new ArrayList<>();
+		unresolvedTaskManagerTopologies.add(taskManagerTopology1);
+		unresolvedTaskManagerTopologies.add(taskManagerTopology2);
+		CompletableFuture<Acknowledge> offerFuture = dispatcherGateway.offerTaskManagers(
+			unresolvedTaskManagerTopologies,
+			Time.seconds(10000));
+		offerFuture.get(10, TimeUnit.SECONDS);
+
+		DispatcherRegistrationRequest dispatcherRegistrationRequest = registrationFuture.get(10, TimeUnit.SECONDS);
+		final DispatcherResourceManager dispatcherResourceManager = dispatcher.getDispatcherResourceManager();
+		dispatcherResourceManager.establishTaskExecutorConnection(new DispatcherToTaskExecutorRegistrationSuccess(resourceID1));
+		dispatcherResourceManager.establishTaskExecutorConnection(new DispatcherToTaskExecutorRegistrationSuccess(resourceID2));
+		final Map<ResourceID, ResolvedTaskManagerTopology> registeredTaskManagers = dispatcher.getRegisteredTaskManagers(jobGraph, jobGraph.calcMinRequiredSlotsNum());
+
+		assertEquals(dispatcherGateway.getAddress(), dispatcherRegistrationRequest.getAkkaAddress());
+		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerAddress(), dispatcherRegistrationRequest.getSocketAddress());
+		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerPort(), dispatcherRegistrationRequest.getSocketPort());
+		assertEquals(registeredTaskManagers.size(), unresolvedTaskManagerTopologies.size());
 	}
 
 	private void notifyResourceManagerLeaderListeners(TestingResourceManagerGateway testingResourceManagerGateway) {

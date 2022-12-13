@@ -358,7 +358,7 @@ under the License.
 			<artifactId>flink-shaded-httpclient</artifactId>
 			<version>${http.client.version}-${flink.shaded.version}</version>
 		</dependency>
-	</dependencies>
+    </dependencies>
 
 	<!-- Dependency Management to converge transitive dependency versions -->
 

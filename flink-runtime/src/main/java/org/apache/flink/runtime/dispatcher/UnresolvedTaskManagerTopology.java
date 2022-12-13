@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.runtime.resourcemanager.TaskExecutorSocketAddress;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceInfo;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 
@@ -28,6 +29,9 @@ import javax.annotation.Nullable;
  * Container for TaskManager topology information.
  */
 public class UnresolvedTaskManagerTopology {
+
+	private ResourceInfo resourceInfo;
+
 	private final TaskExecutorGateway taskExecutorGateway;
 
 	private final String taskExecutorAddress;
@@ -69,5 +73,13 @@ public class UnresolvedTaskManagerTopology {
 
 	public long getRegistrationTime() {
 		return registrationTime;
+	}
+
+	public ResourceInfo getResourceInfo() {
+		return resourceInfo;
+	}
+
+	public void setResourceInfo(ResourceInfo resourceInfo) {
+		this.resourceInfo = resourceInfo;
 	}
 }

@@ -68,6 +68,10 @@ public class MetricNames {
 	public static final String NUM_FINISHED_JOBS = "numFinishedJobs";
 	public static final String NUM_SLOW_JOBS = "numSlowJobs";
 	public static final String NUM_REJECTED_JOBS = "numRejectedJobs";
+	public static final String NUM_RUNNING_JOBS_WITH_RESOURCE_GROUP = "numRunningJobsWithResourceGroup";
+	public static final String NUM_RUNNING_TASKS_WITH_RESOURCE_GROUP = "numRunningTasksWithResourceGroup";
+	public static final String RESOURCE_GROUP_TAG = "resourceGroupId";
+
 
 	public static final String JOB_DURATION = "jobDuration";
 	public static final String FAILED_JOB_DURATION = "failedJobDuration";
@@ -120,6 +124,8 @@ public class MetricNames {
 	public static final String NUM_JM_HEARTBEAT_TIMOUT_FROM_TM = "JMHeartbeatTimeoutFromTM";
 	public static final String NUM_TM_HEARTBEAT_TIMOUT_FROM_RM = "TMHeartbeatTimeoutFromRM";
 	public static final String NUM_TM_HEARTBEAT_TIMOUT_FROM_JM = "TMHeartbeatTimeoutFromJM";
+	public static final String NUM_DISPATCHER_HEARTBEAT_TIMOUT_FROM_RM = "DispatcherHeartbeatTimeoutFromRM";
+	public static final String NUM_DISPATCHER_HEARTBEAT_TIMOUT_FROM_TM = "DispatcherHeartbeatTimeoutFromTM";
 
 	public static final String SUBMIT_TWICE_DC_DIFF = "submitTwiceDcDiff";
 	public static final String SUBMIT_TWICE_CLUSTER_DIFF = "submitTwiceClusterDiff";

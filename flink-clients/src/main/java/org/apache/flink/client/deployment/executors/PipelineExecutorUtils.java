@@ -69,7 +69,10 @@ public class PipelineExecutorUtils {
 		configuration
 				.getOptional(PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID)
 				.ifPresent(strJobID -> jobGraph.setJobID(JobID.fromHexString(strJobID)));
-		LOG.info("JobGraph is generated with JobUID = {}, JobID = {}", jobGraph.getJobUID(), jobGraph.getJobID());
+		configuration
+			.getOptional(PipelineOptions.RESOURCE_GROUP_ID)
+			.ifPresent(resourceGroupId -> jobGraph.setResourceGroupId(resourceGroupId));
+		LOG.info("JobGraph is generated with JobUID = {}, JobID = {}, ResourceGroup = {}", jobGraph.getJobUID(), jobGraph.getJobID(), jobGraph.getResourceGroupId());
 
 		jobGraph.addJars(executionConfigAccessor.getJars());
 		jobGraph.setClasspaths(executionConfigAccessor.getClasspaths());

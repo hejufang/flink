@@ -270,6 +270,46 @@ public class ResourceManagerOptions {
 			.withDescription("Whether enable block the hosts when detected taskmanagers on them are start too slow.");
 
 	/**
+	 * Definition for resource isolation config options.
+	 */
+	public static final ConfigOption<Boolean> RESOURCE_GROUP_ENABLE = ConfigOptions
+		.key("resourcemanager.resource-group.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Use this option to disable the resource group service. This is a safety hatch in case " +
+			"that the resource group feature are buggy");
+
+	public static final ConfigOption<String> RESOURCE_CLUSTER_NAME = ConfigOptions
+		.key("resourcemanager.resource-group.cluster.name")
+		.stringType()
+		.defaultValue("Default")
+		.withDescription("Define the cluster name registered at meta date service");
+
+	public static final ConfigOption<String> RESOURCE_GROUP_CLIENT_SOURCE = ConfigOptions
+		.key("resourcemanager.resource-group.client.source")
+		.stringType()
+		.defaultValue("Default")
+		.withDescription("Define the data source of the resource group");
+
+	public static final ConfigOption<Long> RESOURCE_GROUP_QUERY_INTERVAL = ConfigOptions
+		.key("resourcemanager.resource-group.apaas.query-interval")
+		.longType()
+		.defaultValue(10L)
+		.withDescription("Define the query interval of the resource group service");
+
+	public static final ConfigOption<String> RESOURCE_GROUP_CLIENT_DOMAIN_URL = ConfigOptions
+		.key("resourcemanager.resource-group.apaas.client.domain-url")
+		.stringType()
+		.defaultValue("")
+		.withDescription("Define the url prefix of the resource group service");
+
+	public static final ConfigOption<String> RESOURCE_GROUP_ASSIGN_STRATEGY = ConfigOptions
+		.key("resourcemanager.resource-group.assign-strategy")
+		.stringType()
+		.defaultValue("Default")
+		.withDescription("Defines resource group assign strategy used for ResourceAwareService.");
+
+	/**
 	 * Prefix for passing custom environment variables to Flink's master process.
 	 * For example for passing LD_LIBRARY_PATH as an env variable to the AppMaster, set:
 	 * containerized.master.env.LD_LIBRARY_PATH: "/usr/lib/native"

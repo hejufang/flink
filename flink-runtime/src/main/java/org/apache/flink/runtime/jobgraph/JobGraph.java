@@ -90,6 +90,11 @@ public class JobGraph implements Serializable {
 	/** Name of this job. */
 	private final String jobName;
 
+	/**
+	 * ID of resourceGroup.
+	 */
+	private String resourceGroupId;
+
 	/** The mode in which the job is scheduled */
 	private ScheduleMode scheduleMode = ScheduleMode.LAZY_FROM_SOURCES;
 
@@ -229,6 +234,23 @@ public class JobGraph implements Serializable {
 	 */
 	public String getName() {
 		return this.jobName;
+	}
+
+	/**
+	 * Returns the id of resource group.
+	 *
+	 * @return Dd of resource group.
+	 */
+	public String getResourceGroupId() {
+		return resourceGroupId;
+	}
+
+	/**
+	 *
+	 * Sets the ID of resource group.
+	 */
+	public void setResourceGroupId(String resourceGroupId) {
+		this.resourceGroupId = resourceGroupId;
 	}
 
 	/**

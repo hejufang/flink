@@ -21,6 +21,7 @@ package org.apache.flink.runtime.dispatcher;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceInfo;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.netty.TaskExecutorNettyClient;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
@@ -34,6 +35,9 @@ import org.slf4j.LoggerFactory;
  */
 public class ResolvedTaskManagerTopology {
 	private static final Logger LOG = LoggerFactory.getLogger(ResolvedTaskManagerTopology.class);
+
+	private ResourceInfo resourceInfo;
+
 	private final TaskExecutorGateway taskExecutorGateway;
 
 	private final TaskManagerLocation taskManagerLocation;
@@ -59,6 +63,15 @@ public class ResolvedTaskManagerTopology {
 		this.taskExecutorNettyClient = taskExecutorNettyClient;
 		this.runningJobCount = 0;
 		this.registrationTime = System.currentTimeMillis();
+	}
+
+	public ResolvedTaskManagerTopology(
+			TaskExecutorGateway taskExecutorGateway,
+			TaskManagerLocation taskManagerLocation,
+			TaskExecutorNettyClient taskExecutorNettyClient,
+			ResourceInfo resourceInfo) {
+		this(taskExecutorGateway, taskManagerLocation, taskExecutorNettyClient);
+		this.resourceInfo = resourceInfo;
 	}
 
 	public TaskExecutorGateway getTaskExecutorGateway() {
@@ -89,9 +102,19 @@ public class ResolvedTaskManagerTopology {
 		return runningJobCount;
 	}
 
+	public String getResourceGroupId(){
+		return resourceInfo.getId();
+	}
+
+	public ResolvedTaskManagerTopology setResourceInfo(ResourceInfo resourceInfo) {
+		this.resourceInfo = resourceInfo;
+		return this;
+	}
+
 	public static ResolvedTaskManagerTopology fromUnresolvedTaskManagerTopology(
 			UnresolvedTaskManagerTopology unresolvedTaskManagerTopology,
 			boolean useAddressAsHostname,
+			TaskExecutorGateway taskExecutorGateway,
 			Configuration configuration) throws Exception {
 		final TaskManagerLocation taskManagerLocation;
 		final UnresolvedTaskManagerLocation unresolvedTaskManagerLocation = unresolvedTaskManagerTopology.getUnresolvedTaskManagerLocation();
@@ -115,9 +138,11 @@ public class ResolvedTaskManagerTopology {
 				taskExecutorNettyClient.start();
 			}
 			return new ResolvedTaskManagerTopology(
-					unresolvedTaskManagerTopology.getTaskExecutorGateway(),
-					taskManagerLocation,
-					taskExecutorNettyClient);
+				taskExecutorGateway,
+				taskManagerLocation,
+				taskExecutorNettyClient,
+				unresolvedTaskManagerTopology.getResourceInfo()
+			);
 		} catch (Throwable throwable) {
 			final String errMsg = String.format(
 					"Could not accept TaskManager registration. TaskManager address %s cannot be resolved. %s",

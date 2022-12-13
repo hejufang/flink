@@ -63,7 +63,7 @@ public class JobManagerGatewayNettyClientTest {
 				null, new UnresolvedTaskManagerLocation(ResourceID.generate(), "localhost", -1),
 				new TaskExecutorSocketAddress(taskExecutorNettyServer.getAddress(), taskExecutorNettyServer.getPort()));
 			ResolvedTaskManagerTopology resolvedTaskManagerTopology = ResolvedTaskManagerTopology
-				.fromUnresolvedTaskManagerTopology(unresolvedTaskManagerTopology, false, configuration);
+				.fromUnresolvedTaskManagerTopology(unresolvedTaskManagerTopology, false, unresolvedTaskManagerTopology.getTaskExecutorGateway(), configuration);
 			TaskManagerGateway taskManagerGateway = new RpcTaskManagerGateway(
 				resolvedTaskManagerTopology.getTaskExecutorGateway(),
 				JobMasterId.generate(),

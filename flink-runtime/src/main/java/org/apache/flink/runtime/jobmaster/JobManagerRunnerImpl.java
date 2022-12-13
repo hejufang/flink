@@ -192,6 +192,11 @@ public class JobManagerRunnerImpl implements LeaderContender, OnCompletionAction
 	}
 
 	@Override
+	public JobGraph getJobGraph(){
+		return jobGraph;
+	}
+
+	@Override
 	public ChannelHandlerContext getChannelContext() {
 		return channelContext;
 	}

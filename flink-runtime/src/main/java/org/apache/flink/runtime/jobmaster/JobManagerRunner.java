@@ -20,6 +20,7 @@ package org.apache.flink.runtime.jobmaster;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.util.AutoCloseableAsync;
 
@@ -59,6 +60,15 @@ public interface JobManagerRunner extends AutoCloseableAsync {
 	 * @return job id of the executed job
 	 */
 	JobID getJobID();
+
+	/**
+	 * Get the jobGraph of the executed job.
+	 *
+	 * @return jobGraph of the executed job
+	 */
+	default JobGraph getJobGraph(){
+		return null;
+	}
 
 	/**
 	 * Get the channel handler context for the job.

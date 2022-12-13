@@ -27,7 +27,6 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BenchmarkOptions;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.metrics.Counter;
@@ -44,15 +43,10 @@ import org.apache.flink.runtime.client.JobSubmissionException;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
-import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ErrorInfo;
 import org.apache.flink.runtime.externalhandler.ExternalRequestHandleReport;
-import org.apache.flink.runtime.heartbeat.HeartbeatListener;
-import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.heartbeat.HeartbeatTarget;
-import org.apache.flink.runtime.heartbeat.NoOpHeartbeatManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
 import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
@@ -61,17 +55,13 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmanager.JobGraphWriter;
-import org.apache.flink.runtime.jobmaster.DispatcherToTaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.jobmaster.JobManagerRunner;
 import org.apache.flink.runtime.jobmaster.JobManagerRunnerImpl;
 import org.apache.flink.runtime.jobmaster.JobManagerSharedServices;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobNotFinishedException;
 import org.apache.flink.runtime.jobmaster.JobResult;
-import org.apache.flink.runtime.jobmaster.ResourceManagerAddress;
 import org.apache.flink.runtime.jobmaster.factories.DefaultJobManagerJobMetricGroupFactory;
-import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
-import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
@@ -84,13 +74,10 @@ import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
-import org.apache.flink.runtime.registration.RegisteredRpcConnection;
-import org.apache.flink.runtime.registration.RegistrationResponse;
-import org.apache.flink.runtime.registration.RetryingRegistration;
-import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.ResourceOverview;
+import org.apache.flink.runtime.resourcemanager.resourcegroup.ResourceInfoException;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -99,8 +86,6 @@ import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.socket.result.JobChannelManager;
 import org.apache.flink.runtime.socket.result.JobResultClientManager;
-import org.apache.flink.runtime.taskexecutor.DispatcherRegistrationRequest;
-import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
@@ -113,10 +98,7 @@ import org.apache.flink.util.function.BiFunctionWithException;
 import org.apache.flink.util.function.FunctionUtils;
 import org.apache.flink.util.function.FunctionWithException;
 
-import org.apache.flink.shaded.guava18.com.google.common.collect.Sets;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
-
-import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -130,19 +112,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -207,7 +183,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final Counter failedJobCounter = new SimpleCounter();
 	private final Counter canceledJobCounter = new SimpleCounter();
 	private final Counter finishedJobCounter = new SimpleCounter();
-	private final Counter heartbeatTimeoutWithTM = new SimpleCounter();
 	private final Counter slowJobsCounter = new SimpleCounter();
 	private final Counter rejectedJobCounter = new SimpleCounter();
 
@@ -220,26 +195,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final Histogram jobToScheduleLatencyHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
 
 	// --------- ResourceManager --------
-	private final LeaderRetrievalService resourceManagerLeaderRetriever;
-
-	@Nullable
-	private ResourceManagerAddress resourceManagerAddress;
-
-	@Nullable
-	private DispatcherToResourceManagerConnection resourceManagerConnection;
-
-	@Nullable
-	private EstablishedResourceManagerConnection establishedResourceManagerConnection;
-
 	private final Boolean jmResourceAllocationEnabled;
-
-	private final Map<ResourceID, ResolvedTaskManagerTopology> registeredTaskManagers;
-
-	private final Map<ResourceID, UnresolvedTaskManagerTopology> taskExecutorLocations;
-
-	private final Map<ResourceID, DispatcherToTaskExecutorConnection> taskExecutorConnections;
-
-	private final Map<ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> taskExecutorEstablishedConnections;
 
 	private int minRequiredTaskManager;
 
@@ -253,17 +209,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final Queue<Tuple2<JobGraph, ChannelHandlerContext>> pendingJobsWithContext;
 
-	private HeartbeatManager<Void, Void> resourceManagerHeartbeatManager;
-
-	private final boolean useAddressAsHostname;
-
-	private HeartbeatManager<Void, Void> taskManagerHeartbeatManager;
-
 	private final JobResultClientManager jobResultClientManager;
-
-	private final boolean useSocketEnable;
-
-	private boolean jobReuseDispatcherEnable;
 
 	private final boolean dispatcherJobResultThreadPoolEnabled;
 
@@ -278,6 +224,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final int maxRunningJobs;
 
 	private final AtomicInteger totalRunningJobs = new AtomicInteger(0);
+
+	private final DispatcherResourceManager dispatcherResourceManager;
 
 	public Dispatcher(
 			RpcService rpcService,
@@ -326,14 +274,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		this.dispatcherBootstrap = checkNotNull(dispatcherBootstrap);
 
-		this.resourceManagerLeaderRetriever = highAvailabilityServices.getResourceManagerLeaderRetriever();
-
-		this.resourceManagerAddress = null;
-
-		this.resourceManagerConnection = null;
-
-		this.establishedResourceManagerConnection = null;
-
 		this.jmResourceAllocationEnabled = configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
 
 		this.minRequiredTaskManager = configuration.getInteger(ClusterOptions.RM_MIN_WORKER_NUM);
@@ -344,36 +284,13 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		this.maxRunningTasks = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_TASKS_PER_TASKMANAGER);
 
-		this.registeredTaskManagers = new HashMap<>();
-
 		this.totalRunningTasks = 0;
-
-		this.taskExecutorLocations = new HashMap<>();
-
-		this.taskExecutorConnections = new HashMap<>();
-
-		this.taskExecutorEstablishedConnections = new HashMap<>();
 
 		this.pendingJobs = new ArrayDeque<>();
 
 		this.pendingJobsWithContext = new ArrayDeque<>();
 
-		this.resourceManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
-
-		this.taskManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
-
 		this.resourceId = ResourceID.generate();
-
-		this.useAddressAsHostname = configuration.getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
-
-		this.useSocketEnable = configuration.get(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
-		checkArgument(
-			!useSocketEnable || configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED),
-			"Socket enable flag can be turned on when `cluster.jm-resource-allocation.enabled` is true");
-		this.jobReuseDispatcherEnable = configuration.get(ClusterOptions.JOB_REUSE_DISPATCHER_IN_TASKEXECUTOR_ENABLE);
-		checkArgument(
-			!useSocketEnable || configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED),
-			"Job reuse dispatcher in task executor flag can be turned on when `cluster.jm-resource-allocation.enabled` is true");
 
 		this.dispatcherJobResultThreadPoolEnabled =
 			configuration.getBoolean(JobManagerOptions.DISPATCHER_JOB_RESULT_THREAD_POOL_ENABLED);
@@ -387,6 +304,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.recordSlowQuery = this.configuration.getBoolean(JobManagerOptions.JOBMANAGER_RECORD_SLOW_QUERY_ENABLED);
 		this.slowQueryLatencyThreshold = this.configuration.get(JobManagerOptions.JOBMANAGER_SLOW_QUERY_LATENCY_THRESHOLD).toMillis();
 		this.maxRunningJobs = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_JOBS);
+		this.dispatcherResourceManager = new DispatcherResourceManager(this, dispatcherServices);
 	}
 
 	//------------------------------------------------------
@@ -397,13 +315,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return shutDownFuture;
 	}
 
-	private DispatcherId getDispatcherId() {
-		return getFencingToken();
-	}
-
 	@VisibleForTesting
 	public void addTaskExecutorLocations(ResourceID resourceID, UnresolvedTaskManagerTopology taskManagerTopology) {
-		taskExecutorLocations.put(resourceID, taskManagerTopology);
+		dispatcherResourceManager.addTaskExecutorLocations(resourceID, taskManagerTopology);
 	}
 
 	//------------------------------------------------------
@@ -417,7 +331,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	@VisibleForTesting
 	protected void setJobReuseDispatcherEnable(Boolean dispatcherProxyJobMaster) {
-		this.jobReuseDispatcherEnable = dispatcherProxyJobMaster;
+		dispatcherResourceManager.setJobReuseDispatcherEnable(dispatcherProxyJobMaster);
 	}
 
 	@VisibleForTesting
@@ -444,23 +358,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private void startDispatcherServices() throws Exception {
 		try {
-			if (jmResourceAllocationEnabled) {
-				resourceManagerHeartbeatManager = heartbeatServices.createHeartbeatManager(
-					resourceId,
-					new ResourceManagerHeartbeatListener(),
-					getMainThreadExecutor(),
-					log);
-
-				// start by connecting to the ResourceManager
-				resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
-				if (jobReuseDispatcherEnable) {
-					taskManagerHeartbeatManager = heartbeatServices.createHeartbeatManager(
-						resourceId,
-						new TaskManagerHeartbeatListener(),
-						getMainThreadExecutor(),
-						log);
-				}
-			}
+			dispatcherResourceManager.setDispatcherMainThreadExecutor(getMainThreadExecutor());
+			dispatcherResourceManager.start();
 			registerDispatcherMetrics(jobManagerMetricGroup);
 		} catch (Exception e) {
 			handleStartDispatcherServicesException(e);
@@ -507,19 +406,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		terminationFutures.add(allArchiveExecutionGraphAndGetResultFuture);
 		terminationFutures.add(allJobManagerRunnersTerminationFuture);
 
-		if (jmResourceAllocationEnabled) {
-			try {
-				resourceManagerLeaderRetriever.stop();
-			} catch (Exception e) {
-				log.warn("Failed to stop resource manager leader retriever when stopping.", e);
-			}
-
-			resourceManagerHeartbeatManager.stop();
-		}
-
-		if (jobResultClientManager != null) {
-			jobResultClientManager.close();
-		}
+		dispatcherResourceManager.stop();
 
 		return FutureUtils.runAfterwards(
 			FutureUtils.completeAll(terminationFutures),
@@ -569,15 +456,17 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						} else {
 							pendingJobs.add(jobGraph);
 							pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
+							final Map<ResourceID, ResolvedTaskManagerTopology> registeredTaskManagers = dispatcherResourceManager.getRegisteredTaskManagers();
 							log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
 									"Put job {} ({}) to pending queue.",
-								registeredTaskManagers.size(),
+								registeredTaskManagers,
 								minRequiredTaskManager,
 								totalRunningTasks,
 								maxRunningTasks,
 								jobGraph.getJobID(),
 								jobGraph.getName());
 
+							final EstablishedResourceManagerConnection establishedResourceManagerConnection = dispatcherResourceManager.getEstablishedResourceManagerConnection();
 							if (registeredTaskManagers.size() < maxRegisteredTaskManager && establishedResourceManagerConnection != null) {
 								int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
 								establishedResourceManagerConnection
@@ -634,6 +523,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						} else {
 							pendingJobsWithContext.add(Tuple2.of(jobGraph, ctx));
 							pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
+							final Map<ResourceID, ResolvedTaskManagerTopology> registeredTaskManagers = dispatcherResourceManager.getRegisteredTaskManagers();
 							log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
 									"Put job {} ({}) to pending queue.",
 								registeredTaskManagers.size(),
@@ -642,6 +532,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 								maxRunningTasks,
 								jobGraph.getJobID(),
 								jobGraph.getName());
+
+							final EstablishedResourceManagerConnection establishedResourceManagerConnection =
+								dispatcherResourceManager.getEstablishedResourceManagerConnection();
 
 							if (registeredTaskManagers.size() < maxRegisteredTaskManager && establishedResourceManagerConnection != null) {
 								int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
@@ -676,8 +569,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	}
 
 	private boolean canSubmitJob() {
-		return registeredTaskManagers.size() >= minRequiredTaskManager
-			&& totalRunningTasks <= maxRunningTasks * registeredTaskManagers.size();
+		final int registerTaskManagerSize = dispatcherResourceManager.getRegisteredTaskManagers().size();
+		return registerTaskManagerSize >= minRequiredTaskManager
+			&& totalRunningTasks <= maxRunningTasks * registerTaskManagerSize;
 	}
 
 	/**
@@ -752,6 +646,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 				final Throwable strippedThrowable = ExceptionUtils.stripCompletionException(throwable);
 				log.error("Failed to submit job {}.", jobGraph.getJobID(), strippedThrowable);
+				writeFinishJobToContext(
+					jobGraph.getJobID(),
+					chx,
+					JobStatus.FAILED,
+					throwable);
 				throw new CompletionException(
 					new JobSubmissionException(jobGraph.getJobID(), "Failed to submit job.", strippedThrowable));
 			} else {
@@ -816,6 +715,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 					}
 					if (jmResourceAllocationEnabled) {
 						totalRunningTasks -= jobGraph.calcMinRequiredSlotsNum();
+						dispatcherResourceManager.unregisterJob(jobGraph);
 
 						while (canSubmitJob() && !pendingJobs.isEmpty()) {
 							JobGraph pendingJob = pendingJobs.poll();
@@ -861,6 +761,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 					}
 					if (jmResourceAllocationEnabled) {
 						totalRunningTasks -= jobGraph.calcMinRequiredSlotsNum();
+						dispatcherResourceManager.unregisterJob(jobGraph);
 
 						while (canSubmitJob() && !pendingJobsWithContext.isEmpty()) {
 							Tuple2<JobGraph, ChannelHandlerContext> pendingJobAndContext = pendingJobsWithContext.poll();
@@ -877,7 +778,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return CompletableFuture.supplyAsync(
 			() -> {
 				try {
-					totalRunningTasks += jobGraph.calcMinRequiredSlotsNum();
+					final int jobRunningTaskNums = jobGraph.calcMinRequiredSlotsNum();
+					this.totalRunningTasks += jobRunningTaskNums;
 
 					return jobManagerRunnerFactory.createJobManagerRunner(
 						jobGraph,
@@ -888,7 +790,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						jobManagerSharedServices,
 						new DefaultJobManagerJobMetricGroupFactory(jobManagerMetricGroup),
 						fatalErrorHandler,
-						registeredTaskManagers);
+						dispatcherResourceManager.getRegisteredTaskManagers(jobGraph, jobRunningTaskNums));
 				} catch (Exception e) {
 					throw new CompletionException(new JobExecutionException(jobGraph.getJobID(), "Could not instantiate JobManager.", e));
 				}
@@ -913,7 +815,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						jobManagerSharedServices,
 						new DefaultJobManagerJobMetricGroupFactory(jobManagerMetricGroup),
 						fatalErrorHandler,
-						registeredTaskManagers,
+						dispatcherResourceManager.getRegisteredTaskManagers(jobGraph, totalRunningTasks),
 						chx);
 				} catch (Exception e) {
 					throw new CompletionException(new JobExecutionException(jobGraph.getJobID(), "Could not instantiate JobManager.", e));
@@ -1282,16 +1184,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	@Override
 	public void disconnectResourceManager(
-			final ResourceManagerId resourceManagerId,
-			final Exception cause) {
-		if (isConnectingToResourceManager(resourceManagerId)) {
-			reconnectToResourceManager(cause);
-		}
+		final ResourceManagerId resourceManagerId,
+		final Exception cause) {
+		dispatcherResourceManager.disconnectResourceManager(resourceManagerId, cause);
 	}
 
 	@Override
 	public void disconnectTaskExecutor(ResourceID resourceID, Exception cause){
-		reconnectToTaskExecutor(resourceID, cause);
+		dispatcherResourceManager.reconnectToTaskExecutor(resourceID, cause);
 	}
 
 	@Override
@@ -1299,129 +1199,12 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			Collection<UnresolvedTaskManagerTopology> taskManagerTopologies,
 			Time timeout) {
 
-		if (log.isDebugEnabled()) {
-			log.debug("Registered TM: [{}], offered TM locations: [{}]",
-				registeredTaskManagers.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")),
-				taskExecutorLocations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")));
-		}
-
-		Map<ResourceID, UnresolvedTaskManagerTopology> updatedRegisteredTM = new HashMap<>();
-		for (UnresolvedTaskManagerTopology unresolvedTaskManagerTopology : taskManagerTopologies) {
-			updatedRegisteredTM.put(
-				unresolvedTaskManagerTopology.getUnresolvedTaskManagerLocation().getResourceID(),
-					unresolvedTaskManagerTopology);
-		}
-
-		Set<ResourceID> added = new HashSet<>(updatedRegisteredTM.keySet());
-		Set<ResourceID> removed;
-
-		// ResourceId of TM put in registeredTaskManagers after connection to TM is ready
-		// when dispatcherProxyJobMaster is true.
-		if (jobReuseDispatcherEnable) {
-			removed = new HashSet<>(taskExecutorLocations.keySet());
-			added.removeAll(taskExecutorLocations.keySet());
-		} else {
-			removed = new HashSet<>(registeredTaskManagers.keySet());
-			added.removeAll(registeredTaskManagers.keySet());
-		}
-
-		removed.removeAll(updatedRegisteredTM.keySet());
-
-		Map<ResourceID, ResolvedTaskManagerTopology> addedTaskManagerTopology = new HashMap<>();
-
-		if (log.isDebugEnabled()) {
-			log.debug("Added TM: [{}], Removed TM: [{}]",
-				added.stream().map(Objects::toString).collect(Collectors.joining(",")),
-				removed.stream().map(Objects::toString).collect(Collectors.joining(",")));
-		}
-
-		// update taskmanager change to JobMaster
-		for (JobID jobID : jobManagerRunnerFutures.keySet()) {
-			getJobMasterGatewayFuture(jobID).whenComplete(
-				(jobMasterGateway, throwable) -> {
-					if (throwable != null) {
-						log.error("Get JobMasterGateway for job {} failed and can't notify TM change, because {}",
-							jobID,
-							throwable);
-					} else {
-						// this may cause Job never failed if miss some JobMasterGateway.
-						// Maybe we need a sync loop.
-						jobMasterGateway.notifyWorkerRemoved(removed);
-					}
-				}
-			);
-		}
-
-		if (jobReuseDispatcherEnable) {
-			// when connected TaskManager, use the new TaskExecutorGateway create a ResolvedTaskManagerTopology.
-			// put it in registeredTaskManagers, then call jobMasterGateway.notifyWorkerAdded(addedTaskManagerTopology) to tell JobMaster the update.
-			// then call trySubmitPendingJobs() to check pending job whether can submit.
-			// these logic should in main thread.
-			for (ResourceID resourceID : removed) {
-				taskExecutorLocations.remove(resourceID);
-				// Close removed taskExecutor connection
-				closeTaskExecutorConnection(resourceID, new FlinkException("unregistered taskManagers"));
-			}
-			for (ResourceID resourceID : added) {
-				UnresolvedTaskManagerTopology unresolvedTaskManagerTopology = updatedRegisteredTM.get(resourceID);
-				// Connect to added taskExecutor
-				taskExecutorLocations.put(resourceID, unresolvedTaskManagerTopology);
-				connectToTaskExecutor(resourceID, unresolvedTaskManagerTopology.getTaskExecutorAddress());
-			}
-		} else {
-
-			for (ResourceID resourceID : removed) {
-				ResolvedTaskManagerTopology resolvedTaskManagerTopology = registeredTaskManagers.remove(resourceID);
-				if (resolvedTaskManagerTopology != null && resolvedTaskManagerTopology.getTaskExecutorNettyClient() != null) {
-					resolvedTaskManagerTopology.getTaskExecutorNettyClient().close();
-				}
-			}
-
-			for (ResourceID resourceID: added) {
-				final ResolvedTaskManagerTopology resolvedTaskManagerTopology;
-				try {
-					resolvedTaskManagerTopology = ResolvedTaskManagerTopology.fromUnresolvedTaskManagerTopology(
-						updatedRegisteredTM.get(resourceID),
-						useAddressAsHostname,
-						configuration);
-					registeredTaskManagers.put(resourceID, resolvedTaskManagerTopology);
-					addedTaskManagerTopology.put(resourceID, resolvedTaskManagerTopology);
-
-					if (useSocketEnable || jobReuseDispatcherEnable) {
-						ClusterInformation clusterInformation = Optional.ofNullable(jobResultClientManager).map(JobResultClientManager::getClusterInformation).orElse(null);
-
-						resolvedTaskManagerTopology
-							.getTaskExecutorGateway()
-							.registerDispatcher(
-								DispatcherRegistrationRequest.from(resourceId, getDispatcherId(), clusterInformation, useSocketEnable, getAddress(), jobReuseDispatcherEnable), timeout);
-					}
-				} catch (Exception e) {
-					log.error("Resource {} can not added to registeredTaskManagers, ignore it.", resourceID, e);
-				}
-			}
-
-			// update taskmanager change to JobMaster
-			for (JobID jobID : jobManagerRunnerFutures.keySet()) {
-				getJobMasterGatewayFuture(jobID).whenComplete(
-					(jobMasterGateway, throwable) -> {
-						if (throwable != null) {
-							log.error("Get JobMasterGateway for job {} failed and can't notify TM change, because {}",
-								jobID,
-								throwable);
-						} else {
-							jobMasterGateway.notifyWorkerAdded(addedTaskManagerTopology);
-						}
-					}
-				);
-			}
-
-			trySubmitPendingJobs();
-		}
+		dispatcherResourceManager.offerTaskManagers(taskManagerTopologies, timeout);
 
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
-	private void trySubmitPendingJobs() {
+	public void trySubmitPendingJobs() {
 		while (canSubmitJob() && (!pendingJobs.isEmpty() || !pendingJobsWithContext.isEmpty())) {
 			if (!pendingJobsWithContext.isEmpty()) {
 				Tuple2<JobGraph, ChannelHandlerContext> jobGraphAndContext = pendingJobsWithContext.poll();
@@ -1435,14 +1218,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		}
 	}
 
-	private boolean isConnectingToResourceManager(ResourceManagerId resourceManagerId) {
-		return resourceManagerAddress != null
-			&& resourceManagerAddress.getResourceManagerId().equals(resourceManagerId);
-	}
-
 	@Override
 	public void heartbeatFromResourceManager(final ResourceID resourceID) {
-		resourceManagerHeartbeatManager.requestHeartbeat(resourceID, null);
+		dispatcherResourceManager.heartbeatFromResourceManager(resourceID);
 	}
 
 	@VisibleForTesting
@@ -1451,14 +1229,13 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			final String taskManagerRpcAddress,
 			final ResourceID taskManagerId,
 			final Time timeout) {
-		connectToTaskExecutor(taskManagerId, taskManagerRpcAddress);
-		return taskExecutorEstablishedConnections.get(taskManagerId);
+		return dispatcherResourceManager.registerTaskManager(taskManagerRpcAddress, taskManagerId, timeout);
 	}
 
 	@Override
 	public void heartbeatFromTaskExecutor(final ResourceID resourceID, Void payload) {
 		try {
-			taskManagerHeartbeatManager.requestHeartbeat(resourceID, null);
+			dispatcherResourceManager.heartbeatFromTaskExecutor(resourceID, payload);
 		} catch (Exception e) {
 			log.error("receive task executor heart beat error", e);
 		}
@@ -1521,7 +1298,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		final CompletableFuture<Void> jobManagerRunnerTerminationFuture;
 		if (jobManagerRunnerFuture != null) {
-			jobManagerRunnerTerminationFuture = jobManagerRunnerFuture.thenCompose(JobManagerRunner::closeAsync);
+			jobManagerRunnerTerminationFuture = jobManagerRunnerFuture.thenCompose(jobManagerRunner -> {
+				dispatcherResourceManager.unregisterJob(jobManagerRunner.getJobGraph());
+				return jobManagerRunner.closeAsync();
+			});
 		} else {
 			jobManagerRunnerTerminationFuture = CompletableFuture.completedFuture(null);
 		}
@@ -1708,6 +1488,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		onFatalError(new FlinkException(String.format("JobMaster for job %s failed.", jobId), cause));
 	}
 
+	public Map<JobID, CompletableFuture<JobManagerRunner>> getJobManagerRunnerFutures() {
+		return jobManagerRunnerFutures;
+	}
+
 	protected CompletableFuture<JobMasterGateway> getJobMasterGatewayFuture(JobID jobId) {
 		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture;
 		if (jmResourceAllocationEnabled) {
@@ -1740,29 +1524,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				},
 				getMainThreadExecutor());
 		}
-	}
-
-	/**
-	 * Get JobMasterGateway, return null if JobMasterGateway is not created.
-	 */
-	private JobMasterGateway getJobMasterGateway(JobID jobId){
-		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = jobManagerRunnerFutures.get(jobId);
-
-		if (jobManagerRunnerFuture == null) {
-			return null;
-		} else {
-			if (jobManagerRunnerFuture.isDone()) {
-				try {
-					CompletableFuture<JobMasterGateway> jobMasterGatewayCompletableFuture = jobManagerRunnerFuture.get().getJobMasterGateway();
-					if (jobMasterGatewayCompletableFuture.isDone()) {
-						return jobMasterGatewayCompletableFuture.get();
-					}
-				} catch (ExecutionException | InterruptedException e) {
-					log.error("Get JobMasterGateway for {} failed.", jobId, e);
-				}
-			}
-		}
-		return null;
 	}
 
 	private CompletableFuture<ResourceManagerGateway> getResourceManagerGateway() {
@@ -1884,483 +1645,28 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return this.configuration;
 	}
 
+	public ResourceID getResourceId() {
+		return resourceId;
+	}
+
 	public WarehouseJobStartEventMessageRecorder getWarehouseJobStartEventMessageRecorder() {
 		return warehouseJobStartEventMessageRecorder;
 	}
 
-	/**
-	 * The listener for leader changes of the resource manager.
-	 */
-	private final class ResourceManagerLeaderListener implements LeaderRetrievalListener {
-
-		@Override
-		public void notifyLeaderAddress(final String leaderAddress, final UUID leaderSessionID) {
-			runAsync(
-				() -> notifyOfNewResourceManagerLeader(
-					leaderAddress,
-					ResourceManagerId.fromUuidOrNull(leaderSessionID)));
-		}
-
-		@Override
-		public void handleError(Exception exception) {
-			onFatalError(exception);
-		}
-	}
-
-	private void notifyOfNewResourceManagerLeader(final String newResourceManagerAddress, final ResourceManagerId resourceManagerId) {
-		resourceManagerAddress = createResourceManagerAddress(newResourceManagerAddress, resourceManagerId);
-		reconnectToResourceManager(new FlinkException(String.format("ResourceManager leader changed to new address %s", resourceManagerAddress)));
-	}
-
-	@Nullable
-	private ResourceManagerAddress createResourceManagerAddress(@Nullable String newResourceManagerAddress, @Nullable ResourceManagerId resourceManagerId) {
-		if (newResourceManagerAddress != null) {
-			// the contract is: address == null <=> id == null
-			checkNotNull(resourceManagerId);
-			return new ResourceManagerAddress(newResourceManagerAddress, resourceManagerId);
-		} else {
-			return null;
-		}
-	}
-
-	private void reconnectToResourceManager(Exception cause) {
-		closeResourceManagerConnection(cause);
-		tryConnectToResourceManager();
-	}
-
-	private void closeResourceManagerConnection(Exception cause) {
-		if (establishedResourceManagerConnection != null) {
-			final ResourceID resourceManagerResourceId = establishedResourceManagerConnection.getResourceManagerResourceID();
-
-			if (log.isDebugEnabled()) {
-				log.debug("Close ResourceManager connection {}.",
-					resourceManagerResourceId, cause);
-			} else {
-				log.info("Close ResourceManager connection {}.",
-					resourceManagerResourceId);
-			}
-
-			ResourceManagerGateway resourceManagerGateway = establishedResourceManagerConnection.getResourceManagerGateway();
-			resourceManagerGateway.disconnectDispatcher(resourceId, cause);
-
-			final ResourceID resourceManagerResourceID = establishedResourceManagerConnection.getResourceManagerResourceID();
-			resourceManagerHeartbeatManager.unmonitorTarget(resourceManagerResourceID);
-
-			establishedResourceManagerConnection = null;
-		}
-
-		if (resourceManagerConnection != null) {
-			// stop a potentially ongoing registration process
-			resourceManagerConnection.close();
-			resourceManagerConnection = null;
-		}
-	}
-
-	private void tryConnectToResourceManager() {
-		if (resourceManagerAddress != null) {
-			connectToResourceManager();
-		}
-	}
-
-	private void connectToResourceManager() {
-		Preconditions.checkNotNull(resourceManagerAddress);
-		Preconditions.checkArgument(resourceManagerConnection == null);
-		Preconditions.checkArgument(establishedResourceManagerConnection == null);
-
-		log.info("Connecting to ResourceManager {}", resourceManagerAddress);
-
-		resourceManagerConnection = new DispatcherToResourceManagerConnection(
-			log,
-			getAddress(),
-			getDispatcherId(),
-			resourceManagerAddress.getAddress(),
-			resourceManagerAddress.getResourceManagerId(),
-			getMainThreadExecutor());
-
-		resourceManagerConnection.start();
-	}
-
-	private void establishResourceManagerConnection(final DispatcherRegistrationSuccess success) {
-		final ResourceManagerId resourceManagerId = success.getResourceManagerId();
-
-		// verify the response with current connection
-		if (resourceManagerConnection != null
-			&& Objects.equals(resourceManagerConnection.getTargetLeaderId(), resourceManagerId)) {
-
-			log.info("Dispatcher successfully registered at ResourceManager, leader id: {}.", resourceManagerId);
-
-			final ResourceManagerGateway resourceManagerGateway = resourceManagerConnection.getTargetGateway();
-
-			final ResourceID resourceManagerResourceId = success.getResourceManagerResourceId();
-
-			establishedResourceManagerConnection = new EstablishedResourceManagerConnection(
-				resourceManagerGateway,
-				resourceManagerResourceId);
-
-			resourceManagerHeartbeatManager.monitorTarget(resourceManagerResourceId, new HeartbeatTarget<Void>() {
-				@Override
-				public void receiveHeartbeat(ResourceID resourceID, Void payload) {
-					resourceManagerGateway.heartbeatFromDispatcher(resourceID);
-				}
-
-				@Override
-				public void requestHeartbeat(ResourceID resourceID, Void payload) {
-					// request heartbeat will never be called on the dispatcher side
-				}
-			});
-		} else {
-			log.debug("Ignoring resource manager connection to {} because it's duplicated or outdated.", resourceManagerId);
-		}
-	}
-
 	//----------------------------------------------------------------------------------------------
-	private class DispatcherToResourceManagerConnection
-			extends RegisteredRpcConnection<ResourceManagerId, ResourceManagerGateway, DispatcherRegistrationSuccess> {
-
-		private final String dispatcherRpcAddress;
-
-		private final DispatcherId dispatcherId;
-
-		public DispatcherToResourceManagerConnection(
-			final Logger log,
-			final String dispatcherRpcAddress,
-			final DispatcherId dispatcherId,
-			final String resourceManagerAddress,
-			final ResourceManagerId resourceManagerId,
-			final Executor executor) {
-
-			super(log, resourceManagerAddress, resourceManagerId, executor);
-			this.dispatcherRpcAddress = dispatcherRpcAddress;
-			this.dispatcherId = dispatcherId;
-		}
-
-		@Override
-		protected RetryingRegistration<ResourceManagerId, ResourceManagerGateway, DispatcherRegistrationSuccess> generateRegistration() {
-			return new RetryingRegistration<ResourceManagerId, ResourceManagerGateway, DispatcherRegistrationSuccess>(
-				log,
-				getRpcService(),
-				"ResourceManager",
-				ResourceManagerGateway.class,
-				getTargetAddress(),
-				getTargetLeaderId(),
-				RetryingRegistrationConfiguration.fromConfiguration(configuration)) {
-
-				@Override
-				protected CompletableFuture<RegistrationResponse> invokeRegistration(
-					ResourceManagerGateway gateway, ResourceManagerId fencingToken, long timeoutMillis) {
-					Time timeout = Time.milliseconds(timeoutMillis);
-
-					return gateway.registerDispatcher(
-						dispatcherId,
-						resourceId,
-						dispatcherRpcAddress,
-						timeout);
-				}
-			};
-		}
-
-		@Override
-		protected void onRegistrationSuccess(final DispatcherRegistrationSuccess success) {
-			runAsync(() -> {
-				// filter out outdated connections
-				//noinspection ObjectEquality
-				if (this == resourceManagerConnection) {
-					establishResourceManagerConnection(success);
-				}
-			});
-		}
-
-		@Override
-		protected void onRegistrationFailure(final Throwable failure) {
-			onFatalError(failure);
-		}
-	}
-
-	private void reconnectToTaskExecutor(ResourceID resourceId, Exception cause) {
-		closeTaskExecutorConnection(resourceId, cause);
-
-		// update taskmanager change to JobMaster
-		for (JobID jobID : jobManagerRunnerFutures.keySet()) {
-			getJobMasterGatewayFuture(jobID).whenComplete(
-				(jobMasterGateway, throwable) -> {
-					if (throwable != null) {
-						log.error("Get JobMasterGateway for job {} failed and can't notify TM change, because {}",
-							jobID,
-							throwable);
-					} else {
-						// this may cause Job never failed if miss some JobMasterGateway.
-						// Maybe we need a sync loop.
-						jobMasterGateway.disconnectTaskManager(resourceId, cause);
-					}
-				}
-			);
-		}
-
-		tryConnectToTaskExecutor(resourceId);
-	}
-
-	private void closeTaskExecutorConnection(ResourceID taskExecutorId, Exception cause) {
-		CompletableFuture<EstablishedTaskExecutorConnection> establishedTaskExecutorConnectionCompletableFuture = taskExecutorEstablishedConnections.remove(taskExecutorId);
-		if (establishedTaskExecutorConnectionCompletableFuture != null && establishedTaskExecutorConnectionCompletableFuture.isDone()) {
-
-			if (log.isDebugEnabled()) {
-				log.debug("Close taskExecutor connection {}.",
-					taskExecutorId, cause);
-			} else {
-				log.info("Close taskExecutor connection {}.",
-					taskExecutorId);
-			}
-
-			try {
-				establishedTaskExecutorConnectionCompletableFuture.get().getTaskExecutorGateway().disconnectDispatcher(taskExecutorId, cause);
-			} catch (Exception e) {
-				log.error("get establishedTaskExecutorConnection fail {}", e);
-			}
-			taskManagerHeartbeatManager.unmonitorTarget(taskExecutorId);
-		}
-		DispatcherToTaskExecutorConnection dispatcherToTaskExecutorConnection = taskExecutorConnections.get(taskExecutorId);
-		if (dispatcherToTaskExecutorConnection != null) {
-			// stop a potentially ongoing registration process
-			dispatcherToTaskExecutorConnection.close();
-			taskExecutorConnections.remove(taskExecutorId);
-		}
-
-		ResolvedTaskManagerTopology resolvedTaskManagerTopology = registeredTaskManagers.remove(taskExecutorId);
-		if (resolvedTaskManagerTopology != null && resolvedTaskManagerTopology.getTaskExecutorNettyClient() != null) {
-			resolvedTaskManagerTopology.getTaskExecutorNettyClient().close();
-		}
-	}
-
-	private void tryConnectToTaskExecutor(ResourceID taskExecutorId) {
-		UnresolvedTaskManagerTopology unresolvedTaskManagerTopology = taskExecutorLocations.get(taskExecutorId);
-		if (unresolvedTaskManagerTopology != null) {
-			connectToTaskExecutor(taskExecutorId, unresolvedTaskManagerTopology.getTaskExecutorAddress());
-		}
-	}
-
-	//----------------------------------------------------------------------------------------------
-
-	private class ResourceManagerHeartbeatListener implements HeartbeatListener<Void, Void> {
-
-		@Override
-		public void notifyHeartbeatTimeout(final ResourceID resourceId) {
-			validateRunsInMainThread();
-			log.info("The heartbeat of ResourceManager with id {} timed out.", resourceId);
-			if (establishedResourceManagerConnection != null
-				&& establishedResourceManagerConnection.getResourceManagerResourceID().equals(resourceId)) {
-				reconnectToResourceManager(
-					new DispatcherException(
-						String.format("The heartbeat of ResourceManager with id %s timed out.", resourceId)));
-			}
-		}
-
-		@Override
-		public void reportPayload(ResourceID resourceID, Void payload) {
-			// nothing to do since the payload is of type Void
-		}
-
-		@Override
-		public Void retrievePayload(ResourceID resourceID) {
-			return null;
-		}
-	}
-
-	private class TaskManagerHeartbeatListener implements HeartbeatListener<Void, Void> {
-
-		@Override
-		public void notifyHeartbeatTimeout(final ResourceID resourceID) {
-			validateRunsInMainThread();
-			heartbeatTimeoutWithTM.inc();
-			log.warn("The heartbeat of TaskManager with id {} timed out.", resourceID);
-			TimeoutException cause = new TimeoutException("The heartbeat of TaskManager with id " + resourceID + "  timed out.");
-			if (taskExecutorEstablishedConnections.containsKey(resourceID)) {
-				reconnectToTaskExecutor(
-					resourceID,
-					cause);
-			}
-			// update taskmanager change to JobMaster
-			for (JobID jobID : jobManagerRunnerFutures.keySet()) {
-				getJobMasterGatewayFuture(jobID).whenComplete(
-					(jobMasterGateway, throwable) -> {
-						if (throwable != null) {
-							log.error("Get JobMasterGateway for job {} failed and can't notify TM change, because {}",
-								jobID,
-								throwable);
-						} else {
-							// this may cause Job never failed if miss some JobMasterGateway.
-							// Maybe we need a sync loop.
-							jobMasterGateway.notifyWorkerRemoved(Sets.newHashSet(resourceID));
-							jobMasterGateway.disconnectTaskManager(resourceID, cause);
-						}
-					}
-				);
-			}
-		}
-
-		@Override
-		public void reportPayload(final ResourceID resourceID, Void payload) {
-		}
-
-		@Override
-		public Void retrievePayload(ResourceID resourceID) {
-			return null;
-		}
-	}
-
-	private void connectToTaskExecutor(final ResourceID resourceID, final String taskManagerRpcAddress) {
-		Preconditions.checkNotNull(taskManagerRpcAddress);
-		Preconditions.checkArgument(taskExecutorConnections.get(resourceID) == null);
-		Preconditions.checkArgument(taskExecutorEstablishedConnections.get(resourceID) == null);
-
-		log.info("Connecting to taskExecutor {}", resourceManagerAddress);
-
-		DispatcherToTaskExecutorConnection dispatcherToTaskExecutorConnection = new DispatcherToTaskExecutorConnection(
-			log,
-			getAddress(),
-			getFencingToken(),
-			taskManagerRpcAddress,
-			resourceID,
-			getMainThreadExecutor());
-
-		taskExecutorConnections.put(resourceID, dispatcherToTaskExecutorConnection);
-		taskExecutorEstablishedConnections.put(resourceID, new CompletableFuture<>());
-
-		dispatcherToTaskExecutorConnection.start();
-	}
-
-	private class DispatcherToTaskExecutorConnection
-		extends RegisteredRpcConnection<ResourceID, TaskExecutorGateway, DispatcherToTaskExecutorRegistrationSuccess> {
-
-		private final String taskExecutorRpcAddress;
-
-		private final DispatcherId dispatcherId;
-
-		public DispatcherToTaskExecutorConnection(
-			final Logger log,
-			final String dispatcherRpcAddress,
-			final DispatcherId dispatcherId,
-			final String resourceManagerAddress,
-			final ResourceID resourceID,
-			final Executor executor) {
-
-			super(log, resourceManagerAddress, resourceID, executor);
-			this.taskExecutorRpcAddress = dispatcherRpcAddress;
-			this.dispatcherId = dispatcherId;
-		}
-
-		@Override
-		protected RetryingRegistration<ResourceID, TaskExecutorGateway, DispatcherToTaskExecutorRegistrationSuccess> generateRegistration() {
-			return new RetryingRegistration<ResourceID, TaskExecutorGateway, DispatcherToTaskExecutorRegistrationSuccess>(
-				log,
-				getRpcService(),
-				"TaskExecutor",
-				TaskExecutorGateway.class,
-				getTargetAddress(),
-				getTargetLeaderId(),
-				RetryingRegistrationConfiguration.fromConfiguration(configuration)) {
-
-				@Override
-				protected CompletableFuture<RegistrationResponse> invokeRegistration(TaskExecutorGateway gateway, ResourceID fencingToken, long timeoutMillis) throws Exception {
-					Time timeout = Time.milliseconds(timeoutMillis);
-					log.info("register taskExecutor dispatcher {}", fencingToken);
-					ClusterInformation clusterInformation = Optional.ofNullable(jobResultClientManager).map(JobResultClientManager::getClusterInformation).orElse(null);
-					return gateway.registerDispatcher(
-						DispatcherRegistrationRequest.from(resourceId, getDispatcherId(), clusterInformation
-							, useSocketEnable, getAddress(), jobReuseDispatcherEnable),
-						timeout);
-				}
-			};
-		}
-
-		@Override
-		protected void onRegistrationSuccess(final DispatcherToTaskExecutorRegistrationSuccess success) {
-			runAsync(() -> {
-				// filter out outdated connections
-				ResourceID resourceID = success.getResourceID();
-				if (this.equals(taskExecutorConnections.get(resourceID))) {
-					establishTaskExecutorConnection(success);
-				}
-			});
-		}
-
-		@Override
-		protected void onRegistrationFailure(final Throwable failure) {
-			onFatalError(failure);
-		}
-	}
-
-	private void establishTaskExecutorConnection(final DispatcherToTaskExecutorRegistrationSuccess success) {
-		final ResourceID resourceID = success.getResourceID();
-
-		DispatcherToTaskExecutorConnection dispatcherToTaskExecutorConnection = taskExecutorConnections.get(success.getResourceID());
-		// verify the response with current connection exist
-		if (dispatcherToTaskExecutorConnection != null) {
-
-			log.info("Dispatcher successfully registered at taskExecutor, resource id: {}.", resourceID);
-
-			TaskExecutorGateway taskExecutorGateway = dispatcherToTaskExecutorConnection.getTargetGateway();
-
-			EstablishedTaskExecutorConnection establishedTaskExecutorConnection = new EstablishedTaskExecutorConnection(
-				taskExecutorGateway,
-				resourceID);
-
-			CompletableFuture<EstablishedTaskExecutorConnection> establishedTaskExecutorConnectionCompletableFuture = taskExecutorEstablishedConnections.get(resourceID);
-
-			if (establishedTaskExecutorConnectionCompletableFuture.isDone()) {
-				log.debug("Ignoring connection to {} because it's duplicated.", resourceID);
-				return;
-			}
-			Map<ResourceID, ResolvedTaskManagerTopology> addedTaskManagerTopology = new HashMap<>();
-			try {
-				ResolvedTaskManagerTopology resolvedTaskManagerTopology = ResolvedTaskManagerTopology.fromUnresolvedTaskManagerTopology(
-					taskExecutorLocations.get(resourceID),
-					useAddressAsHostname,
-					configuration);
-				registeredTaskManagers.put(resourceID, resolvedTaskManagerTopology);
-				addedTaskManagerTopology.put(resourceID, resolvedTaskManagerTopology);
-			} catch (Exception e) {
-				log.error("Resource {} can not added to registeredTaskManagers, ignore it.", resourceID, e);
-			}
-
-			// update taskmanager change to JobMaster
-			for (JobID jobID : jobManagerRunnerFutures.keySet()) {
-				getJobMasterGatewayFuture(jobID).whenComplete(
-					(jobMasterGateway, throwable) -> {
-						if (throwable != null) {
-							log.error("Get JobMasterGateway for job {} failed and can't notify TM change, because {}",
-								jobID,
-								throwable);
-						} else {
-							jobMasterGateway.notifyWorkerAdded(addedTaskManagerTopology);
-						}
-					}
-				);
-			}
-
-			establishedTaskExecutorConnectionCompletableFuture.complete(establishedTaskExecutorConnection);
-
-			log.info("establishTaskExecutorConnection success:{}", resourceID);
-
-			taskManagerHeartbeatManager.monitorTarget(resourceID, new HeartbeatTarget<Void>() {
-				@Override
-				public void receiveHeartbeat(ResourceID resourceID, Void payload) {
-					taskExecutorGateway.heartbeatFromDispatcher(resourceID);
-				}
-
-				@Override
-				public void requestHeartbeat(ResourceID resourceID, Void payload) {
-					// request heartbeat will never be called on the job manager side
-				}
-			});
-
-			trySubmitPendingJobs();
-		} else {
-			log.info("Ignoring connection to {} because it's outdated.", resourceID);
-		}
-	}
 
 	@VisibleForTesting
 	public Map<ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> getTaskExecutorEstablishedConnections() {
-		return taskExecutorEstablishedConnections;
+		return dispatcherResourceManager.getTaskExecutorEstablishedConnections();
+	}
+
+	@VisibleForTesting
+	public DispatcherResourceManager getDispatcherResourceManager(){
+		return dispatcherResourceManager;
+	}
+
+	@VisibleForTesting
+	public Map<ResourceID, ResolvedTaskManagerTopology> getRegisteredTaskManagers(JobGraph jobGraph, long jobRunningTaskNums) throws ResourceInfoException {
+		return dispatcherResourceManager.getRegisteredTaskManagers(jobGraph, jobRunningTaskNums);
 	}
 }
