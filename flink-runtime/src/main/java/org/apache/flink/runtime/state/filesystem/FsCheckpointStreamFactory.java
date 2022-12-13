@@ -244,7 +244,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 					int bufferSize,
 					int localStateThreshold,
 					boolean allowRelativePaths) {
-			this(basePath, fs, bufferSize, localStateThreshold, allowRelativePaths, new FsCheckpointStorage.CheckpointWriteFileStatistic());
+			this(basePath, fs, bufferSize, localStateThreshold, allowRelativePaths, new FsCheckpointStorage.CheckpointWriteFileStatistic(basePath.getPath()));
 		}
 
 		public FsCheckpointStateOutputStream(
