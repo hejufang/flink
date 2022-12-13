@@ -622,22 +622,14 @@ public class ZooKeeperUtils {
 		checkNotNull(configuration, "Configuration");
 
 		Path checkpointsPath = new Path(configuration.getString(
-				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH));
+				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH), getPathForJob(jobId));
 
 		RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage = createCompletedCheckpointStateStorage(
 			configuration,
 			HA_STORAGE_COMPLETED_CHECKPOINT);
 
-		ZooKeeperStateHandleStore<CompletedCheckpoint> zooKeeperStateHandleStore;
-
-		if (jobUID != null) {
-			String namespace = createNamespace(configuration, jobUID);
-			checkpointsPath = new Path(checkpointsPath, jobUID);
-			zooKeeperStateHandleStore =  createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), namespace, stateStorage);
-		} else {
-			checkpointsPath = new Path(checkpointsPath, jobId.toString());
-			zooKeeperStateHandleStore =  createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), stateStorage);
-		}
+		ZooKeeperStateHandleStore<CompletedCheckpoint> zooKeeperStateHandleStore =
+			createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), stateStorage);
 
 		final CompletedCheckpointStore zooKeeperCompletedCheckpointStore =
 				new DefaultCompletedCheckpointStore<>(
@@ -741,16 +733,9 @@ public class ZooKeeperUtils {
 			String jobUID) throws Exception {
 
 		Path checkpointIdCounterPath = new Path(configuration.getString(
-				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH));
+				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH), getPathForJob(jobId));
 
-		if (jobUID != null) {
-			String namespace = createNamespace(configuration, jobUID);
-			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobUID);
-			return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath.getPath(), new DefaultLastStateConnectionStateListener(), namespace);
-		} else {
-			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobId.toString());
-			return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath.getPath(), new DefaultLastStateConnectionStateListener());
-		}
+		return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath.getPath(), new DefaultLastStateConnectionStateListener());
 	}
 
 	/**
