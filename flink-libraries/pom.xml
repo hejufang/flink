@@ -60,7 +60,7 @@ under the License.
 			<id>all-modules</id>
 			<activation>
 				<property>
-					<name>!byted-modules</name>
+					<name>!specified-modules</name>
 				</property>
 			</activation>
 			<modules>
@@ -78,6 +78,18 @@ under the License.
 			<activation>
 				<property>
 					<name>byted-modules</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-state-processing-api</module>
+			</modules>
+		</profile>
+
+		<profile>
+			<id>tob-build</id>
+			<activation>
+				<property>
+					<name>tob-build</name>
 				</property>
 			</activation>
 			<modules>

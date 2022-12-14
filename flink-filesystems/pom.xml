@@ -65,7 +65,7 @@ under the License.
 			<id>all-modules</id>
 			<activation>
 				<property>
-					<name>!byted-modules</name>
+					<name>!specified-modules</name>
 				</property>
 			</activation>
 			<modules>
@@ -93,6 +93,26 @@ under the License.
 				<module>flink-mapr-fs</module>
 				<module>flink-s3-fs-base</module>
 				<module>flink-s3-fs-presto</module>
+			</modules>
+		</profile>
+
+		<profile>
+			<id>tob-build</id>
+			<activation>
+				<property>
+					<name>tob-build</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-hadoop-fs</module>
+				<module>flink-mapr-fs</module>
+				<module>flink-fs-hadoop-shaded</module>
+				<module>flink-s3-fs-base</module>
+				<module>flink-s3-fs-hadoop</module>
+				<module>flink-s3-fs-presto</module>
+				<module>flink-swift-fs-hadoop</module>
+				<module>flink-oss-fs-hadoop</module>
+				<module>flink-azure-fs-hadoop</module>
 			</modules>
 		</profile>
 	</profiles>

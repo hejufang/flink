@@ -22,9 +22,9 @@ rm -rf output
 
 # compile current branch
 if [ "$CUSTOM_USE_CUSTOM_DEPENDENCY_VERSION" == 'true' ] && [ ! -z "$CUSTOM_HTAP_CLIENT_VERSION" ]; then
-  mvn clean package -U -T 1C -DskipTests -Dfast -Dbyted-modules -Pinclude-hadoop -Psql-jars -Dhtap.jclient.version=$CUSTOM_HTAP_CLIENT_VERSION | grep -v Progress
+  mvn clean package -U -T 1C -DskipTests -Dfast -Dbyted-modules -Dspecified-modules -Pinclude-hadoop -Psql-jars -Dhtap.jclient.version=$CUSTOM_HTAP_CLIENT_VERSION | grep -v Progress
 else
-  mvn clean package -U -T 1C -DskipTests -Dfast -Dbyted-modules -Pinclude-hadoop -Psql-jars | grep -v Progress
+  mvn clean package -U -T 1C -DskipTests -Dfast -Dbyted-modules -Dspecified-modules -Pinclude-hadoop -Psql-jars | grep -v Progress
 fi
 
 # copy flink-1.11 to output

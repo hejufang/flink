@@ -872,7 +872,7 @@ under the License.
 			<id>all-modules</id>
 			<activation>
 				<property>
-					<name>!byted-modules</name>
+					<name>!specified-modules</name>
 				</property>
 			</activation>
 			<modules>
@@ -958,6 +958,53 @@ under the License.
 				<module>flink-cloud-shuffle</module>
 			</modules>
 		</profile>
+
+		<profile>
+			<id>tob-build</id>
+			<activation>
+				<property>
+					<name>tob-build</name>
+				</property>
+			</activation>
+			<modules>
+				<!-- Dummy module to force execution of the Maven Shade plugin (see Shade plugin below) -->
+				<module>tools/force-shading</module>
+				<module>flink-annotations</module>
+				<module>flink-core</module>
+				<module>flink-java</module>
+				<module>flink-scala</module>
+				<module>flink-filesystems</module>
+				<module>flink-runtime</module>
+				<module>flink-runtime-web</module>
+				<module>flink-optimizer</module>
+				<module>flink-streaming-java</module>
+				<module>flink-streaming-scala</module>
+				<module>flink-connectors/flink-connector-preview</module>
+				<module>flink-formats</module>
+				<module>flink-examples</module>
+				<module>flink-clients</module>
+				<module>flink-container</module>
+				<module>flink-queryable-state</module>
+				<module>flink-tests</module>
+				<module>flink-test-utils-parent</module>
+				<module>flink-state-backends</module>
+				<module>flink-libraries</module>
+				<module>flink-table</module>
+				<module>flink-quickstart</module>
+				<module>flink-contrib</module>
+				<module>flink-dist</module>
+				<module>flink-metrics</module>
+				<module>flink-fs-tests</module>
+				<module>flink-docs</module>
+				<module>flink-python</module>
+				<module>flink-ml-parent</module>
+				<module>flink-walkthroughs</module>
+				<module>flink-kubernetes</module>
+				<module>flink-external-resources</module>
+				<module>flink-cloud-shuffle</module>
+			</modules>
+		</profile>
+
 
 		<profile>
 			<id>scala-2.11</id>

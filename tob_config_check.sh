@@ -71,7 +71,7 @@ done
 
 # parse yaml
 innerList=$(parse_yaml flink-dist/src/main/resources/flink-conf.yaml )
-tobList=$(parse_yaml flink-dist-tob/src/main/resources/flink-conf.yaml )
+tobList=$(parse_yaml flink-dist/src/main/resources/flink-conf-tob.yaml )
 
 # calc
 for inner in ${innerList[@]}
