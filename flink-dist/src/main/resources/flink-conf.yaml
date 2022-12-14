@@ -1061,6 +1061,16 @@ panda-yg:
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
   table.exec.enable-top1: true
 
+peter-hl:
+  dc: cn
+  clusterName: peter-hl
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: peter-hl
+
 peter-yg:
   dc: cn
   clusterName: peter-yg
@@ -2013,6 +2023,16 @@ koala-lf:
   ipv6.supported.cluster: koala-lf
   table.exec.enable-top1: true
 
+rabbit-hl:
+  dc: cn
+  clusterName: rabbit-hl
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: rabbit-hl
+
 boei18n:
   dc: vm
   clusterName: boei18n
@@ -2291,6 +2311,23 @@ Feins-LF:
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
   engine-external-service.base-url: https://doctor-engine-service-lf-prod.byted.org
   table.exec.enable-top1: true
+
+Feins-YG:
+  dc: cn
+  clusterName: Feins-YG
+  is_kubernetes: true
+  high-availability: zookeeper
+  high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:20ab:45fc:e562:2d00:2181,fdbd:dc05:ff:ff:4aa1:5a9d:7fee:b114:2181,fdbd:dc05:ff:ff:6e2f:264f:ccb0:5dff:2181,fdbd:dc05:ff:ff:b242:9dee:f8aa:c097:2181,fdbd:dc05:ff:ff:e01d:29dd:6210:43b:2181
+  hdfs.prefix: hdfs://haruna/flink_yg/flink
+  # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
+  containerized.master.env.MALLOC_ARENA_MAX: 4
+  containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  # service & ingress related
+  kubernetes.ingress.host: "yg-feins.byted.org"
+  ipv6.enabled: true
+  ipv6.supported.cluster: Feins-YG
+  resourcemanager.slow-container.release-timeout-enabled: true
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
 
 Seif-BOE:
   dc: vm
