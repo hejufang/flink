@@ -2377,3 +2377,25 @@ edge:
   execution.checkpointing.enable: false
   state.checkpoints.dir: "file:///opt/tiger/flink_deploy/logs/"
   table.exec.enable-top1: true
+
+eagle:
+  dc: eu
+  clusterName: eagle
+  high-availability.zookeeper.quorum: 2605:340:cda4:1017:b881:dcc5:320f:a8d:2181,2605:340:cda4:1017:a446:ecfc:74dd:abc:2181,2605:340:cda4:1017:d8f0:b6e:c90e:e59f:2181,2605:340:cda4:1017:2dba:6122:b884:6a46:2181,2605:340:cda4:1017:d3a5:8287:dbcf:280f:2181
+  hdfs.prefix: hdfs://harunaeu/home/byte_flink_awsfr
+  checkpoint.hdfs.prefix:  hdfs://harunaeu/home/byte_flink_awsfr_checkpoints
+  dashboard.data_source: Bytetsd-Europe-Central
+  dtop.data_source: dtop_eu
+  dtop.database: dtop_eu
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  kafka_server_url: https://kafka-config-eurt.byted.org
+  docker.server: image-manager.byted.org
+  docker.hub: useast-red-hub.byted.org
+  docker.region: US-East-Red
+  save-meta.enabled: false
+  yarn.provided.lib.dirs.enabled: false
+  table.exec.hive.permission-check.enabled: false
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_eu
+  ipv6.enabled: true
+  ipv6.supported.cluster: eagle
