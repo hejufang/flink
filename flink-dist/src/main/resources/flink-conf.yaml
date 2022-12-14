@@ -417,7 +417,7 @@ common:
 flink:
   dc: cn
   clusterName: flink
-  high-availability.zookeeper.quorum: fdbd:dc01:7:179::36:2181,fdbd:dc01:7:179::40:2181,fdbd:dc01:7:179::44:2181,fdbd:dc01:7:179::45:2181,fdbd:dc01:7:180::78:2181
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:11a:7c28:4020:32ef:9a11:2181,fdbd:dc01:ff:11d:729d:aa0a:ac5d:f3f8:2181,fdbd:dc01:ff:114:4f92:2cb:68a4:412b:2181,fdbd:dc01:ff:118:8cf1:d5f5:1a9a:f4b2:2181,fdbd:dc01:ff:11c:80e0:79d6:3b7c:ead9:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -668,7 +668,7 @@ hl:
 hyrax:
   dc: cn
   clusterName: hyrax
-  high-availability.zookeeper.quorum: fdbd:dc02:8:236::70:2181,fdbd:dc02:8:241::159:2181,fdbd:dc02:8:242::222:2181,fdbd:dc02:8:240::69:2181,fdbd:dc02:8:240::81:2181
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:20b:5a3c:1d38:2b87:7a93:2181,fdbd:dc02:ff:211:c222:89a9:1362:524c:2181,fdbd:dc02:ff:216:549f:6f8e:f52c:256d:2181,fdbd:dc02:ff:217:9b7a:eca5:6264:a2f2:2181,fdbd:dc02:ff:20e:fe19:e0c:4abb:31bd:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -871,7 +871,7 @@ hover:
 queen:
   dc: cn
   clusterName: queen
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
@@ -882,7 +882,7 @@ queen:
 quire:
   dc: cn
   clusterName: quire
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
@@ -893,7 +893,7 @@ quire:
 quark:
   dc: cn
   clusterName: quark
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
@@ -930,7 +930,7 @@ quiet:
 quetz:
   dc: cn
   clusterName: quetz
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
@@ -941,7 +941,7 @@ quetz:
 quail:
   dc: cn
   clusterName: quail
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   ipv6.supported.cluster: quail
@@ -952,7 +952,7 @@ quail:
 quoll:
   dc: cn
   clusterName: quoll
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   ipv6.supported.cluster: quoll
@@ -963,7 +963,7 @@ quoll:
 quoka:
   dc: cn
   clusterName: quoka
-  high-availability.zookeeper.quorum: fdbd:dc03:2:2::103:2181,fdbd:dc03:2:14::99:2181,fdbd:dc03:2:81::17:2181,fdbd:dc03:2:107::156:2181,fdbd:dc03:2:106::93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:10b:130c:3846:f1e4:4831:2181,fdbd:dc03:ff:10e:140e:6a7c:cff4:5677:2181,fdbd:dc03:ff:105:c2b0:fa77:b0ba:b52a:2181,fdbd:dc03:ff:109:3227:11f1:45e0:1594:2181,fdbd:dc03:ff:106:1f9:bd90:5a9:69ab:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
