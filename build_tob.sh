@@ -28,9 +28,8 @@ cp -r flink-dist/tob/main/flink-bin flink-dist/src/main/flink-bin
 # compile current branch
 mvn clean package -U -T 1C -DskipTests -Dtob-build -Dspecified-modules -Pinclude-hadoop-tob -Dflink.hadoop.version=3.2.1 -Dhadoop-uber.version=3.2.1-cfs-1.3.4 -Psql-jars -Pdocs-and-source | grep -v "Progress"
 
-# copy flink-1.11 to output
+# copy flink-1.16 to output
 mkdir -p output
-rm -rf flink-dist/target/flink-1.16-byted-SNAPSHOT-bin/flink-1.16-byted-SNAPSHOT/opt
 cp -r flink-dist/target/flink-1.16-byted-SNAPSHOT-bin/flink-1.16-byted-SNAPSHOT/* output/
 
 # tob yaml

@@ -30,7 +30,6 @@ mvn clean package -U -T 1C -DskipTests -Dtob-build -Dspecified-modules -Pinclude
 
 # copy flink-1.11 to output
 mkdir -p output
-rm -rf flink-dist/target/flink-1.16-byted-SNAPSHOT-bin/flink-1.16-byted-SNAPSHOT/opt
 cp -r flink-dist/target/flink-1.16-byted-SNAPSHOT-bin/flink-1.16-byted-SNAPSHOT/* output/
 
 # tob yaml
