@@ -2064,12 +2064,6 @@ public final class ConfigConstants {
 
 	public static final String APPLICATION_ID_KEY = "applicationID";
 
-	/**
-	 * The config parameter defining if a given job is kubernetes or not.
-	 *
-	 * @deprecated use {@link DeploymentOptions#IS_KUBERNETES} instead
-	 */
-	@Deprecated
 	public static final String IS_KUBERNETES_KEY = "is_kubernetes";
 	public static final boolean IS_KUBERNETES_DEFAULT = false;
 	public static final String DC_KEY = "dc";

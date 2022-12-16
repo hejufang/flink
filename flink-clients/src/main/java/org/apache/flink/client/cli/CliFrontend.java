@@ -112,7 +112,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.client.cli.CliFrontendParser.HELP_OPTION;
-import static org.apache.flink.configuration.DeploymentOptions.IS_KUBERNETES;
 import static org.apache.flink.configuration.DeploymentOptions.RUN_WITH_CHECKPOINT_VERIFY;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -140,9 +139,6 @@ public class CliFrontend {
 
 	// warehouse messages
 	private static final String EVENT_METRIC_NAME = "clientEvent";
-
-	// target identifier
-	private static final String KUBERNETES_IDENTIFIER = "kubernetes";
 
 	// --------------------------------------------------------------------------------------------
 
@@ -1573,10 +1569,6 @@ public class CliFrontend {
 		putSystemProperties(configuration);
 
 		// 3. load the custom command lines
-		String target = parseArgs(args, "-t", "");
-		if (!configuration.contains(IS_KUBERNETES)) {
-			configuration.setBoolean(IS_KUBERNETES, target.contains(KUBERNETES_IDENTIFIER));
-		}
 		final List<CustomCommandLine> customCommandLines = loadCustomCommandLines(
 			configuration,
 			configurationDirectory);
@@ -1646,26 +1638,24 @@ public class CliFrontend {
 		List<CustomCommandLine> customCommandLines = new ArrayList<>();
 		customCommandLines.add(new GenericCLI(configuration, configurationDirectory));
 
-		if (!configuration.getBoolean(IS_KUBERNETES)) {
-			//	Command line interface of the YARN session, with a special initialization here
-			//	to prefix all options with y/yarn.
-			final String flinkYarnSessionCLI = "org.apache.flink.yarn.cli.FlinkYarnSessionCli";
+		//	Command line interface of the YARN session, with a special initialization here
+		//	to prefix all options with y/yarn.
+		final String flinkYarnSessionCLI = "org.apache.flink.yarn.cli.FlinkYarnSessionCli";
+		try {
+			customCommandLines.add(
+				loadCustomCommandLine(flinkYarnSessionCLI,
+					configuration,
+					configurationDirectory,
+					"y",
+					"yarn"));
+		} catch (NoClassDefFoundError | Exception e) {
+			final String errorYarnSessionCLI = "org.apache.flink.yarn.cli.FallbackYarnSessionCli";
 			try {
+				LOG.info("Loading FallbackYarnSessionCli");
 				customCommandLines.add(
-					loadCustomCommandLine(flinkYarnSessionCLI,
-						configuration,
-						configurationDirectory,
-						"y",
-						"yarn"));
-			} catch (NoClassDefFoundError | Exception e) {
-				final String errorYarnSessionCLI = "org.apache.flink.yarn.cli.FallbackYarnSessionCli";
-				try {
-					LOG.info("Loading FallbackYarnSessionCli");
-					customCommandLines.add(
 						loadCustomCommandLine(errorYarnSessionCLI, configuration));
-				} catch (Exception exception) {
-					LOG.warn("Could not load CLI class {}.", flinkYarnSessionCLI, e);
-				}
+			} catch (Exception exception) {
+				LOG.warn("Could not load CLI class {}.", flinkYarnSessionCLI, e);
 			}
 		}
 

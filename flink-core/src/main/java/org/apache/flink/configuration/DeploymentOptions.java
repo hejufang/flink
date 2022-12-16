@@ -30,12 +30,6 @@ import static org.apache.flink.configuration.ConfigOptions.key;
 @PublicEvolving
 public class DeploymentOptions {
 
-	public static final ConfigOption<Boolean> IS_KUBERNETES =
-			key("is_kubernetes")
-				.booleanType()
-				.defaultValue(false)
-				.withDescription("Specifies if the deployment target is kubernetes.");
-
 	public static final ConfigOption<String> TARGET =
 			key("execution.target")
 					.stringType()
