@@ -33,9 +33,7 @@ public class RocketMQRecordEmitter<OUT>
 			Tuple3<OUT, Long, Long> element,
 			SourceOutput<OUT> output,
 			RocketMQSplitState splitState) throws Exception {
-		synchronized (splitState) {
-			output.collect(element.f0, element.f2);
-			splitState.setCurrentOffset(element.f1 + 1);
-		}
+		output.collect(element.f0, element.f2);
+		splitState.setCurrentOffset(element.f1 + 1);
 	}
 }

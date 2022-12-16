@@ -105,7 +105,6 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private transient String consumerInstanceName;
 	private transient SourceReaderContext sourceReaderContext;
 	private transient Set<MessageQueue> assignedQueues;
-	private transient Map<MessageQueuePb, Long> assignedSplitOffsetMap;
 	private transient Set<String> finishedSplit;
 	private transient Counter skipDirtyCounter;
 	private transient Counter emptyPollCounter;
@@ -140,7 +139,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		if (rateLimiter != null) {
 			this.rateLimiter.openWithParallel(readerContext.getReaderParallelism());
 		}
-		this.assignedSplitOffsetMap = new HashMap<>();
+
 		MetricGroup metricGroup = readerContext.metricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
 			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
 			.addGroup(RocketMQOptions.CONSUMER_GROUP_METRICS_GROUP, this.group)
@@ -223,7 +222,6 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 						rowData,
 						messageExt.getQueueOffset(),
 						messageExt.getBornTimestamp()));
-				assignedSplitOffsetMap.put(messageExt.getMessageQueue(), messageExt.getQueueOffset());
 				// need ack every msg
 				synchronized (consumer) {
 					RetryManager.retry(() -> consumer.ack(messageExt), strategy);
@@ -249,7 +247,6 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	public void handleSplitsChanges(Queue<SplitsChange<RocketMQSplit>> splitsChanges) {
 		// Parse the offset and reset it.
 		List<MessageQueuePb> newMessageQueues = new ArrayList<>();
-		HashMap<MessageQueuePb, Long> newMessageQueuesWithOffsetMap = new HashMap<>();
 		while (!splitsChanges.isEmpty()) {
 			SplitsChange<RocketMQSplit> splitsChange = splitsChanges.poll();
 			if (!(splitsChange instanceof SplitsAddition)) {
@@ -265,12 +262,6 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 						parseStartingOffsets(split);
 						// Get MessageQueuePb from split, then add it to newMessageQueues list.
 						newMessageQueues.add(createMessageQueuePbFromSplit(split));
-						MessageQueuePb messageQueuePb = createMessageQueuePbFromSplit(split);
-						synchronized (split) {
-							if (!assignedSplitOffsetMap.containsKey(messageQueuePb)) {
-								assignedSplitOffsetMap.put(messageQueuePb, ((RocketMQSplitState) split).getCurrentOffset());
-							}
-						}
 					} catch (Exception e) {
 						throw new FlinkRuntimeException("SplitReader parses split error: ", e);
 					}
@@ -285,11 +276,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 						queue -> createMessageQueuePb(queue.getTopic(), queue.getBrokerName(), queue.getQueueId())
 					).collect(Collectors.toList()));
 				}
-				Map<MessageQueuePb, Long> newAssignSplit = new HashMap<>();
-				for (MessageQueuePb messageQueuePb : newMessageQueues) {
-					newAssignSplit.put(messageQueuePb, assignedSplitOffsetMap.get(messageQueuePb));
-				}
-				consumer.assignWithOffset(newAssignSplit);
+				consumer.assign(newMessageQueues);
 				if (finishedSplit == null) {
 					finishedSplit = new HashSet<>();
 				}
