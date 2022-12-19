@@ -250,3 +250,6 @@ common:
   metrics.reporter.promgateway.interval: 30 SECONDS
   metrics.filter.enabled: true
   metrics.filter.white-list: numRecordsIn;numRecordsOut;numRecordsInPerSecond;numRecordsOutPerSecond;numRecordsDropped;numBuffersInDropped;numBytesIn;numBytesOut;numBytesInPerSecond;numBytesOutPerSecond;numBuffersIn;numBuffersOut;numBuffersOutPerSecond;currentInputWatermark;Used;Committed;Max;isBackPressured;idleTimeMsPerSecond;busyTimeMsPerSecond;backPressuredTimeMsPerSecond;sourceTopicPartitions
+
+  # Endpoint
+  endpoint.use-address-as-hostname.enable: true
