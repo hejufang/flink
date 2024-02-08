@@ -39,6 +39,15 @@ public class RocksDBNativeMetricOptionsTest {
                             property.getConfigKey()),
                     options.isEnabled());
 
+            if (property.equals(RocksDBProperty.NumFilesAtLevel)) {
+                Assert.assertTrue(
+                        String.format(
+                                "Failed to enable native metric %s using config",
+                                property.getConfigKey()),
+                        options.getProperties().contains(property.getRocksDBProperty() + "0"));
+                continue;
+            }
+
             Assert.assertTrue(
                     String.format(
                             "Failed to enable native metric %s using config",

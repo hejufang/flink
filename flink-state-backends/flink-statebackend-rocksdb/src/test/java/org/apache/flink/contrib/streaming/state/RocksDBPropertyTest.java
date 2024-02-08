@@ -36,6 +36,10 @@ class RocksDBPropertyTest {
 
         for (RocksDBProperty property : RocksDBProperty.values()) {
             try {
+                if (property.equals(RocksDBProperty.NumFilesAtLevel)) {
+                    db.getProperty(handle, property.getRocksDBProperty() + "0");
+                    continue;
+                }
                 db.getLongProperty(handle, property.getRocksDBProperty());
             } catch (RocksDBException e) {
                 throw new AssertionError(

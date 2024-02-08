@@ -56,6 +56,8 @@ public class RocksDBNativeMetricOptions implements Serializable {
     public static final String METRICS_COLUMN_FAMILY_AS_VARIABLE_KEY =
             "state.backend.rocksdb.metrics" + ".column-family-as-variable";
 
+    public static final int ROCKSDB_DEFAULT_MAX_LEVEL = 7;
+
     public static final ConfigOption<Boolean> MONITOR_NUM_IMMUTABLE_MEM_TABLES =
             ConfigOptions.key(RocksDBProperty.NumImmutableMemTable.getConfigKey())
                     .booleanType()
@@ -244,6 +246,12 @@ public class RocksDBNativeMetricOptions implements Serializable {
                     .withDescription(
                             "Whether to expose the column family as a variable for RocksDB property based metrics.");
 
+    public static final ConfigOption<Boolean> MONITOR_NUM_FILES_AT_LEVEL =
+            ConfigOptions.key(RocksDBProperty.NumFilesAtLevel.getConfigKey())
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Monitor the number of files at each level.");
+
     // --------------------------------------------------------------------------------------------
     //  RocksDB statistics based metrics, report at database level
     // --------------------------------------------------------------------------------------------
@@ -414,6 +422,10 @@ public class RocksDBNativeMetricOptions implements Serializable {
 
         if (config.get(BLOCK_CACHE_PINNED_USAGE)) {
             options.enableBlockCachePinnedUsage();
+        }
+
+        if (config.get(MONITOR_NUM_FILES_AT_LEVEL)) {
+            options.enableNumFilesAtLevel();
         }
 
         options.setColumnFamilyAsVariable(config.get(COLUMN_FAMILY_AS_VARIABLE));
@@ -610,6 +622,12 @@ public class RocksDBNativeMetricOptions implements Serializable {
     /** Returns the memory size for the entries being pinned in block cache. */
     public void enableBlockCachePinnedUsage() {
         this.properties.add(RocksDBProperty.BlockCachePinnedUsage.getRocksDBProperty());
+    }
+
+    public void enableNumFilesAtLevel() {
+        for (int i = 0; i < ROCKSDB_DEFAULT_MAX_LEVEL; i++) {
+            this.properties.add(RocksDBProperty.NumFilesAtLevel.getRocksDBProperty() + i);
+        }
     }
 
     /** Returns the column family as variable. */

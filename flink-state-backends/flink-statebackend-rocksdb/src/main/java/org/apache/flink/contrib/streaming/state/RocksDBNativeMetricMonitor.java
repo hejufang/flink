@@ -114,7 +114,14 @@ public class RocksDBNativeMetricMonitor implements Closeable {
         try {
             synchronized (lock) {
                 if (rocksDB != null) {
-                    long value = rocksDB.getLongProperty(metricView.handle, metricView.property);
+                    long value =
+                            metricView.property.contains(
+                                            RocksDBProperty.NumFilesAtLevel.getRocksDBProperty())
+                                    ? Long.parseLong(
+                                            rocksDB.getProperty(
+                                                    metricView.handle, metricView.property))
+                                    : rocksDB.getLongProperty(
+                                            metricView.handle, metricView.property);
                     metricView.setValue(value);
                 }
             }
